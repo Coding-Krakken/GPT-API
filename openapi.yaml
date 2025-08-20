@@ -1,0 +1,303 @@
+openapi: 3.1.0
+info:
+  title: GPT Super-Agent Universal Control API
+  version: 4.0.0
+servers:
+  - url: https://7v6bdq8q-8000.usw3.devtunnels.ms
+paths:
+  /shell:
+    post:
+      operationId: runShellCommand
+      summary: Execute system-level commands with optional sudo, chaining, or background execution
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                command:
+                  type: string
+                run_as_sudo:
+                  type: boolean
+                background:
+                  type: boolean
+                shell:
+                  type: string
+      responses:
+        '200':
+          description: Shell command output
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  stdout:
+                    type: string
+                  stderr:
+                    type: string
+                  exit_code:
+                    type: integer
+
+  /files:
+    post:
+      operationId: manageFiles
+      summary: Perform all file-level operations via unified interface
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                action:
+                  type: string
+                  enum: [read, write, delete, copy, move, stat, exists, list]
+                path:
+                  type: string
+                target_path:
+                  type: string
+                content:
+                  type: string
+                recursive:
+                  type: boolean
+      responses:
+        '200':
+          description: Result of file operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: string
+
+  /code:
+    post:
+      operationId: codeOps
+      summary: Execute, test, lint, and manipulate code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                action:
+                  type: string
+                  enum: [run, test, lint, fix, format, explain]
+                path:
+                  type: string
+                language:
+                  type: string
+                args:
+                  type: string
+      responses:
+        '200':
+          description: Code action result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  stdout:
+                    type: string
+                  stderr:
+                    type: string
+
+  /system:
+    get:
+      operationId: getSystemState
+      summary: Retrieve system information, resources, users, and time data
+      responses:
+        '200':
+          description: System information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  os:
+                    type: string
+                  cpu_usage_percent:
+                    type: number
+
+  /monitor:
+    post:
+      operationId: liveMonitor
+      summary: Monitor metrics or subscribe to events
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                type:
+                  type: string
+                  enum: [cpu, memory, disk, network, logs, filesystem, performance, custom]
+                live:
+                  type: boolean
+      responses:
+        '200':
+          description: Live monitoring data or stream token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: string
+
+  /git:
+    post:
+      operationId: gitControl
+      summary: Perform any Git operation (init, status, commit, push, pull, diff, merge, rebase)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                action:
+                  type: string
+                path:
+                  type: string
+                args:
+                  type: string
+      responses:
+        '200':
+          description: Git result output
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  stdout:
+                    type: string
+                  stderr:
+                    type: string
+
+  /package:
+    post:
+      operationId: packageManager
+      summary: Manage system or language packages and environments
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                manager:
+                  type: string
+                action:
+                  type: string
+                  enum: [install, remove, update, list, upgrade]
+                package:
+                  type: string
+      responses:
+        '200':
+          description: Package manager result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  stdout:
+                    type: string
+                  stderr:
+                    type: string
+
+  /apps:
+    post:
+      operationId: appControl
+      summary: Launch, kill, or manipulate desktop and third-party applications
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                action:
+                  type: string
+                  enum: [launch, kill, focus, close, list]
+                app:
+                  type: string
+                args:
+                  type: string
+      responses:
+        '200':
+          description: App control output
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: string
+
+  /refactor:
+    post:
+      operationId: refactorCode
+      summary: Mass refactors, renames, substitutions, and code moves
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                search:
+                  type: string
+                replace:
+                  type: string
+                dry_run:
+                  type: boolean
+                files:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: Refactor output
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+
+  /batch:
+    post:
+      operationId: bulkActions
+      summary: Queue multiple commands, file edits, or code ops
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                operations:
+                  type: array
+                  items:
+                    type: object
+                    additionalProperties: true
+      responses:
+        '200':
+          description: Batch processing result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object

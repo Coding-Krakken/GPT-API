@@ -1,0 +1,550 @@
+
+
+--- File: cli.py ---
+### Contextual Analysis ###
+Module Docstring: 
+Git Metadata: Not in a Git repository
+
+Functions Defined:
+
+Functions Called:
+int, load_dotenv, os.getenv, print, uvicorn.run
+
+Imports / Dependencies:
+dotenv.load_dotenv, os, uvicorn
+
+Classes:
+
+No incoming calls from other files detected.
+
+--- File Content Start ---
+# cli.py
+import uvicorn
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+host = os.getenv("API_HOST", "127.0.0.1")
+port = int(os.getenv("API_PORT", "8000"))
+
+if __name__ == "__main__":
+    print(f"🔧 Starting API at http://{host}:{port}")
+    uvicorn.run("main:app", host=host, port=port, reload=False)
+
+--- File Content End ---
+
+
+--- File: main.py ---
+### Contextual Analysis ###
+Module Docstring: 
+Git Metadata: Not in a Git repository
+
+Functions Defined:
+  verify_key (Lines: 4): 
+    Args: request: Request
+
+Functions Called:
+FastAPI, HTTPException, app.add_middleware, app.include_router, os.getenv, request.headers.get
+
+Imports / Dependencies:
+fastapi.Depends, fastapi.FastAPI, fastapi.HTTPException, fastapi.Request, fastapi.middleware.cors.CORSMiddleware, os
+
+Classes:
+
+No incoming calls from other files detected.
+
+--- File Content Start ---
+# main.py
+from fastapi import FastAPI, Request, HTTPException, Depends
+from fastapi.middleware.cors import CORSMiddleware
+import os
+
+def verify_key(request: Request):
+    key = request.headers.get("x-api-key")
+    if key != os.getenv("API_KEY"):
+        raise HTTPException(status_code=403, detail="Invalid API key")
+
+app = FastAPI(title="Universal System Control API")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"]
+)
+
+
+app.include_router(shell.router)
+app.include_router(files.router)
+app.include_router(system.router)
+app.include_router(processes.router)
+app.include_router(packages.router)
+
+--- File Content End ---
+
+
+--- File: openapi.yaml ---
+
+--- File Content Start ---
+openapi: 3.1.0
+info:
+  title: Universal System Control API
+  version: 1.0.0
+servers:
+  - url: http://localhost:8000
+paths:
+  /shell:
+    post:
+      summary: Run a shell command
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                command:
+                  type: string
+      responses:
+        '200':
+          description: Shell output
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  stdout:
+                    type: string
+                  stderr:
+                    type: string
+                  exit_code:
+                    type: integer
+
+  /files/read:
+    post:
+      summary: Read contents of a file
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                path:
+                  type: string
+      responses:
+        '200':
+          description: File contents
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  content:
+                    type: string
+
+  /files/write:
+    post:
+      summary: Write content to a file
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                path:
+                  type: string
+                content:
+                  type: string
+      responses:
+        '200':
+          description: Write confirmation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+
+  /files/delete:
+    post:
+      summary: Delete a file
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                path:
+                  type: string
+      responses:
+        '200':
+          description: Deletion confirmation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+
+  /system/info:
+    get:
+      summary: Get system details
+      responses:
+        '200':
+          description: System information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  os:
+                    type: string
+                  hostname:
+                    type: string
+                  architecture:
+                    type: string
+                  cpu:
+                    type: string
+                  cpu_usage_percent:
+                    type: number
+                  memory_total_gb:
+                    type: number
+                  memory_usage_percent:
+                    type: number
+                  uptime_seconds:
+                    type: integer
+
+  /processes/kill:
+    post:
+      summary: Terminate a process by PID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                pid:
+                  type: integer
+      responses:
+        '200':
+          description: Process termination
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+
+  /packages/install:
+    post:
+      summary: Install a package (apt, pacman, winget, brew)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                package:
+                  type: string
+      responses:
+        '200':
+          description: Package installation result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  stdout:
+                    type: string
+                  stderr:
+                    type: string
+                  exit_code:
+                    type: integer
+
+--- File Content End ---
+
+
+--- File: routes\files.py ---
+### Contextual Analysis ###
+Module Docstring: 
+Git Metadata: Not in a Git repository
+
+Functions Defined:
+  read_file (Lines: 6): 
+    Args: data: FilePath
+  write_file (Lines: 7): 
+    Args: data: FileWrite
+  delete_file (Lines: 6): 
+    Args: data: FilePath
+
+Functions Called:
+APIRouter, Depends, HTTPException, f.read, f.write, open, os.remove, router.post, str
+
+Imports / Dependencies:
+fastapi.APIRouter, fastapi.Depends, fastapi.HTTPException, main.verify_key, os, pydantic.BaseModel
+
+Classes:
+  Class FilePath (Bases: BaseModel) - 
+  Class FileWrite (Bases: BaseModel) - 
+
+No incoming calls from other files detected.
+
+--- File Content Start ---
+# routes/files.py
+from fastapi import APIRouter, HTTPException, Depends
+from pydantic import BaseModel
+from main import verify_key
+import os
+
+router = APIRouter(prefix="/files")
+
+class FilePath(BaseModel):
+    path: str
+
+class FileWrite(BaseModel):
+    path: str
+    content: str
+
+@router.post("read", dependencies=[Depends(verify_key)])
+def read_file(data: FilePath):
+    try:
+        with open(data.path, "r", encoding="utf-8") as f:
+            return {"content": f.read()}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("write", dependencies=[Depends(verify_key)])
+def write_file(data: FileWrite):
+    try:
+        with open(data.path, "w", encoding="utf-8") as f:
+            f.write(data.content)
+        return {"status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("delete", dependencies=[Depends(verify_key)])
+def delete_file(data: FilePath):
+    try:
+        os.remove(data.path)
+        return {"status": "deleted"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+--- File Content End ---
+
+
+--- File: routes\packages.py ---
+### Contextual Analysis ###
+Module Docstring: 
+Git Metadata: Not in a Git repository
+
+Functions Defined:
+  install_package (Lines: 17): 
+    Args: data: InstallRequest
+
+Functions Called:
+APIRouter, Depends, Exception, HTTPException, platform.system, router.post, str, subprocess.run
+
+Imports / Dependencies:
+fastapi.APIRouter, fastapi.Depends, fastapi.HTTPException, main.verify_key, platform, pydantic.BaseModel, subprocess
+
+Classes:
+  Class InstallRequest (Bases: BaseModel) - 
+
+No incoming calls from other files detected.
+
+--- File Content Start ---
+# routes/packages.py
+import platform, subprocess
+from fastapi import APIRouter, HTTPException, Depends
+from pydantic import BaseModel
+from main import verify_key
+
+router = APIRouter(prefix="/packages")
+
+class InstallRequest(BaseModel):
+    package: str
+
+@router.post("install", dependencies=[Depends(verify_key)])
+def install_package(data: InstallRequest):
+    system = platform.system()
+    try:
+        if system == "Linux":
+            cmd = f"sudo apt install -y {data.package} || sudo pacman -S --noconfirm {data.package}"
+        elif system == "Windows":
+            cmd = f"winget install --silent {data.package}"
+        elif system == "Darwin":
+            cmd = f"brew install {data.package}"
+        else:
+            raise Exception("Unsupported OS")
+
+        result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+        return {"stdout": result.stdout, "stderr": result.stderr, "exit_code": result.returncode}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+--- File Content End ---
+
+
+--- File: routes\processes.py ---
+### Contextual Analysis ###
+Module Docstring: 
+Git Metadata: Not in a Git repository
+
+Functions Defined:
+  kill_process (Lines: 7): 
+    Args: data: KillRequest
+
+Functions Called:
+APIRouter, Depends, HTTPException, p.terminate, psutil.Process, router.post, str
+
+Imports / Dependencies:
+fastapi.APIRouter, fastapi.Depends, fastapi.HTTPException, main.verify_key, psutil, pydantic.BaseModel
+
+Classes:
+  Class KillRequest (Bases: BaseModel) - 
+
+No incoming calls from other files detected.
+
+--- File Content Start ---
+# routes/processes.py
+from fastapi import APIRouter, HTTPException, Depends
+from pydantic import BaseModel
+from main import verify_key
+import psutil
+
+router = APIRouter(prefix="/processes")
+
+class KillRequest(BaseModel):
+    pid: int
+
+@router.post("kill", dependencies=[Depends(verify_key)])
+def kill_process(data: KillRequest):
+    try:
+        p = psutil.Process(data.pid)
+        p.terminate()
+        return {"status": f"Process {data.pid} terminated"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+--- File Content End ---
+
+
+--- File: routes\shell.py ---
+### Contextual Analysis ###
+Module Docstring: 
+Git Metadata: Not in a Git repository
+
+Functions Defined:
+  run_command (Lines: 10): 
+    Args: data: ShellCommand
+
+Functions Called:
+APIRouter, Depends, HTTPException, router.post, str, subprocess.run
+
+Imports / Dependencies:
+fastapi.APIRouter, fastapi.Depends, fastapi.HTTPException, main.verify_key, pydantic.BaseModel, subprocess
+
+Classes:
+  Class ShellCommand (Bases: BaseModel) - 
+
+No incoming calls from other files detected.
+
+--- File Content Start ---
+# routes/shell.py
+import subprocess
+from fastapi import APIRouter, HTTPException, Depends
+from pydantic import BaseModel
+from main import verify_key
+
+router = APIRouter(prefix="/shell")
+
+class ShellCommand(BaseModel):
+    command: str
+
+@router.post("", dependencies=[Depends(verify_key)])
+def run_command(data: ShellCommand):
+    try:
+        result = subprocess.run(data.command, shell=True, capture_output=True, text=True)
+        return {
+            "stdout": result.stdout,
+            "stderr": result.stderr,
+            "exit_code": result.returncode
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+--- File Content End ---
+
+
+--- File: routes\system.py ---
+### Contextual Analysis ###
+Module Docstring: 
+Git Metadata: Not in a Git repository
+
+Functions Defined:
+  get_system_info (Lines: 11): 
+
+Functions Called:
+APIRouter, int, platform.machine, platform.processor, platform.system, psutil.boot_time, psutil.cpu_percent, psutil.virtual_memory, round, router.get, socket.gethostname
+
+Imports / Dependencies:
+fastapi.APIRouter, os, platform, psutil, socket
+
+Classes:
+
+No incoming calls from other files detected.
+
+--- File Content Start ---
+# routes/system.py
+from fastapi import APIRouter
+import platform, psutil, socket, os
+
+router = APIRouter(prefix="/system")
+
+@router.get("info")
+def get_system_info():
+    return {
+        "os": platform.system(),
+        "hostname": socket.gethostname(),
+        "architecture": platform.machine(),
+        "cpu": platform.processor(),
+        "cpu_usage_percent": psutil.cpu_percent(),
+        "memory_total_gb": round(psutil.virtual_memory().total / (1024**3), 2),
+        "memory_usage_percent": psutil.virtual_memory().percent,
+        "uptime_seconds": int(psutil.boot_time())
+    }
+
+--- File Content End ---
+
+
+--- File: utils\helpers.py ---
+### Contextual Analysis ###
+Module Docstring: 
+Git Metadata: Not in a Git repository
+
+Functions Defined:
+
+Functions Called:
+
+
+Imports / Dependencies:
+
+
+Classes:
+
+No incoming calls from other files detected.
+
+--- File Content Start ---
+
+--- File Content End ---
