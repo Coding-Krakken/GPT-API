@@ -25,6 +25,7 @@ A powerful FastAPI-based system control API designed for GPT agents to perform c
 - Python 3.13+
 - pip (Python package manager)
 - Operating System: Windows, macOS, or Linux
+- **Optional:** PostgreSQL 12+ (for assistant management features)
 
 ## 🛠️ Installation
 
@@ -37,6 +38,11 @@ A powerful FastAPI-based system control API designed for GPT agents to perform c
 2. **Install dependencies:**
    ```bash
    pip install -r requirements.txt
+   ```
+
+   **Optional - For assistant management features:**
+   ```bash
+   pip install psycopg2-binary sqlalchemy
    ```
 
 3. **Set up environment variables:**
@@ -254,13 +260,88 @@ GPT-API/
 │   └── batch.py          # Batch operations
 ├── utils/                # Utility modules
 │   └── auth.py          # Authentication utilities
+├── database/             # Database layer for data persistence
+│   ├── __init__.py      # Package initialization
+│   ├── db.py            # Database connection and session management
+│   ├── models.py        # SQLAlchemy data models (Assistant, Thread, etc.)
+│   └── init_db.py       # Database initialization and schema setup
 └── assistants/          # GPT assistant utilities (optional)
     ├── create_assistant.py
     ├── thread_ops.py
     └── ...
 ```
 
-## 🔧 Configuration
+## �️ Database Layer
+
+The `database/` directory provides data persistence for the GPT-API system, specifically designed to manage OpenAI GPT Assistants and related metadata.
+
+### Database Components
+
+- **`db.py`** - Database connection management using SQLAlchemy
+- **`models.py`** - Data models defining the schema for assistants and threads
+- **`init_db.py`** - Database initialization and schema setup utilities
+- **`__init__.py`** - Package initialization and exports
+
+### Database Schema
+
+**Assistants Table:**
+- `id` (VARCHAR) - OpenAI Assistant ID
+- `name` (VARCHAR) - Assistant display name
+- `instructions` (TEXT) - System instructions for the assistant
+- `model` (VARCHAR) - GPT model version (e.g., gpt-4, gpt-3.5-turbo)
+- `tools` (JSON) - Enabled tools and capabilities
+- `file_ids` (ARRAY) - Associated file identifiers
+
+**Threads Table:**
+- `id` (VARCHAR) - OpenAI Thread ID
+- `assistant_id` (VARCHAR) - Foreign key to assistants table
+- `metadata` (JSON) - Thread configuration and context
+- `created_at` (TIMESTAMP) - Creation timestamp
+- `updated_at` (TIMESTAMP) - Last modification timestamp
+
+### Database Configuration
+
+The system uses PostgreSQL as the primary database:
+
+```env
+# Database Configuration (add to .env)
+DB_NAME=gpt_system
+DB_USER=your_db_user
+DB_PASSWORD=your_db_password
+DB_HOST=localhost
+DB_PORT=5432
+```
+
+### Database Operations
+
+The database layer supports:
+- **Assistant Management** - CRUD operations for GPT assistants
+- **Thread Management** - Conversation thread persistence
+- **Metadata Storage** - Configuration and usage tracking
+- **Relationship Management** - Assistant-thread associations
+
+### Setup Requirements
+
+To use the database functionality:
+
+1. **Install PostgreSQL** (if not already installed)
+2. **Create the database:**
+   ```sql
+   CREATE DATABASE gpt_system;
+   ```
+3. **Install Python dependencies:**
+   ```bash
+   pip install psycopg2-binary sqlalchemy
+   ```
+4. **Initialize the database schema:**
+   ```python
+   from database.init_db import initialize_database
+   initialize_database()
+   ```
+
+**Note:** The database layer is optional and primarily used by the `/assistants` endpoints. The core API functionality works independently without database setup.
+
+## �🔧 Configuration
 
 ### Environment Variables
 Create a `.env` file with the following variables:
@@ -270,6 +351,13 @@ Create a `.env` file with the following variables:
 API_KEY=your_secure_random_api_key_here
 API_HOST=127.0.0.1
 API_PORT=8000
+
+# Optional: Database Configuration (for assistant management)
+DB_NAME=gpt_system
+DB_USER=your_db_user
+DB_PASSWORD=your_db_password
+DB_HOST=localhost
+DB_PORT=5432
 
 # Optional: Additional configuration
 LOG_LEVEL=INFO
