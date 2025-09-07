@@ -59,14 +59,17 @@ async def run_batch(req: BatchRequest = None, request: Request = None):
                 if not cmd:
                     results.append({"action": action, "error": {"code": "missing_command", "message": "Missing 'command' for shell action"}, "status": 400})
                     continue
-                result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-                results.append({
-                    "action": action,
-                    "stdout": result.stdout.strip(),
-                    "stderr": result.stderr.strip(),
-                    "exit_code": result.returncode,
-                    "status": 200 if result.returncode == 0 else 400
-                })
+                try:
+                    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+                    results.append({
+                        "action": action,
+                        "stdout": result.stdout.strip(),
+                        "stderr": result.stderr.strip(),
+                        "exit_code": result.returncode,
+                        "status": 200 if result.returncode == 0 else 400
+                    })
+                except Exception as e:
+                    results.append({"action": action, "error": {"code": "subprocess_error", "message": str(e)}, "status": 500})
             elif action == "files":
                 file_args = op.get("args", op)
                 try:
@@ -75,10 +78,25 @@ async def run_batch(req: BatchRequest = None, request: Request = None):
                 except Exception as e:
                     results.append({"action": action, "error": {"code": "files_error", "message": str(e)}, "status": 500})
             elif action == "code":
+                from routes.code import CodeAction
                 code_args = op.get("args", op)
                 try:
+                    # Always convert to CodeAction model
+                    if not isinstance(code_args, CodeAction):
+                        code_args = CodeAction(**code_args)
                     resp = handle_code_action(code_args)
-                    results.append({"action": action, "result": resp})
+                    # If resp is a dict with 'error', propagate as error
+                    if isinstance(resp, dict) and 'error' in resp:
+                        results.append({"action": action, **resp})
+                    else:
+                        results.append({"action": action, "result": resp})
+                except HTTPException as e:
+                    # Propagate structured error from /code
+                    detail = getattr(e, 'detail', None)
+                    if isinstance(detail, dict) and 'error' in detail:
+                        results.append({"action": action, **detail})
+                    else:
+                        results.append({"action": action, "error": {"code": "code_error", "message": str(e)}, "status": getattr(e, 'status_code', 500)})
                 except Exception as e:
                     results.append({"action": action, "error": {"code": "code_error", "message": str(e)}, "status": 500})
             else:

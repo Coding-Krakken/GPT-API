@@ -65,7 +65,14 @@ def handle_git_command(req: GitRequest):
         if not os.path.isdir(repo_path):
             if req.debug:
                 debug_info.append(f"Not a directory: {repo_path}")
-            return {"error": {"code": "not_a_directory", "message": f"Repository path '{repo_path}' is not a directory."}, "status": 400, "debug": debug_info}
+            return {
+                "error": {
+                    "code": "not_a_directory",
+                    "message": f"Repository path '{repo_path}' is not a directory. To create a new git repository, use 'git init <directory>' or specify a valid repo path."
+                },
+                "status": 400,
+                "debug": debug_info
+            }
 
         git_dir = os.path.join(repo_path, ".git")
         has_git = os.path.isdir(git_dir)
@@ -89,7 +96,7 @@ def handle_git_command(req: GitRequest):
                     return {
                         "error": {
                             "code": "not_a_git_repo",
-                            "message": f"Target path '{repo_path}' is empty and not a git repo. Run 'git init' in this directory to initialize a repository."
+                            "message": f"Target path '{repo_path}' is empty and not a git repo. Run 'git init' in this directory to initialize a repository. For help, see 'git help init'."
                         },
                         "status": 400,
                         "debug": debug_info
@@ -100,7 +107,7 @@ def handle_git_command(req: GitRequest):
                     return {
                         "error": {
                             "code": "not_a_git_repo",
-                            "message": f"Target path '{repo_path}' is not a git repository. Run 'git init' in this directory to initialize a repository."
+                            "message": f"Target path '{repo_path}' is not a git repository. Run 'git init' in this directory to initialize a repository. For help, see 'git help init'."
                         },
                         "contents": files,
                         "status": 400,
@@ -137,7 +144,7 @@ def handle_git_command(req: GitRequest):
             code = "git_error"
             if "not a git repository" in err_msg:
                 code = "not_a_git_repo"
-                msg = f"Target path '{repo_path}' is not a git repository. Please initialize with 'git init' or specify a valid repo."
+                msg = f"Target path '{repo_path}' is not a git repository. Please initialize with 'git init' or specify a valid repo. For help, see 'git help init'."
             elif "fatal" in err_msg:
                 msg = err_msg.splitlines()[-1]
             else:

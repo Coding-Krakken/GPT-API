@@ -154,6 +154,7 @@ POST /code
 ```
 
 
+
 **Supported Languages & Required Dependencies:**
 - **Python:** run, test (pytest), lint (flake8), format (black), fix (autopep8)
     - The `/code` endpoint will attempt to auto-install `flake8`, `black`, and `autopep8` if missing, but for best results, install them manually:
@@ -166,6 +167,13 @@ POST /code
       npm install -g eslint prettier
       ```
 - **Bash:** run with bash interpreter
+
+### `/code` Endpoint Validation & Feedback
+
+- The API strictly enforces that the `language` parameter matches the file extension (e.g., `.py` for Python, `.js` for JavaScript). Mismatches will be rejected with a clear error.
+- Only supported languages are accepted: `python`, `js` (JavaScript), `bash`.
+- The `args` field is validated for each language/action. Unknown or unsafe flags will be rejected.
+- If you run tests and none are found, the API will return a message suggesting you add `def test_*()` functions or `unittest.TestCase` classes.
 
 ### 📊 System Monitoring (`/system`)
 Get comprehensive system information:

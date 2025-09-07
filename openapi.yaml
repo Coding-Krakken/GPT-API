@@ -128,6 +128,36 @@ paths:
 
   /code:
     post:
+      operationId: codeOps
+      summary: Execute, test, lint, and manipulate code files in Python, JS, Bash, or Node.
+      description: |
+        Perform code actions (run, test, lint, fix, format, explain) on supported languages. All errors are structured. See docs for details on arguments, validation, and error codes.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                action:
+                  type: string
+                  enum: [run, test, lint, fix, format, explain]
+                  description: "Action to perform. Supported: run, test, lint, fix, format, explain."
+                path:
+                  type: string
+                  description: "Path to the file. Required unless 'content' is provided. Unsafe or overlong paths are rejected."
+                language:
+                  type: string
+                  description: |
+                    Programming language. **Required.** Must be one of: 'python', 'js', 'bash', 'node'. Requests with missing or unsupported languages are rejected with `unsupported_language` error.
+                  enum: [python, js, bash, node]
+                args:
+                  type: string
+                  description: |
+                    Optional CLI arguments. Only safe, whitelisted arguments are allowed per language/action. Malformed or unsafe arguments are rejected with `invalid_args` error.
+                content:
+                  type: string
+                  description: "Optional code content. If provided, will be written to a temp file and executed."
       responses:
         '200':
           description: Code action result
@@ -167,38 +197,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-      operationId: codeOps
-      summary: Execute, test, lint, and manipulate code
-      description: >
-        Supports run, test, lint, format, and fix for Python (needs flake8, black, autopep8) and JavaScript (needs eslint, prettier). Installs tools if missing, but manual install is recommended for reliability.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                action:
-                  type: string
-                  enum: [run, test, lint, fix, format, explain]
-                path:
-                  type: string
-                language:
-                  type: string
-                args:
-                  type: string
-      responses:
-        '200':
-          description: Code action result
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  stdout:
-                    type: string
-                  stderr:
-                    type: string
 
   /system:
     get:

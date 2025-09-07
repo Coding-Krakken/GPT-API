@@ -103,7 +103,12 @@ def handle_file_operation(req: FileRequest):
             from fastapi.encoders import jsonable_encoder
             results = []
             for op in req.operations:
-                results.append(_do_file_op(op))
+                # Ensure op is a FileOp instance or dict
+                if isinstance(op, dict):
+                    op_obj = FileOp(**op)
+                else:
+                    op_obj = op
+                results.append(_do_file_op(op_obj))
             latency = round((time.time() - start) * 1000, 2)
             payload_size = len(str(req.dict()))
             return jsonable_encoder({"results": results, "latency_ms": latency, "payload_size": payload_size})

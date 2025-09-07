@@ -1,0 +1,605 @@
+# OpenAPI Contract Publication
+
+The OpenAPI schema for this API is published below. This file is auto-generated and should be kept in sync with the main API contract (`openapi.yaml`).
+
+## Location
+
+- Main contract: `openapi.yaml`
+- Published contract: `docs/openapi-published.yaml`
+
+## Usage
+
+- Use this file for client code generation, documentation, and integration testing.
+- To update, copy the latest `openapi.yaml` to `docs/openapi-published.yaml`.
+
+---
+
+# API Contract
+
+openapi: 3.1.0
+info:
+	title: GPT Super-Agent Universal Control API
+	version: 4.0.0
+servers:
+	- url: https://7v6bdq8q-8000.usw3.devtunnels.ms
+paths:
+	/shell:
+		post:
+			operationId: runShellCommand
+			summary: Execute system-level commands with optional sudo, chaining, or background execution
+			requestBody:
+				required: true
+				content:
+					application/json:
+						schema:
+							type: object
+							required:
+								- command
+							properties:
+								command:
+									type: string
+									minLength: 1
+									maxLength: 4096
+									description: Must be a non-empty string (max 4096 chars)
+								run_as_sudo:
+									type: boolean
+								background:
+									type: boolean
+								shell:
+									type: string
+			responses:
+				'200':
+					description: Shell command output
+					content:
+						application/json:
+							schema:
+								type: object
+								properties:
+									stdout:
+										type: string
+									stderr:
+										type: string
+									exit_code:
+										type: integer
+				'400':
+					description: Invalid input (e.g., empty command)
+					content:
+						application/json:
+							schema:
+								$ref: '#/components/schemas/ErrorResponse'
+
+	/files:
+		post:
+			operationId: manageFiles
+			summary: Perform all file-level operations via unified interface (single or batch)
+			description: |
+				Supports both single file operation (action+path) and batch (operations[]). If 'operations' is provided, it must be a non-empty array of file operation objects. Returns clear 400 errors for missing/invalid fields. Error responses are standardized.
+			requestBody:
+				required: true
+				content:
+					application/json:
+						schema:
+							type: object
+							description: Single file op (action+path) or batch (operations[])
+							properties:
+								action:
+									type: string
+									enum: [read, write, delete, copy, move, stat, exists, list]
+									description: Required for single op. Ignored if 'operations' is present.
+								path:
+									type: string
+									description: Required for single op. Ignored if 'operations' is present.
+								target_path:
+									type: string
+								content:
+									type: string
+									maxLength: 1048576 # 1MB
+								recursive:
+									type: boolean
+								operations:
+									type: array
+									minItems: 1
+									items:
+										type: object
+										required:
+											- action
+											- path
+										properties:
+											action:
+												type: string
+												enum: [read, write, delete, copy, move, stat, exists, list]
+											path:
+												type: string
+											target_path:
+												type: string
+											content:
+												type: string
+												maxLength: 1048576 # 1MB
+											recursive:
+												type: boolean
+			responses:
+				'200':
+					description: Result of file operation (single or batch)
+					content:
+						application/json:
+							schema:
+								oneOf:
+									- type: object
+										properties:
+											result:
+												type: string
+									- type: object
+										properties:
+											results:
+												type: array
+												items:
+													type: object
+													properties:
+														result:
+															type: string
+				'400':
+					description: Invalid input (e.g., missing required fields, invalid batch, or schema misuse)
+					content:
+						application/json:
+							schema:
+								$ref: '#/components/schemas/ErrorResponse'
+
+	/code:
+		post:
+			responses:
+				'200':
+					description: Code action result
+					content:
+						application/json:
+							schema:
+								oneOf:
+									- type: object
+										properties:
+											stdout:
+												type: string
+											stderr:
+												type: string
+											exit_code:
+												type: integer
+									- $ref: '#/components/schemas/ErrorResponse'
+							examples:
+								success:
+									summary: Successful code action
+									value:
+										stdout: "Test output"
+										stderr: ""
+										exit_code: 0
+								no_tests:
+									summary: No tests found (exit code 5)
+									value:
+										error:
+											code: "no_tests_found"
+											message: "No tests were found in the specified file."
+										status: 200
+										stdout: ""
+										stderr: ""
+										exit_code: 5
+				'400':
+					description: Invalid input (e.g., empty command)
+					content:
+						application/json:
+							schema:
+								$ref: '#/components/schemas/ErrorResponse'
+			operationId: codeOps
+			summary: Execute, test, lint, and manipulate code
+			description: >
+				Supports run, test, lint, format, and fix for Python (needs flake8, black, autopep8) and JavaScript (needs eslint, prettier). Installs tools if missing, but manual install is recommended for reliability.
+			requestBody:
+				required: true
+				content:
+					application/json:
+						schema:
+							type: object
+							properties:
+								action:
+									type: string
+									enum: [run, test, lint, fix, format, explain]
+								path:
+									type: string
+								language:
+									type: string
+								args:
+									type: string
+			responses:
+				'200':
+					description: Code action result
+					content:
+						application/json:
+							schema:
+								type: object
+								properties:
+									stdout:
+										type: string
+									stderr:
+										type: string
+
+	/system:
+		get:
+			responses:
+				'200':
+					description: System information
+					content:
+						application/json:
+							schema:
+								type: object
+								properties:
+									os:
+										type: string
+									cpu_usage_percent:
+										type: number
+				'400':
+					description: Invalid input
+					content:
+						application/json:
+							schema:
+								$ref: '#/components/schemas/ErrorResponse'
+			operationId: getSystemState
+			summary: Retrieve system information, resources, users, and time data
+			responses:
+				'200':
+					description: System information
+					content:
+						application/json:
+							schema:
+								type: object
+								properties:
+									os:
+										type: string
+									cpu_usage_percent:
+										type: number
+
+	/monitor:
+		get:
+			operationId: monitorHealthCheck
+			summary: Health check for /monitor endpoint
+			responses:
+				'200':
+					description: Health check result
+					content:
+						application/json:
+							schema:
+								type: object
+								properties:
+									result:
+										type: string
+		post:
+			operationId: liveMonitor
+			summary: Monitor metrics or subscribe to events
+			requestBody:
+				required: false
+				content:
+					application/json:
+						schema:
+							type: object
+							properties:
+								type:
+									type: string
+									enum: [cpu, memory, disk, network, logs, filesystem, performance, custom]
+								live:
+									type: boolean
+			responses:
+				'200':
+					description: Live monitoring data or stream token
+					content:
+						application/json:
+							schema:
+								oneOf:
+									- type: object
+										properties:
+											result:
+												type: string
+												description: 'For non-structured or stream token responses.'
+									- type: object
+										properties:
+											memory:
+												type: object
+												description: 'Memory usage details (for type=memory)'
+												properties:
+													total:
+														type: integer
+														description: 'Total system memory in bytes.'
+													used:
+														type: integer
+														description: 'Used memory in bytes.'
+													free:
+														type: integer
+														description: 'Free memory in bytes.'
+													percent:
+														type: number
+														description: 'Percent of memory used.'
+								example:
+									memory:
+										total: 16777216
+										used: 8388608
+										free: 8388608
+										percent: 50.0
+				'400':
+					description: Invalid monitor type
+					content:
+						application/json:
+							schema:
+								$ref: '#/components/schemas/ErrorResponse'
+
+	/git:
+		post:
+			operationId: gitControl
+			summary: Perform any Git operation (init, status, commit, push, pull, diff, merge, rebase)
+			requestBody:
+				required: true
+				content:
+					application/json:
+						schema:
+							type: object
+							required:
+								- action
+								- path
+							properties:
+								action:
+									type: string
+								path:
+									type: string
+								args:
+									type: string
+			responses:
+				'200':
+					description: Git result output
+					content:
+						application/json:
+							schema:
+								type: object
+								properties:
+									stdout:
+										type: string
+									stderr:
+										type: string
+				'400':
+					description: Invalid input (e.g., missing identity config)
+					content:
+						application/json:
+							schema:
+								$ref: '#/components/schemas/ErrorResponse'
+
+	/package:
+		post:
+			responses:
+				'200':
+					description: Package manager result
+					content:
+						application/json:
+							schema:
+								type: object
+								properties:
+									stdout:
+										type: string
+									stderr:
+										type: string
+				'400':
+					description: Invalid input (e.g., empty command)
+					content:
+						application/json:
+							schema:
+								$ref: '#/components/schemas/ErrorResponse'
+			operationId: packageManager
+			summary: Manage system or language packages and environments
+			requestBody:
+				required: true
+				content:
+					application/json:
+						schema:
+							type: object
+							properties:
+								manager:
+									type: string
+								action:
+									type: string
+									enum: [install, remove, update, list, upgrade]
+								package:
+									type: string
+			responses:
+				'200':
+					description: Package manager result
+					content:
+						application/json:
+							schema:
+								type: object
+								properties:
+									stdout:
+										type: string
+									stderr:
+										type: string
+
+	/apps:
+		post:
+			responses:
+				'200':
+					description: App control output
+					content:
+						application/json:
+							schema:
+								type: object
+								properties:
+									result:
+										type: string
+				'400':
+					description: Invalid input (e.g., empty command)
+					content:
+						application/json:
+							schema:
+								$ref: '#/components/schemas/ErrorResponse'
+			operationId: appControl
+			summary: Launch, kill, or manipulate desktop and third-party applications
+			requestBody:
+				required: true
+				content:
+					application/json:
+						schema:
+							type: object
+							properties:
+								action:
+									type: string
+									enum: [launch, kill, focus, close, list]
+								app:
+									type: string
+								args:
+									type: string
+								# Pagination/filtering for 'list' action
+								limit:
+									type: integer
+									minimum: 1
+									maximum: 1000
+									description: Max number of apps to return (for 'list')
+								offset:
+									type: integer
+									minimum: 0
+									description: Offset for pagination (for 'list')
+								filter:
+									type: string
+									maxLength: 128
+									description: Filter apps by name substring (for 'list')
+			responses:
+				'200':
+					description: App control output
+					content:
+						application/json:
+							schema:
+								type: object
+								properties:
+									result:
+										type: string
+
+	/refactor:
+		post:
+			responses:
+				'200':
+					description: Refactor output
+					content:
+						application/json:
+							schema:
+								oneOf:
+									- type: object
+										properties:
+											results:
+												type: array
+												items:
+													type: object
+									- type: object
+										properties:
+											result:
+												type: string
+							examples:
+								dry_run_noop:
+									summary: Dry-run with no matches
+									value:
+										result: "No matches found."
+				'400':
+					description: Invalid input (e.g., empty command)
+					content:
+						application/json:
+							schema:
+								$ref: '#/components/schemas/ErrorResponse'
+			operationId: refactorCode
+			summary: Mass refactors, renames, substitutions, and code moves
+			requestBody:
+				required: true
+				content:
+					application/json:
+						schema:
+							type: object
+							properties:
+								search:
+									type: string
+									maxLength: 1024
+								replace:
+									type: string
+									maxLength: 1024
+								dry_run:
+									type: boolean
+								files:
+									type: array
+									items:
+										type: string
+			responses:
+				'200':
+					description: Refactor output
+					content:
+						application/json:
+							schema:
+								type: object
+								properties:
+									results:
+										type: array
+										items:
+											type: object
+
+	/batch:
+		post:
+			operationId: bulkActions
+			summary: Queue multiple commands, file edits, or code ops
+			requestBody:
+				required: true
+				content:
+					application/json:
+						schema:
+							type: object
+							required:
+								- operations
+							properties:
+								operations:
+									type: array
+									items:
+										type: object
+										required:
+											- action
+										properties:
+											action:
+												type: string
+											args:
+												type: object
+												additionalProperties: true
+			responses:
+				'200':
+					description: Batch processing result
+					content:
+						application/json:
+							schema:
+								type: object
+								properties:
+									results:
+										type: array
+										items:
+											type: object
+				'400':
+					description: Invalid batch request (malformed operations)
+					content:
+						application/json:
+							schema:
+								$ref: '#/components/schemas/ErrorResponse'
+#
+# Standard error response schema
+components:
+	schemas:
+		ErrorResponse:
+			type: object
+			properties:
+				error:
+					type: object
+					properties:
+						code:
+							type: string
+						message:
+							type: string
+					required: [code, message]
+				status:
+					type: integer
+				debug:
+					type: array
+					items:
+						type: string
+				trace:
+					type: string
+

@@ -49,15 +49,27 @@ Parameters:
 }
 ```
 
+
 #### `/code` — Programming operations
-Use for: run/lint/test/fix/format code files  
+Use for: run/lint/test/fix/format code files
+
+**Important usage notes:**
+- Always ensure the `language` matches the file extension (e.g., `.py` for Python, `.js` for JavaScript). Mismatches will be rejected.
+- Only use supported languages: `python`, `js` (JavaScript), `bash`. Other languages will be rejected unless explicitly supported.
+- Use the correct file extension for the language:
+  - Python: `.py`
+  - JavaScript: `.js`
+  - Bash: `.sh`
+- If you attempt to run tests and none are found, the API will return a message suggesting you add `def test_*()` functions or `unittest.TestCase` classes.
+- The `args` field is validated. Only use safe, documented arguments for each language/action. Unknown or unsafe flags will be rejected.
+
 Parameters:
 ```json
 {
   "action": "run" | "lint" | "test" | "fix" | "format",
-  "path": "string",
-  "language": "python" | "js" | "bash" | etc.,
-  "args": "optional CLI args"
+  "path": "string", // must match language extension
+  "language": "python" | "js" | "bash",
+  "args": "optional CLI args (validated)"
 }
 ```
 

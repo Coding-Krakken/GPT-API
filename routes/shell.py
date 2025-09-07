@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Response, Request
 from pydantic import BaseModel
 import subprocess
 import re
@@ -28,16 +28,36 @@ class ShellCommand(BaseModel):
 @router.post("/", dependencies=[Depends(verify_key)])
 def run_shell_command(data: ShellCommand):
     if not data.command or not data.command.strip():
-        raise HTTPException(status_code=400, detail="Command cannot be empty or whitespace.")
+        raise HTTPException(status_code=400, detail={
+            "error": {"code": "missing_command", "message": "Command cannot be empty or whitespace."},
+            "status": 400
+        })
+    # Enforce max command length (4096 chars, as in OpenAPI schema)
+    if len(data.command) > 4096:
+        raise HTTPException(status_code=400, detail={
+            "error": {"code": "command_too_long", "message": "Command exceeds maximum allowed length (4096 characters)."},
+            "status": 400
+        })
+    import time
+    start = time.time()
+    payload_size = len(data.command) if data.command else 0
     try:
         if data.fault == 'permission':
-            return {'error': 'Permission denied', 'code': 403}
+            return {
+                "error": {"code": "permission_denied", "message": "Permission denied"},
+                "status": 403
+            }
         if data.fault == 'io':
-            return {'error': 'I/O error occurred', 'code': 500}
+            return {
+                "error": {"code": "io_error", "message": "I/O error occurred"},
+                "status": 500
+            }
         full_command = data.command
         if data.run_as_sudo:
             full_command = f"sudo {full_command}"
 
+        latency = round((time.time() - start) * 1000, 2)
+        headers = {"X-Payload-Size": str(payload_size), "X-Latency-ms": str(latency)}
         if data.background:
             proc = subprocess.Popen(
                 full_command,
@@ -53,7 +73,8 @@ def run_shell_command(data: ShellCommand):
                 "stdout": redact_secrets(stdout.strip()),
                 "stderr": redact_secrets(stderr.strip()),
                 "exit_code": exit_code,
-                "pid": proc.pid
+                "pid": proc.pid,
+                "status": 200
             }
         else:
             result = subprocess.run(
@@ -66,7 +87,11 @@ def run_shell_command(data: ShellCommand):
             return {
                 "stdout": redact_secrets(result.stdout.strip()),
                 "stderr": redact_secrets(result.stderr.strip()),
-                "exit_code": result.returncode
+                "exit_code": result.returncode,
+                "status": 200
             }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail={
+            "error": {"code": "subprocess_error", "message": str(e)},
+            "status": 500
+        })
