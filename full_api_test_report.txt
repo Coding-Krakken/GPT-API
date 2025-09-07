@@ -1,0 +1,28 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.7, pytest-8.4.2, pluggy-1.6.0 -- /home/obsidian/Github/GPT-API/.venv/bin/python
+cachedir: .pytest_cache
+rootdir: /home/obsidian/Github/GPT-API
+plugins: anyio-4.9.0
+collecting ... collected 19 items
+
+test_full_api.py::test_endpoint[/system/-GET-None-200] PASSED            [  5%]
+test_full_api.py::test_endpoint[/files-POST-payload1-200] PASSED         [ 10%]
+test_full_api.py::test_endpoint[/files-POST-payload2-200] PASSED         [ 15%]
+test_full_api.py::test_endpoint[/files-POST-payload3-200] PASSED         [ 21%]
+test_full_api.py::test_endpoint[/files-POST-payload4-200] PASSED         [ 26%]
+test_full_api.py::test_endpoint[/files-POST-payload5-200] PASSED         [ 31%]
+test_full_api.py::test_endpoint[/shell-POST-payload6-200] PASSED         [ 36%]
+test_full_api.py::test_endpoint[/code-POST-payload7-200] PASSED          [ 42%]
+test_full_api.py::test_endpoint[/monitor-POST-payload8-200] PASSED       [ 47%]
+test_full_api.py::test_endpoint[/git-POST-payload9-200] PASSED           [ 52%]
+test_full_api.py::test_endpoint[/package-POST-payload10-200] PASSED      [ 57%]
+test_full_api.py::test_endpoint[/apps-POST-payload11-200] PASSED         [ 63%]
+test_full_api.py::test_endpoint[/refactor-POST-payload12-200] PASSED     [ 68%]
+test_full_api.py::test_endpoint[/batch-POST-payload13-200] PASSED        [ 73%]
+test_full_api.py::test_error_cases[/files-POST-payload0-500-True] PASSED [ 78%]
+test_full_api.py::test_error_cases[/system/-GET-None-403-False] PASSED   [ 84%]
+test_full_api.py::test_bulk_file_ops PASSED                              [ 89%]
+test_full_api.py::test_shell_side_effect PASSED                          [ 94%]
+test_full_api.py::test_auth_variants PASSED                              [100%]
+
+============================= 19 passed in 11.29s ==============================

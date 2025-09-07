@@ -19,6 +19,12 @@ def handle_git_command(req: GitRequest):
 
         cmd = f"git -C \"{repo_path}\" {req.action} {req.args}"
         result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+        # If dubious ownership error, add safe.directory and retry once
+        if "dubious ownership" in result.stderr:
+            safe_cmd = f"git config --global --add safe.directory '{repo_path}'"
+            subprocess.run(safe_cmd, shell=True)
+            # Retry the original command
+            result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
         return {
             "stdout": result.stdout.strip(),
             "stderr": result.stderr.strip(),

@@ -5,18 +5,36 @@ from utils.auth import verify_key
 
 router = APIRouter()
 
+import tempfile
+
 class CodeAction(BaseModel):
+    """
+    action: required, one of [run, test, lint, fix, format, explain]
+    path: required unless content is provided
+    content: optional, if provided will be written to a temp file and executed
+    language: optional, default 'python'
+    args: optional, string of CLI args
+    """
     action: str
-    path: str
+    path: str = None
     language: str = "python"
     args: str = ""
+    content: str = None
 
 @router.post("/", dependencies=[Depends(verify_key)])
 def handle_code_action(req: CodeAction):
     try:
-        abs_path = os.path.abspath(os.path.expanduser(req.path))
-        if not os.path.exists(abs_path):
-            raise HTTPException(status_code=404, detail="File does not exist")
+        # If content is provided, write to a temp file and use that path
+        if req.content:
+            with tempfile.NamedTemporaryFile(delete=False, mode='w', suffix=f'.{req.language}') as tmp:
+                tmp.write(req.content)
+                abs_path = tmp.name
+        else:
+            if not req.path:
+                raise HTTPException(status_code=400, detail="Missing 'path' or 'content'")
+            abs_path = os.path.abspath(os.path.expanduser(req.path))
+            if not os.path.exists(abs_path):
+                raise HTTPException(status_code=404, detail="File does not exist")
 
         if req.action == "run":
             cmd = {
@@ -26,10 +44,20 @@ def handle_code_action(req: CodeAction):
             }.get(req.language, f"{req.language} \"{abs_path}\" {req.args}")
 
         elif req.action == "lint":
-            cmd = {
-                "python": f"flake8 \"{abs_path}\"",
-                "js": f"eslint \"{abs_path}\"",
-            }.get(req.language, f"echo 'Linter not configured for {req.language}'")
+            if req.language == "python":
+                # Check if flake8 is installed
+                check_cmd = "flake8 --version"
+                check_result = subprocess.run(check_cmd, shell=True, capture_output=True, text=True)
+                if check_result.returncode != 0:
+                    # Try to install flake8
+                    install_cmd = "pip install flake8"
+                    subprocess.run(install_cmd, shell=True)
+                # Now run lint
+                cmd = f"flake8 \"{abs_path}\""
+            elif req.language == "js":
+                cmd = f"eslint \"{abs_path}\""
+            else:
+                cmd = f"echo 'Linter not configured for {req.language}'"
 
         elif req.action == "test":
             cmd = {

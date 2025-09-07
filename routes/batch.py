@@ -6,30 +6,43 @@ import subprocess, os
 
 router = APIRouter()
 
-class Operation(BaseModel):
-    action: str
-    args: Dict[str, Any]
+
+
+import traceback
 
 class BatchRequest(BaseModel):
-    operations: List[Operation]
+    operations: List[Dict[str, Any]]
+    dry_run: bool = False
+
 
 @router.post("/", dependencies=[Depends(verify_key)])
 def run_batch(req: BatchRequest):
     results = []
     for op in req.operations:
         try:
-            if op.action == "shell":
-                cmd = op.args.get("command", "")
+            action = op.get("action")
+            if req.dry_run:
+                results.append({"action": action, "dry_run": True, "args": op})
+                continue
+            if action == "shell":
+                cmd = op.get("command") or op.get("args", {}).get("command")
+                if not cmd:
+                    raise ValueError("Missing 'command' for shell action")
                 result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
                 results.append({
-                    "action": op.action,
+                    "action": action,
                     "stdout": result.stdout.strip(),
                     "stderr": result.stderr.strip(),
                     "exit_code": result.returncode
                 })
+            elif action == "files":
+                # You can implement or import file handling logic here
+                results.append({"action": action, "error": "File batch ops not implemented"})
+            elif action == "code":
+                # You can implement or import code handling logic here
+                results.append({"action": action, "error": "Code batch ops not implemented"})
             else:
-                results.append({"action": op.action, "error": "Unsupported action in batch"})
+                results.append({"action": action, "error": "Unsupported action in batch"})
         except Exception as e:
-            results.append({"action": op.action, "error": str(e)})
-
+            results.append({"action": op.get("action"), "error": str(e), "trace": traceback.format_exc()})
     return {"results": results}

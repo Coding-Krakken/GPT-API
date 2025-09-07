@@ -64,7 +64,8 @@ python cli.py
 
 **Using uvicorn directly:**
 ```bash
-uvicorn main:app --host 127.0.0.1 --port 8000 --reload
+source .venv/bin/activate.fish
+python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 The API will be available at `http://127.0.0.1:8000`
@@ -193,6 +194,7 @@ POST /package
 }
 ```
 
+
 ### 📱 Application Control (`/apps`)
 Manage desktop applications:
 
@@ -200,10 +202,12 @@ Manage desktop applications:
 POST /apps
 {
   "action": "launch|kill|list",
-  "app": "firefox|notepad|code",
+  "app": "firefox|notepad|code", // required for launch/kill, optional for list
   "args": "--new-window"
 }
 ```
+
+**Note:** For the `list` action, the `app` field is optional and can be omitted from the request body.
 
 ### 🔄 Code Refactoring (`/refactor`)
 Search and replace across multiple files:
@@ -370,20 +374,26 @@ CORS_ORIGINS=*
 - **Firewall**: Restrict access to necessary IP addresses
 - **HTTPS**: Use HTTPS in production environments
 
+
 ## 🧪 Testing
 
-Run the comprehensive test suite:
+Run the comprehensive test suite for full API coverage:
 
 ```bash
-# Run all tests
+# Run all tests (recommended)
 python -m pytest
+
+# Run the full API coverage suite
+python test_full_api.py
 
 # Run specific test file
 python test_api.py
 
-# Run comprehensive tests
+# Run legacy comprehensive tests
 python comprehensive_test.py
 ```
+
+The `test_full_api.py` script provides automated, assertion-based coverage for all endpoints, HTTP methods, authentication scenarios, error cases, and system side effects. It is recommended for validating the integrity of your deployment after any change.
 
 ## 📖 Usage Examples
 

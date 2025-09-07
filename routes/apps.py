@@ -5,20 +5,26 @@ from utils.auth import verify_key
 
 router = APIRouter()
 
+from typing import Optional
+
 class AppRequest(BaseModel):
     action: str
-    app: str
+    app: Optional[str] = None
     args: str = ""
 
 @router.post("/", dependencies=[Depends(verify_key)])
 def handle_app_action(req: AppRequest):
     try:
         if req.action == "launch":
+            if not req.app:
+                raise HTTPException(status_code=422, detail="'app' is required for launch action")
             cmd = f"{req.app} {req.args}"
             subprocess.Popen(cmd, shell=True)
             return {"status": f"Launched {req.app}"}
 
         elif req.action == "kill":
+            if not req.app:
+                raise HTTPException(status_code=422, detail="'app' is required for kill action")
             kill_cmd = {
                 "Windows": f"taskkill /IM {req.app} /F",
                 "Linux": f"pkill -f {req.app}",
