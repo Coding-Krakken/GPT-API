@@ -10,11 +10,16 @@ class FileRequest(BaseModel):
     path: str
     target_path: str = None
     content: str = None
+    fault: str = None  # Optional fault injection
     recursive: bool = False
 
 @router.post("/", dependencies=[Depends(verify_key)])
 def handle_file_operation(req: FileRequest):
     try:
+        if req.fault == 'permission':
+            return {'error': 'Permission denied', 'code': 403}
+        if req.fault == 'io':
+            return {'error': 'I/O error occurred', 'code': 500}
         path = os.path.abspath(os.path.expanduser(req.path))
         target = os.path.abspath(os.path.expanduser(req.target_path)) if req.target_path else None
 

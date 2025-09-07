@@ -10,10 +10,13 @@ class RefactorRequest(BaseModel):
     replace: str
     dry_run: bool = False
     files: list[str]
+    fault: str = None  # Optional fault injection
 
 @router.post("/", dependencies=[Depends(verify_key)])
 def refactor_code(req: RefactorRequest):
     try:
+        if req.fault == 'io':
+            return {'error': 'I/O error occurred', 'code': 500}
         results = []
         for file in req.files:
             abs_path = os.path.abspath(os.path.expanduser(file))

@@ -10,11 +10,18 @@ class ShellCommand(BaseModel):
     command: str
     run_as_sudo: bool = False
     background: bool = False
+    fault: str = None  # Optional fault injection
     shell: str = "/bin/bash"  # Default shell for UNIX systems
 
 @router.post("/", dependencies=[Depends(verify_key)])
 def run_shell_command(data: ShellCommand):
+    if not data.command or not data.command.strip():
+        raise HTTPException(status_code=400, detail="Command cannot be empty or whitespace.")
     try:
+        if data.fault == 'permission':
+            return {'error': 'Permission denied', 'code': 403}
+        if data.fault == 'io':
+            return {'error': 'I/O error occurred', 'code': 500}
         full_command = data.command
         if data.run_as_sudo:
             full_command = f"sudo {full_command}"

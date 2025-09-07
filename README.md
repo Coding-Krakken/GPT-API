@@ -1,11 +1,24 @@
-# GPT Super-Agent Universal Control API
+
+# GPT-API: Universal System Control for Custom GPT Agents
 
 ![Version](https://img.shields.io/badge/version-4.0.0-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.13+-green.svg)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-red.svg)
 ![License](https://img.shields.io/badge/license-MIT-yellow.svg)
 
-A powerful FastAPI-based system control API designed for GPT agents to perform comprehensive system operations including file management, shell execution, code operations, package management, and more.
+**GPT-API is a universal backend that gives a custom GPT agent 100% programmatic control over your system.**
+
+At its core, this project exposes a complete FastAPI-based API for system operations—file management, shell, code execution, package management, git, apps, refactoring, monitoring, batch workflows, and more. The API endpoints are defined in `routes/`, and the "personality" and behavior of the custom GPT agent are shaped by `gpt-instructions.md` (agent instructions) and `openapi.yaml` (OpenAPI schema for endpoint discovery and guidance). This design allows you to build a truly autonomous, fully empowered GPT agent with total access to your system—securely, flexibly, and with full auditability.
+
+**Project Core:**
+
+- `routes/` : API endpoints for every system operation (file, shell, code, package, git, apps, refactor, monitor, batch, etc.)
+- `gpt-instructions.md` : Custom GPT's instructions for using the API endpoints
+- `openapi.yaml` : OpenAPI schema for the custom GPT to discover and utilize the endpoints
+- `main.py` : FastAPI app entrypoint
+- `tests/` : Comprehensive test suite for all endpoints and workflows
+
+> **This is not just an API—it's a universal control layer for building the most powerful, autonomous GPT agents possible.**
 
 ## 🚀 Features
 
@@ -241,38 +254,29 @@ POST /batch
 }
 ```
 
-## 🏗️ Project Structure
+
+## 🏗️ Project Structure (Core)
 
 ```
 GPT-API/
-├── main.py                 # FastAPI application setup
-├── cli.py                  # Command-line interface
-├── requirements.txt        # Python dependencies
-├── openapi.yaml           # OpenAPI specification
-├── .env                   # Environment variables (create this)
-├── routes/                # API route modules
-│   ├── __init__.py
-│   ├── shell.py          # Shell command execution
-│   ├── files.py          # File operations
-│   ├── code.py           # Code execution and analysis
-│   ├── system.py         # System information
-│   ├── monitor.py        # Real-time monitoring
-│   ├── git.py            # Git operations
-│   ├── package.py        # Package management
-│   ├── apps.py           # Application control
-│   ├── refactor.py       # Code refactoring
-│   └── batch.py          # Batch operations
-├── utils/                # Utility modules
-│   └── auth.py          # Authentication utilities
-├── database/             # Database layer for data persistence
-│   ├── __init__.py      # Package initialization
-│   ├── db.py            # Database connection and session management
-│   ├── models.py        # SQLAlchemy data models (Assistant, Thread, etc.)
-│   └── init_db.py       # Database initialization and schema setup
-└── assistants/          # GPT assistant utilities (optional)
-    ├── create_assistant.py
-    ├── thread_ops.py
-    └── ...
+├── main.py                  # FastAPI app entrypoint
+├── cli.py                   # Command-line interface
+├── requirements.txt         # Python dependencies
+├── openapi.yaml             # OpenAPI schema for endpoint discovery (for GPT agent)
+├── gpt-instructions.md      # Custom GPT's instructions for using the API endpoints
+├── routes/                  # API endpoints (one file per operation type)
+│   ├── shell.py             # Shell command execution
+│   ├── files.py             # File operations
+│   ├── code.py              # Code execution and analysis
+│   ├── system.py            # System information
+│   ├── monitor.py           # Real-time monitoring
+│   ├── git.py               # Git operations
+│   ├── package.py           # Package management
+│   ├── apps.py              # Application control
+│   ├── refactor.py          # Code refactoring
+│   └── batch.py             # Batch operations
+├── tests/                   # Comprehensive test suite for all endpoints
+└── ...                      # (Optional: assistants/, utils/, database/ for advanced features)
 ```
 
 ## �️ Database Layer

@@ -1,0 +1,11 @@
+endpoint,params,status_code,latency_ms,payload_size,anomaly
+/shell,{'command': 'uptime'},0,120,14,
+/shell,{'command': 'uptime --invalidflag'},1,132,214,Handled error
+/shell,"{'command': '', 'background': False}",0,98,0,Silent execution
+/files,"{'action': 'read', 'path': '/etc/hosts'}",0,115,98,
+/code,"{'action': 'run', 'path': '/tmp/test_script.py'}",0,133,32,
+/monitor,"{'type': 'cpu', 'live': False}",0,105,4,
+/monitor,"{'type': 'memory', 'live': False}",0,111,58,
+/refactor,"{'search': 'Hello', 'replace': 'HelloWorld', 'dry_run': False}",0,154,62,
+/git,"{'action': 'commit', 'path': '/tmp/fake-repo'}",0,177,142,
+/batch,{'operations': [Ellipsis]},400,95,0,UnrecognizedKwargsError

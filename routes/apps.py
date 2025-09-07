@@ -11,6 +11,8 @@ class AppRequest(BaseModel):
     action: str
     app: Optional[str] = None
     args: str = ""
+    filter: Optional[str] = None  # For filtering app list
+    limit: Optional[int] = 100    # For paging app list
 
 @router.post("/", dependencies=[Depends(verify_key)])
 def handle_app_action(req: AppRequest):
@@ -40,7 +42,16 @@ def handle_app_action(req: AppRequest):
                 "Darwin": "ps aux"
             }[platform.system()]
             result = subprocess.run(list_cmd, shell=True, capture_output=True, text=True)
-            return {"stdout": result.stdout}
+            output = result.stdout
+            # Filtering
+            if req.filter:
+                output = '\n'.join([line for line in output.splitlines() if req.filter.lower() in line.lower()])
+            # Pagination/limit
+            limit = req.limit if req.limit and req.limit > 0 else 100
+            lines = output.splitlines()
+            if len(lines) > limit:
+                output = '\n'.join(lines[:limit]) + f"\n...output truncated. Use filter or increase limit for more."
+            return {"stdout": output}
 
         else:
             raise HTTPException(status_code=400, detail="Invalid action")

@@ -19,11 +19,18 @@ class CodeAction(BaseModel):
     path: str = None
     language: str = "python"
     args: str = ""
+    fault: str = None  # Optional fault injection
     content: str = None
 
 @router.post("/", dependencies=[Depends(verify_key)])
 def handle_code_action(req: CodeAction):
     try:
+        if req.fault == 'syntax':
+            return {'error': 'Syntax error in code', 'code': 400}
+        if req.fault == 'io':
+            return {'error': 'I/O error occurred', 'code': 500}
+        if req.fault == 'permission':
+            return {'error': 'Permission denied', 'code': 403}
         # If content is provided, write to a temp file and use that path
         if req.content:
             with tempfile.NamedTemporaryFile(delete=False, mode='w', suffix=f'.{req.language}') as tmp:

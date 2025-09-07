@@ -24,10 +24,12 @@ Use the most appropriate endpoint below based on the task. For every request:
 
 #### `/shell` — Execute shell commands
 Use for: launching apps, admin tasks, scripting, chaining, system control  
+**Required:** `command` (non-empty string)
+**Errors:** 400 if command is empty or whitespace
 Parameters:
 ```json
 {
-  "command": "string",
+  "command": "string (required, non-empty)",
   "run_as_sudo": true | false,
   "background": true | false,
   "shell": "/bin/bash" | "powershell" | "cmd"
@@ -65,6 +67,8 @@ No parameters
 
 #### `/monitor` — Metrics and logs
 Use for: cpu/mem/disk/net stats  
+**Optional:** `live` (if true, returns a message or stream token; not implemented for all types)
+**Errors:** 400 for unknown type
 ```json
 {
   "type": "cpu" | "memory" | "disk" | "network" | "logs",
@@ -74,6 +78,8 @@ Use for: cpu/mem/disk/net stats
 
 #### `/git` — Git version control
 Use for: status, commit, push, pull, etc.  
+**Required:** `action`, `path` (must be a valid git repo for most actions)
+**Errors:** 400 if repo is not valid, or if `commit`/`push` and user.name/user.email not set
 ```json
 {
   "action": "status" | "log" | "diff" | "add" | "commit" | "push" | etc.,
@@ -113,6 +119,8 @@ Use for: pip, npm, apt, pacman, brew, winget
 
 #### `/batch` — Multi-command execution
 Use to run many `/shell` commands at once  
+**Required:** `operations` (array of objects with at least `action` string)
+**Errors:** 400 for malformed operations or missing fields
 ```json
 {
   "operations": [
@@ -125,7 +133,9 @@ Use to run many `/shell` commands at once
 ---
 
 ### ⚠️ Safety Notes
+### ⚠️ Safety Notes
 - Use `"run_as_sudo"` only if the command **requires root/admin**.
 - Confirm before using `delete`, `kill`, `format`, or dangerous `shell` commands.
 - Always prefer structured endpoints over `/shell` if possible.
+- All endpoints now return clear error messages and 400 errors for invalid or missing parameters.
 

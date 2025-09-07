@@ -80,6 +80,9 @@ def translate_package_args(manager: str, action: str, package: str = "") -> str:
     return maps.get(manager, {}).get(action, "")
 
 def handle_package_action(req: PackageRequest):
+    """
+    Handle package manager actions with paging/limit for large outputs (e.g., pacman list).
+    """
     try:
         base_cmd = {
             "pip": "pip",
@@ -97,10 +100,26 @@ def handle_package_action(req: PackageRequest):
         if not args:
             raise HTTPException(status_code=400, detail="Unsupported action")
 
-        cmd = f"{base_cmd} {args}"
+        # Add limit for list actions to avoid huge output
+        limit = 100
+        if req.manager == "pacman" and req.action == "list":
+            # Use head to limit output
+            cmd = f"{base_cmd} {args} | head -n {limit}"
+        elif req.manager == "apt" and req.action == "list":
+            cmd = f"{base_cmd} {args} | head -n {limit}"
+        elif req.manager == "npm" and req.action == "list":
+            cmd = f"{base_cmd} {args} --depth=0 | head -n {limit}"
+        else:
+            cmd = f"{base_cmd} {args}"
+
         result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+        # Cap output length for very large responses
+        max_len = 8000
+        stdout = result.stdout
+        if len(stdout) > max_len:
+            stdout = stdout[:max_len] + "\n...output truncated. Use filtering or pagination for full list."
         return {
-            "stdout": result.stdout,
+            "stdout": stdout,
             "stderr": result.stderr,
             "exit_code": result.returncode
         }
