@@ -51,27 +51,40 @@ Parameters:
 
 
 #### `/code` — Programming operations
-Use for: run/lint/test/fix/format code files
+
+Use for: run, lint, test, fix, format, and explain code files with strict validation and detailed feedback.
 
 **Important usage notes:**
-- Always ensure the `language` matches the file extension (e.g., `.py` for Python, `.js` for JavaScript). Mismatches will be rejected.
-- Only use supported languages: `python`, `js` (JavaScript), `bash`. Other languages will be rejected unless explicitly supported.
-- Use the correct file extension for the language:
-  - Python: `.py`
-  - JavaScript: `.js`
-  - Bash: `.sh`
-- If you attempt to run tests and none are found, the API will return a message suggesting you add `def test_*()` functions or `unittest.TestCase` classes.
-- The `args` field is validated. Only use safe, documented arguments for each language/action. Unknown or unsafe flags will be rejected.
+- `path` is required unless `content` is provided. If `content` is given, it is written to a temp file and executed (only for actions: run, test, lint, fix, format).
+- `content` is validated for type (string), size (max 100,000 chars), and (for Python) syntax. Invalid content returns a clear error.
+- `language` must match the file extension (e.g., `.py` for Python, `.js` for JavaScript). Mismatches are rejected.
+- Only supported languages are accepted: `python`, `js` (JavaScript), `bash`, `node` (see below for action support).
+- The `args` field is validated for each language/action. Unknown or unsafe flags are rejected.
+- All errors are returned as structured JSON with `error.code` and `error.message`.
+- All responses include `duration` (operation time in seconds). If `content` is used, a `content_hash` (SHA256) is included.
+- Concurrency: file actions are protected by a lock; concurrent requests to the same file return a `concurrent_access` error.
+
+**Supported Actions & Languages:**
+- `run`: python, bash, node
+- `test`, `lint`, `fix`, `format`: python, js
+- `explain`: requires `path` (not supported for `content`)
 
 Parameters:
 ```json
 {
-  "action": "run" | "lint" | "test" | "fix" | "format",
-  "path": "string", // must match language extension
-  "language": "python" | "js" | "bash",
+  "action": "run" | "lint" | "test" | "fix" | "format" | "explain",
+  "path": "string", // required unless content is provided, must match language extension
+  "content": "string", // optional, validated for type/size/syntax
+  "language": "python" | "js" | "bash" | "node",
   "args": "optional CLI args (validated)"
 }
 ```
+
+**Error Codes:**
+- `unsupported_language`, `file_not_found`, `invalid_args`, `invalid_content`, `concurrent_access`, `execution_error`, `no_tests_found`, etc.
+
+**Runtime Feedback:**
+- All responses include `duration` (operation time in seconds). If `content` is used, a `content_hash` (SHA256) is included.
 
 #### `/system` — Retrieve system info
 Use for: current OS, CPU usage, memory, uptime, current user  

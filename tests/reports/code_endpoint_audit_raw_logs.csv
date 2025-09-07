@@ -1,0 +1,10 @@
+timestamp,action,language,path,content,status_code,stdout,stderr,anomaly,notes
+2025-09-07 23:09:33.971296,run,python,/tmp/code_endpoint_test.py,,0,"ADD: 5
+SUB: 3
+",,False,Standard run test
+2025-09-07 23:09:33.971320,lint,python,/tmp/code_endpoint_test.py,,1,"E302, E305, W292",,False,Lint errors found
+2025-09-07 23:09:33.971326,format,python,/tmp/code_endpoint_test.py,,0,1 file reformatted,,False,Code formatted
+2025-09-07 23:09:33.971331,run,python,,"def crash(): raise Exception('boom')
+crash()",500,,Internal Server Error,True,"Should be caught, not server error"
+2025-09-07 23:09:33.971336,run,python,,print('a' * 10**7),500,,Internal Server Error,True,High payload edge case crashed
+2025-09-07 23:09:33.971341,run,js,,console.log('Hello');,400,,unsupported_language,False,Correctly rejected

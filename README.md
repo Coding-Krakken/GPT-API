@@ -141,19 +141,46 @@ curl -X POST "http://localhost:8000/files" \
 ```
 
 ### ⚡ Code Operations (`/code`)
-Execute, test, and analyze code:
+
+Execute, test, lint, fix, format, and explain code with strict validation and detailed feedback:
 
 ```json
 POST /code
 {
   "action": "run|test|lint|format|fix|explain",
-  "path": "/path/to/code.py",
-  "language": "python|javascript|bash|node",
-  "args": "--verbose"
+  "path": "/path/to/code.py",      // required unless 'content' is provided
+  "content": "code as string",      // optional, validated for type/size/syntax (see below)
+  "language": "python|js|bash|node", // required, must match file extension
+  "args": "--verbose"               // optional, validated per language/action
 }
 ```
 
+**Usage Notes:**
+- `path` is required unless `content` is provided. If `content` is given, it is written to a temp file and executed (only for actions: run, test, lint, fix, format).
+- `content` is validated for type (string), size (max 100,000 chars), and (for Python) syntax. Invalid content returns a clear error.
+- `language` must match the file extension (e.g., `.py` for Python, `.js` for JavaScript). Mismatches are rejected.
+- Only supported languages are accepted: `python`, `js` (JavaScript), `bash`, `node` (see below for action support).
+- The `args` field is validated for each language/action. Unknown or unsafe flags are rejected.
+- All errors are returned as structured JSON with `error.code` and `error.message`.
+- All responses include `duration` (operation time in seconds). If `content` is used, a `content_hash` (SHA256) is included.
+- Concurrency: file actions are protected by a lock; concurrent requests to the same file return a `concurrent_access` error.
 
+**Supported Actions & Languages:**
+- `run`: python, bash, node
+- `test`, `lint`, `fix`, `format`: python, js
+- `explain`: requires `path` (not supported for `content`)
+
+**Example:**
+```bash
+curl -X POST "http://localhost:8000/code" \
+  -H "x-api-key: your_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "action": "run",
+    "content": "print(123)",
+    "language": "python"
+  }'
+```
 
 **Supported Languages & Required Dependencies:**
 - **Python:** run, test (pytest), lint (flake8), format (black), fix (autopep8)
@@ -167,13 +194,18 @@ POST /code
       npm install -g eslint prettier
       ```
 - **Bash:** run with bash interpreter
+- **Node:** run with node interpreter
 
 ### `/code` Endpoint Validation & Feedback
 
-- The API strictly enforces that the `language` parameter matches the file extension (e.g., `.py` for Python, `.js` for JavaScript). Mismatches will be rejected with a clear error.
-- Only supported languages are accepted: `python`, `js` (JavaScript), `bash`.
-- The `args` field is validated for each language/action. Unknown or unsafe flags will be rejected.
+- The API strictly enforces that the `language` parameter matches the file extension (e.g., `.py` for Python, `.js` for JavaScript). Mismatches are rejected with a clear error.
+- Only supported languages are accepted: `python`, `js` (JavaScript), `bash`, `node`.
+- The `args` field is validated for each language/action. Unknown or unsafe flags are rejected.
 - If you run tests and none are found, the API will return a message suggesting you add `def test_*()` functions or `unittest.TestCase` classes.
+- If `content` is provided, it is validated for type, size, and (for Python) syntax. Invalid content returns an `invalid_content` error.
+- All errors are structured with `error.code` and `error.message` (e.g., `unsupported_language`, `file_not_found`, `invalid_args`, `invalid_content`, `concurrent_access`, `execution_error`).
+- All responses include `duration` (operation time in seconds). If `content` is used, a `content_hash` (SHA256) is included.
+- Concurrency: file actions are protected by a lock; concurrent requests to the same file return a `concurrent_access` error.
 
 ### 📊 System Monitoring (`/system`)
 Get comprehensive system information:

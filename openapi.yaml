@@ -131,7 +131,7 @@ paths:
       operationId: codeOps
       summary: Execute, test, lint, and manipulate code files in Python, JS, Bash, or Node.
       description: |
-        Perform code actions (run, test, lint, fix, format, explain) on supported languages. All errors are structured. See docs for details on arguments, validation, and error codes.
+        Perform code actions (run, test, lint, fix, format, explain) on supported languages. All errors are structured. See docs for details. Required fields: action, language, and path or content. See externalDocs for full details.
       requestBody:
         required: true
         content:
@@ -157,7 +157,8 @@ paths:
                     Optional CLI arguments. Only safe, whitelisted arguments are allowed per language/action. Malformed or unsafe arguments are rejected with `invalid_args` error.
                 content:
                   type: string
-                  description: "Optional code content. If provided, will be written to a temp file and executed."
+                  description: |
+                    Optional code content. If provided, will be written to a temp file and executed. Only supported for actions: run, test, lint, fix, format. Not supported for explain. Content is validated for type, size (max 100,000 chars), and (for Python) syntax before execution. Invalid content returns `invalid_content` error.
       responses:
         '200':
           description: Code action result
@@ -173,7 +174,12 @@ paths:
                         type: string
                       exit_code:
                         type: integer
-                  - $ref: '#/components/schemas/ErrorResponse'
+                      duration:
+                        type: number
+                        description: Operation duration in seconds
+                      content_hash:
+                        type: string
+                        description: SHA256 hash of content if content was provided
               examples:
                 success:
                   summary: Successful code action
@@ -181,6 +187,7 @@ paths:
                     stdout: "Test output"
                     stderr: ""
                     exit_code: 0
+                    duration: 0.12
                 no_tests:
                   summary: No tests found (exit code 5)
                   value:
@@ -191,8 +198,9 @@ paths:
                     stdout: ""
                     stderr: ""
                     exit_code: 5
+                    duration: 0.05
         '400':
-          description: Invalid input (e.g., empty command)
+          description: Invalid input (e.g., empty command, invalid content, unsupported language, etc.)
           content:
             application/json:
               schema:
@@ -548,6 +556,11 @@ paths:
             application/json:
               schema:
                 type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
                 properties:
                   results:
                     type: array

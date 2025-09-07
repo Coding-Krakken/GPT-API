@@ -49,6 +49,23 @@ class CodeAction(BaseModel):
                     return False, arg
         return True, None
 
+    def validate_content(self):
+        # Basic validation for content mode: size, type, and (for Python) syntax
+        if self.content is None:
+            return True, None
+        if not isinstance(self.content, str):
+            return False, "content_not_string"
+        if len(self.content) > 100_000:
+            return False, "content_too_large"
+        if self.language == "python":
+            try:
+                import ast
+                ast.parse(self.content)
+            except Exception:
+                return False, "invalid_python_syntax"
+        # Could add more language-specific checks here
+        return True, None
+
     def validate_language(self):
         # Enforce file extension matches language
         if self.path:
@@ -93,19 +110,22 @@ def handle_code_action(req: CodeAction):
         - Only supported for actions: run, test, lint, fix, format.
         - Not supported for explain (must provide a file path).
         - If `content` is provided for an unsupported action, returns `unsupported_content` error.
+        - Content is validated for type, size, and (for Python) syntax before execution.
     - **Supported Languages:**
         - `run`: python, bash, node
         - `lint`, `fix`, `format`, `test`: python, js
     - **Input Validation:**
-        - Unsafe file paths, overlong file names, missing/unsupported languages, and malformed input are rejected with clear error codes.
+        - Unsafe file paths, overlong file names, missing/unsupported languages, malformed input, and invalid content are rejected with clear error codes.
         - Only safe, whitelisted CLI arguments are allowed per language/action.
     - **Error Handling:**
-        - All errors are returned as structured JSON with `error.code` and `error.message` (e.g., `unsupported_language`, `file_not_found`, `invalid_args`, `concurrent_access`, `execution_error`).
-        - Subprocess failures are returned as structured errors with details in `stderr`.
+        - All errors are returned as structured JSON with `error.code` and `error.message` (e.g., `unsupported_language`, `file_not_found`, `invalid_args`, `invalid_content`, `concurrent_access`, `execution_error`).
+        - Subprocess and file handling failures are returned as structured errors with details in `stderr`.
     - **Concurrency:**
         - File actions are protected by a lock; concurrent requests to the same file will return a `concurrent_access` error.
     - **Test Feedback:**
         - If no tests are found, returns `no_tests_found` with a hint on how to add tests.
+    - **Runtime Feedback:**
+        - All responses include operation duration in seconds.
     """
     # Strict language whitelist
     supported_languages = ["python", "js", "bash", "node"]
@@ -115,6 +135,8 @@ def handle_code_action(req: CodeAction):
             "status": 400
         })
     import fcntl
+    import time
+    start_time = time.time()
     try:
         # Input validation: path injection, overlong file names
         if req.path:
@@ -134,6 +156,14 @@ def handle_code_action(req: CodeAction):
         if not valid_args:
             raise HTTPException(status_code=400, detail={
                 "error": {"code": "invalid_args", "message": f"Unsupported, malformed, or unsafe argument: {bad_arg}"},
+                "status": 400
+            })
+
+        # Content validation (if present)
+        valid_content, content_err = req.validate_content()
+        if not valid_content:
+            raise HTTPException(status_code=400, detail={
+                "error": {"code": "invalid_content", "message": f"Invalid content: {content_err}"},
                 "status": 400
             })
 
@@ -176,9 +206,15 @@ def handle_code_action(req: CodeAction):
                     "error": {"code": "unsupported_content", "message": f"'content' is not supported for action '{req.action}'. Please use a file path."},
                     "status": 400
                 })
-            with tempfile.NamedTemporaryFile(delete=False, mode='w', suffix=f'.{req.language}') as tmp:
-                tmp.write(req.content)
-                abs_path = tmp.name
+            try:
+                with tempfile.NamedTemporaryFile(delete=False, mode='w', suffix=f'.{req.language}') as tmp:
+                    tmp.write(req.content)
+                    abs_path = tmp.name
+            except Exception as e:
+                raise HTTPException(status_code=500, detail={
+                    "error": {"code": "tempfile_error", "message": f"Failed to create temp file: {str(e)}"},
+                    "status": 500
+                })
         else:
             if not req.path:
                 raise HTTPException(status_code=400, detail={
@@ -284,15 +320,18 @@ def handle_code_action(req: CodeAction):
         try:
             result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
         except Exception as e:
+            duration = time.time() - start_time
             return {
                 "error": {"code": "subprocess_error", "message": f"Failed to execute command: {str(e)}"},
                 "status": 500,
                 "stdout": "",
                 "stderr": str(e),
-                "exit_code": -1
+                "exit_code": -1,
+                "duration": duration
             }
         # Special handling for pytest exit code 5 (no tests found)
         if req.action == "test" and req.language == "python" and result.returncode == 5:
+            duration = time.time() - start_time
             return {
                 "error": {
                     "code": "no_tests_found",
@@ -301,10 +340,12 @@ def handle_code_action(req: CodeAction):
                 "status": 200,
                 "stdout": result.stdout,
                 "stderr": result.stderr,
-                "exit_code": result.returncode
+                "exit_code": result.returncode,
+                "duration": duration
             }
         # For run: if exit code is 127 (command not found), return structured error
         if req.action == "run" and result.returncode == 127:
+            duration = time.time() - start_time
             return {
                 "error": {
                     "code": "unsupported_language",
@@ -313,10 +354,12 @@ def handle_code_action(req: CodeAction):
                 "status": 400,
                 "stdout": result.stdout,
                 "stderr": result.stderr,
-                "exit_code": result.returncode
+                "exit_code": result.returncode,
+                "duration": duration
             }
         # Catch all nonzero exit codes and return as error (except for test/lint/format/fix which may have nonzero for warnings)
         if result.returncode != 0 and req.action == "run":
+            duration = time.time() - start_time
             return {
                 "error": {
                     "code": "execution_error",
@@ -325,14 +368,17 @@ def handle_code_action(req: CodeAction):
                 "status": 400,
                 "stdout": result.stdout,
                 "stderr": result.stderr,
-                "exit_code": result.returncode
+                "exit_code": result.returncode,
+                "duration": duration
             }
         # Add context: file path, action, language, and content hash (if content provided)
         import hashlib
+        duration = time.time() - start_time
         context = {
             "action": req.action,
             "language": req.language,
             "path": req.path if hasattr(req, 'path') else None,
+            "duration": duration
         }
         if req.content:
             context["content_hash"] = hashlib.sha256(req.content.encode()).hexdigest()
