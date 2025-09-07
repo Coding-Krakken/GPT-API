@@ -13,16 +13,26 @@ class AppRequest(BaseModel):
     args: str = ""
     filter: Optional[str] = None  # For filtering app list
     limit: Optional[int] = 100    # For paging app list
+    offset: Optional[int] = 0     # For paging app list
 
 @router.post("/", dependencies=[Depends(verify_key)])
 def handle_app_action(req: AppRequest):
+    """
+    Handle app operations: launch, kill, list.
+    Edge behaviors:
+      - 'list' may return large output; use 'filter' and 'limit' to control size.
+      - If 'limit' is exceeded, output is truncated and a message is appended.
+      - If 'app' is missing for launch/kill, returns 422 error.
+      - Schema drift: new fields may be ignored unless documented.
+      - Implicit precondition: 'app' must be installed and in PATH for launch/kill.
+    """
     try:
         if req.action == "launch":
             if not req.app:
                 raise HTTPException(status_code=422, detail="'app' is required for launch action")
             cmd = f"{req.app} {req.args}"
             subprocess.Popen(cmd, shell=True)
-            return {"status": f"Launched {req.app}"}
+            return {"result": f"Launched {req.app}"}
 
         elif req.action == "kill":
             if not req.app:
@@ -33,7 +43,7 @@ def handle_app_action(req: AppRequest):
                 "Darwin": f"pkill -f {req.app}"
             }[platform.system()]
             subprocess.run(kill_cmd, shell=True)
-            return {"status": f"Killed {req.app}"}
+            return {"result": f"Killed {req.app}"}
 
         elif req.action == "list":
             list_cmd = {
@@ -44,14 +54,23 @@ def handle_app_action(req: AppRequest):
             result = subprocess.run(list_cmd, shell=True, capture_output=True, text=True)
             output = result.stdout
             # Filtering
-            if req.filter:
-                output = '\n'.join([line for line in output.splitlines() if req.filter.lower() in line.lower()])
-            # Pagination/limit
-            limit = req.limit if req.limit and req.limit > 0 else 100
             lines = output.splitlines()
-            if len(lines) > limit:
-                output = '\n'.join(lines[:limit]) + f"\n...output truncated. Use filter or increase limit for more."
-            return {"stdout": output}
+            if req.filter:
+                lines = [line for line in lines if req.filter.lower() in line.lower()]
+            total = len(lines)
+            offset = req.offset if req.offset and req.offset >= 0 else 0
+            limit = req.limit if req.limit and req.limit > 0 else 100
+            paged = lines[offset:offset+limit]
+            truncated = total > (offset + limit)
+            result_obj = {
+                "items": paged,
+                "filter": req.filter,
+                "limit": limit,
+                "offset": offset,
+                "total": total,
+                "truncated": truncated
+            }
+            return {"result": result_obj}
 
         else:
             raise HTTPException(status_code=400, detail="Invalid action")

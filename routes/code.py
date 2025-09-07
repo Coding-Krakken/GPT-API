@@ -26,11 +26,29 @@ class CodeAction(BaseModel):
 def handle_code_action(req: CodeAction):
     try:
         if req.fault == 'syntax':
-            return {'error': 'Syntax error in code', 'code': 400}
+            return {
+                'error': {
+                    'code': 'syntax_error',
+                    'message': 'Syntax error in code'
+                },
+                'status': 400
+            }
         if req.fault == 'io':
-            return {'error': 'I/O error occurred', 'code': 500}
+            return {
+                'error': {
+                    'code': 'io_error',
+                    'message': 'I/O error occurred'
+                },
+                'status': 500
+            }
         if req.fault == 'permission':
-            return {'error': 'Permission denied', 'code': 403}
+            return {
+                'error': {
+                    'code': 'permission_denied',
+                    'message': 'Permission denied'
+                },
+                'status': 403
+            }
         # If content is provided, write to a temp file and use that path
         if req.content:
             with tempfile.NamedTemporaryFile(delete=False, mode='w', suffix=f'.{req.language}') as tmp:
@@ -38,10 +56,19 @@ def handle_code_action(req: CodeAction):
                 abs_path = tmp.name
         else:
             if not req.path:
-                raise HTTPException(status_code=400, detail="Missing 'path' or 'content'")
+                raise HTTPException(status_code=400, detail={
+                    "error": {"code": "missing_path_or_content", "message": "Missing 'path' or 'content'"},
+                    "status": 400
+                })
             abs_path = os.path.abspath(os.path.expanduser(req.path))
             if not os.path.exists(abs_path):
-                raise HTTPException(status_code=404, detail="File does not exist")
+                raise HTTPException(
+                    status_code=404,
+                    detail={
+                        "error": {"code": "file_not_found", "message": f"File '{req.path}' not found. Use the /files endpoint to create or upload."},
+                        "status": 404
+                    }
+                )
 
         if req.action == "run":
             cmd = {
@@ -89,14 +116,34 @@ def handle_code_action(req: CodeAction):
                 return {"code": f.read(), "explanation": "[GPT should explain this]"}
 
         else:
-            raise HTTPException(status_code=400, detail="Invalid action")
+            raise HTTPException(status_code=400, detail={
+                "error": {"code": "invalid_action", "message": "Invalid action"},
+                "status": 400
+            })
 
         result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+        # Special handling for pytest exit code 5 (no tests found)
+        if req.action == "test" and req.language == "python" and result.returncode == 5:
+            return {
+                "error": {
+                    "code": "no_tests_found",
+                    "message": "No tests were found in the specified file."
+                },
+                "status": 200,
+                "stdout": result.stdout,
+                "stderr": result.stderr,
+                "exit_code": result.returncode
+            }
         return {
             "stdout": result.stdout,
             "stderr": result.stderr,
             "exit_code": result.returncode
         }
 
+    except HTTPException as e:
+        raise e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail={
+            "error": {"code": "internal_error", "message": str(e)},
+            "status": 500
+        })

@@ -153,9 +153,18 @@ POST /code
 }
 ```
 
-**Supported Languages:**
+
+**Supported Languages & Required Dependencies:**
 - **Python:** run, test (pytest), lint (flake8), format (black), fix (autopep8)
+    - The `/code` endpoint will attempt to auto-install `flake8`, `black`, and `autopep8` if missing, but for best results, install them manually:
+      ```bash
+      pip install flake8 black autopep8
+      ```
 - **JavaScript:** run (node), test (npm test), lint/fix (eslint), format (prettier)
+    - For JS code ops, ensure `eslint` and `prettier` are installed globally or in your project:
+      ```bash
+      npm install -g eslint prettier
+      ```
 - **Bash:** run with bash interpreter
 
 ### 📊 System Monitoring (`/system`)

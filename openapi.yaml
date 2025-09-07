@@ -54,6 +54,8 @@ paths:
     post:
       operationId: manageFiles
       summary: Perform all file-level operations via unified interface (single or batch)
+      description: |
+        Supports both single file operation (action+path) and batch (operations[]). If 'operations' is provided, it must be a non-empty array of file operation objects. Returns clear 400 errors for missing/invalid fields. Error responses are standardized.
       requestBody:
         required: true
         content:
@@ -65,8 +67,10 @@ paths:
                 action:
                   type: string
                   enum: [read, write, delete, copy, move, stat, exists, list]
+                  description: Required for single op. Ignored if 'operations' is present.
                 path:
                   type: string
+                  description: Required for single op. Ignored if 'operations' is present.
                 target_path:
                   type: string
                 content:
@@ -116,7 +120,7 @@ paths:
                             result:
                               type: string
         '400':
-          description: Invalid input (e.g., empty command)
+          description: Invalid input (e.g., missing required fields, invalid batch, or schema misuse)
           content:
             application/json:
               schema:
@@ -130,12 +134,33 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  stdout:
-                    type: string
-                  stderr:
-                    type: string
+                oneOf:
+                  - type: object
+                    properties:
+                      stdout:
+                        type: string
+                      stderr:
+                        type: string
+                      exit_code:
+                        type: integer
+                  - $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                success:
+                  summary: Successful code action
+                  value:
+                    stdout: "Test output"
+                    stderr: ""
+                    exit_code: 0
+                no_tests:
+                  summary: No tests found (exit code 5)
+                  value:
+                    error:
+                      code: "no_tests_found"
+                      message: "No tests were found in the specified file."
+                    status: 200
+                    stdout: ""
+                    stderr: ""
+                    exit_code: 5
         '400':
           description: Invalid input (e.g., empty command)
           content:
@@ -144,6 +169,8 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       operationId: codeOps
       summary: Execute, test, lint, and manipulate code
+      description: >
+        Supports run, test, lint, format, and fix for Python (needs flake8, black, autopep8) and JavaScript (needs eslint, prettier). Installs tools if missing, but manual install is recommended for reliability.
       requestBody:
         required: true
         content:
@@ -435,12 +462,22 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  results:
-                    type: array
-                    items:
-                      type: object
+                oneOf:
+                  - type: object
+                    properties:
+                      results:
+                        type: array
+                        items:
+                          type: object
+                  - type: object
+                    properties:
+                      result:
+                        type: string
+              examples:
+                dry_run_noop:
+                  summary: Dry-run with no matches
+                  value:
+                    result: "No matches found."
         '400':
           description: Invalid input (e.g., empty command)
           content:
@@ -531,9 +568,19 @@ components:
     ErrorResponse:
       type: object
       properties:
-        code:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+          required: [code, message]
+        status:
           type: integer
-        message:
-          type: string
-        trace_id:
+        debug:
+          type: array
+          items:
+            type: string
+        trace:
           type: string
