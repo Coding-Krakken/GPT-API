@@ -123,6 +123,19 @@ paths:
                     type: number
 
   /monitor:
+    get:
+      operationId: monitorHealthCheck
+      summary: Health check for /monitor endpoint
+      responses:
+        '200':
+          description: Health check result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: string
     post:
       operationId: liveMonitor
       summary: Monitor metrics or subscribe to events
