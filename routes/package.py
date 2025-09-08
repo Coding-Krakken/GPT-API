@@ -13,16 +13,30 @@ class PackageRequest(BaseModel):
 @router.post("/", dependencies=[Depends(verify_key)])
 async def package_post(request: Request):
     if request.headers.get("content-type", "").startswith("application/json"):
-        data = await request.json()
-        manager = data.get("manager")
-        action = data.get("action")
-        package = data.get("package", "")
+        try:
+            data = await request.json()
+            manager = data.get("manager")
+            action = data.get("action")
+            package = data.get("package", "")
+        except Exception:
+            # If JSON parsing fails, fall back to query params
+            params = request.query_params
+            manager = params.get("manager")
+            action = params.get("action")
+            package = params.get("package", "")
     else:
         # Accept query params as fallback
         params = request.query_params
         manager = params.get("manager")
         action = params.get("action")
         package = params.get("package", "")
+    
+    # Validate required fields
+    if not manager:
+        raise HTTPException(status_code=400, detail="Unsupported package manager")
+    if not action:
+        raise HTTPException(status_code=400, detail="Unsupported action")
+    
     req = PackageRequest(manager=manager, action=action, package=package)
     return handle_package_action(req)
 
@@ -123,5 +137,8 @@ def handle_package_action(req: PackageRequest):
             "stderr": result.stderr,
             "exit_code": result.returncode
         }
+    except HTTPException:
+        # Re-raise HTTP exceptions to preserve their status codes
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

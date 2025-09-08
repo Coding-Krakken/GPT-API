@@ -30,34 +30,42 @@ class ShellCommand(BaseModel):
 async def run_shell_command(data: ShellCommand, request: Request):
     if not data.command or not data.command.strip():
         resp = {
-            "error": {"code": "missing_command", "message": "Command cannot be empty or whitespace."},
-            "status": 400
+            "result": {
+                "error": {"code": "missing_command", "message": "Command cannot be empty or whitespace."},
+                "status": 400
+            }
         }
         log_api_action(request, "/shell", "run_shell_command", 400, str(resp))
-        raise HTTPException(status_code=400, detail=resp)
+        return resp
     # Enforce max command length (4096 chars, as in OpenAPI schema)
     if len(data.command) > 4096:
         resp = {
-            "error": {"code": "command_too_long", "message": "Command exceeds maximum allowed length (4096 characters)."},
-            "status": 400
+            "result": {
+                "error": {"code": "command_too_long", "message": "Command exceeds maximum allowed length (4096 characters)."},
+                "status": 400
+            }
         }
         log_api_action(request, "/shell", "run_shell_command", 400, str(resp))
-        raise HTTPException(status_code=400, detail=resp)
+        return resp
     import time
     start = time.time()
     payload_size = len(data.command) if data.command else 0
     try:
         if data.fault == 'permission':
             resp = {
-                "error": {"code": "permission_denied", "message": "Permission denied"},
-                "status": 403
+                "result": {
+                    "error": {"code": "permission_denied", "message": "Permission denied"},
+                    "status": 403
+                }
             }
             log_api_action(request, "/shell", "run_shell_command", 403, str(resp))
             return resp
         if data.fault == 'io':
             resp = {
-                "error": {"code": "io_error", "message": "I/O error occurred"},
-                "status": 500
+                "result": {
+                    "error": {"code": "io_error", "message": "I/O error occurred"},
+                    "status": 500
+                }
             }
             log_api_action(request, "/shell", "run_shell_command", 500, str(resp))
             return resp
@@ -105,8 +113,10 @@ async def run_shell_command(data: ShellCommand, request: Request):
             return resp
     except Exception as e:
         resp = {
-            "error": {"code": "subprocess_error", "message": str(e)},
-            "status": 500
+            "result": {
+                "error": {"code": "subprocess_error", "message": str(e)},
+                "status": 500
+            }
         }
         log_api_action(request, "/shell", "run_shell_command", 500, str(resp))
-        raise HTTPException(status_code=500, detail=resp)
+        return resp

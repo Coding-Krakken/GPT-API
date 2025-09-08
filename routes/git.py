@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 import subprocess, os
-from typing import List
+from typing import List, Optional
 from utils.auth import verify_key
 
 router = APIRouter()
@@ -11,26 +11,29 @@ router = APIRouter()
 
 
 class GitRequest(BaseModel):
-    action: str
-    path: str
+    action: Optional[str] = None
+    path: Optional[str] = None
     args: str = ""
     debug: bool = False
 
     def validate(self, allowed_actions: List[str]):
         if not self.action or self.action not in allowed_actions:
-            raise HTTPException(status_code=400, detail={
+            return {
                 "error": {
                     "code": "invalid_action",
                     "message": f"Action '{self.action}' is not supported. Allowed: {allowed_actions}"
-                }
-            })
+                },
+                "status": 400
+            }
         if not self.path or not isinstance(self.path, str):
-            raise HTTPException(status_code=400, detail={
+            return {
                 "error": {
-                    "code": "invalid_path",
+                    "code": "invalid_path", 
                     "message": "A valid 'path' string is required."
-                }
-            })
+                },
+                "status": 400
+            }
+        return None
 
 
 
@@ -48,21 +51,28 @@ def handle_git_command(req: GitRequest):
         "init", "status", "add", "commit", "push", "pull", "clone", "log", "diff", "checkout", "branch", "merge", "reset", "remote", "fetch", "rebase", "tag", "config"
     ]
     try:
-        req.validate(allowed_actions)
+        validation_error = req.validate(allowed_actions)
+        if validation_error:
+            return validation_error
         repo_path = os.path.abspath(os.path.expanduser(req.path))
-        payload_size = len(str(req.dict()))
+        payload_size = len(str(req.model_dump()))
         debug_info = [] if req.debug else None
-        # If directory does not exist and action is init, create it
+        # If directory does not exist and action is init or clone, create it or allow it
         if not os.path.exists(repo_path):
             if req.action == "init":
                 os.makedirs(repo_path, exist_ok=True)
                 if req.debug:
                     debug_info.append(f"Created directory: {repo_path}")
+            elif req.action == "clone":
+                # For clone, destination should not exist, so allow it
+                if req.debug:
+                    debug_info.append(f"Clone destination: {repo_path}")
+                pass
             else:
                 if req.debug:
                     debug_info.append(f"Path does not exist: {repo_path}")
                 return {"error": {"code": "invalid_path", "message": f"Repository path '{repo_path}' does not exist."}, "status": 400, "debug": debug_info}
-        if not os.path.isdir(repo_path):
+        if os.path.exists(repo_path) and not os.path.isdir(repo_path):
             if req.debug:
                 debug_info.append(f"Not a directory: {repo_path}")
             return {
@@ -79,7 +89,8 @@ def handle_git_command(req: GitRequest):
         has_gitignore = os.path.isfile(os.path.join(repo_path, ".gitignore"))
 
         # Accept directory if it is a git repo, or has .gitignore, or is empty and action is init
-        if not has_git:
+        # For clone, skip all these checks since destination shouldn't exist
+        if req.action != "clone" and not has_git:
             if req.action == "init":
                 if req.debug:
                     debug_info.append(f"Allowing init on non-git directory: {repo_path}")
@@ -125,7 +136,24 @@ def handle_git_command(req: GitRequest):
             email = get_config("user.email")
             return bool(name and email)
 
+        # Check for identity config BEFORE commit/push (but not for clone since repo doesn't exist yet)
+        if req.action in ["commit", "push"]:
+            if not check_git_identity(repo_path):
+                resp = {
+                    "error": {
+                        "code": "missing_identity",
+                        "message": "Git user.name and user.email must be set for commit/push. Use 'git config user.name' and 'git config user.email' in your repo."
+                    },
+                    "status": 400
+                }
+                if req.debug:
+                    resp["debug"] = debug_info
+                return resp
+
         cmd = f"git -C \"{repo_path}\" {req.action} {req.args}"
+        if req.action == "clone":
+            # For clone, don't use -C since the directory doesn't exist yet
+            cmd = f"git {req.action} {req.args} \"{repo_path}\""
         if req.debug:
             debug_info.append(f"Running command: {cmd}")
         result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
@@ -162,19 +190,6 @@ def handle_git_command(req: GitRequest):
             if req.debug:
                 err_resp["debug"] = debug_info
             return err_resp
-        # Check for identity config on commit/push
-        if req.action in ["commit", "push"]:
-            if not check_git_identity(repo_path):
-                resp = {
-                    "error": {
-                        "code": "missing_identity",
-                        "message": "Git user.name and user.email must be set for commit/push. Use 'git config user.name' and 'git config user.email' in your repo."
-                    },
-                    "status": 400
-                }
-                if req.debug:
-                    resp["debug"] = debug_info
-                return resp
         latency = round((time.time() - start) * 1000, 2)
         resp = {
             "stdout": result.stdout.strip(),
@@ -184,16 +199,6 @@ def handle_git_command(req: GitRequest):
             "payload_size": payload_size,
             "status": 200
         }
-        if req.debug:
-            resp["debug"] = debug_info
-        return resp
-    except HTTPException as e:
-        # If detail is already a dict with error, just return it
-        if isinstance(e.detail, dict) and "error" in e.detail:
-            if req.debug and isinstance(e.detail, dict):
-                e.detail["debug"] = debug_info
-            return e.detail
-        resp = {"error": {"code": "http_exception", "message": str(e.detail)}, "status": e.status_code}
         if req.debug:
             resp["debug"] = debug_info
         return resp

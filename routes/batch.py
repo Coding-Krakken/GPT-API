@@ -27,20 +27,21 @@ class Operation(BaseModel):
 # Accept both /batch and /batch/ and both Pydantic and raw JSON for maximum compatibility
 @router.post("/", dependencies=[Depends(verify_key)])
 @router.post("", dependencies=[Depends(verify_key)])
-async def run_batch(req: BatchRequest = None, request: Request = None):
-    # Try to parse as Pydantic first, fallback to raw JSON
-    if req is None:
-        try:
-            data = await request.json()
-            operations = data.get("operations")
-            dry_run = data.get("dry_run", False)
-            if not isinstance(operations, list):
-                return {"error": {"code": "invalid_batch", "message": "Request body must include 'operations' as a list of operation objects."}, "status": 400}
-            req = BatchRequest(operations=operations, dry_run=dry_run)
-        except Exception as e:
-            return {"error": {"code": "invalid_json", "message": f"Invalid JSON or missing fields: {str(e)}"}, "status": 400}
+async def run_batch(request: Request):
+    # Always parse as raw JSON to avoid Pydantic validation issues
+    try:
+        data = await request.json()
+        operations = data.get("operations")
+        dry_run = data.get("dry_run", False)
+        if not isinstance(operations, list):
+            return {"error": {"code": "invalid_batch", "message": "Request body must include 'operations' as a list of operation objects."}, "status": 400}
+        req = type('BatchRequest', (), {'operations': operations, 'dry_run': dry_run})()
+    except Exception as e:
+        return {"error": {"code": "invalid_json", "message": f"Invalid JSON or missing fields: {str(e)}"}, "status": 400}
+    
     if not hasattr(req, 'operations') or not isinstance(req.operations, list):
         return {"error": {"code": "invalid_batch", "message": "Request body must include 'operations' as a list of operation objects."}, "status": 400}
+    
     results = []
     for idx, op in enumerate(req.operations):
         try:
@@ -74,7 +75,13 @@ async def run_batch(req: BatchRequest = None, request: Request = None):
                 file_args = op.get("args", op)
                 try:
                     resp = handle_file_operation(FileRequest(**file_args))
-                    results.append({"action": action, "result": resp})
+                    # For files, merge the result structure to avoid double nesting
+                    if "result" in resp and isinstance(resp["result"], dict):
+                        file_result = resp["result"]
+                        file_result.update({"latency_ms": resp.get("latency_ms"), "payload_size": resp.get("payload_size")})
+                        results.append({"action": action, "result": file_result})
+                    else:
+                        results.append({"action": action, "result": resp})
                 except Exception as e:
                     results.append({"action": action, "error": {"code": "files_error", "message": str(e)}, "status": 500})
             elif action == "code":
@@ -84,10 +91,19 @@ async def run_batch(req: BatchRequest = None, request: Request = None):
                     if not isinstance(code_args, CodeAction):
                         code_args = CodeAction(**code_args)
                     resp = handle_code_action(code_args)
-                    if isinstance(resp, dict) and 'error' in resp:
+                    if isinstance(resp, dict) and 'result' in resp and 'error' in resp['result']:
+                        # Handle new code endpoint error structure
+                        results.append({"action": action, "result": resp['result']})
+                    elif isinstance(resp, dict) and 'error' in resp:
+                        # Handle old error structure for backward compatibility
                         results.append({"action": action, "error": resp['error'], "status": resp.get('status', 400)})
                     else:
-                        results.append({"action": action, "result": resp})
+                        # For code actions, flatten the nested result structure
+                        if isinstance(resp, dict) and "result" in resp:
+                            code_result = resp["result"]
+                            results.append({"action": action, "result": code_result})
+                        else:
+                            results.append({"action": action, "result": resp})
                 except HTTPException as e:
                     detail = getattr(e, 'detail', None)
                     if isinstance(detail, dict) and 'error' in detail:
@@ -100,5 +116,4 @@ async def run_batch(req: BatchRequest = None, request: Request = None):
                 results.append({"action": action, "error": {"code": "unsupported_action", "message": "Unsupported action in batch"}, "status": 400})
         except Exception as e:
             results.append({"action": op.get("action"), "error": {"code": "internal_error", "message": str(e)}, "status": 500})
-    return {"results": results}
     return {"results": results}

@@ -37,7 +37,7 @@ def monitor_system(req: MonitorRequest):
             data = {
                 "total_gb": round(mem.total / 1e9, 2),
                 "used_gb": round(mem.used / 1e9, 2),
-                "percent": mem.percent
+                "percent": round(mem.used / mem.total * 100, 1)  # Calculate percent from original values
             }
             return {"result": json.dumps(data)}
         elif t == "disk":
@@ -45,7 +45,7 @@ def monitor_system(req: MonitorRequest):
             data = {
                 "total_gb": round(usage.total / 1e9, 2),
                 "used_gb": round(usage.used / 1e9, 2),
-                "percent": usage.percent
+                "percent": round(usage.used / usage.total * 100, 1)  # Calculate percent from original values
             }
             return {"result": json.dumps(data)}
         elif t == "network":
@@ -67,7 +67,7 @@ def monitor_system(req: MonitorRequest):
                         fs_data[p.mountpoint] = {
                             "total_gb": round(usage.total / 1e9, 2),
                             "used_gb": round(usage.used / 1e9, 2),
-                            "percent": usage.percent
+                            "percent": round(usage.used / usage.total * 100, 1)  # Calculate percent from original values
                         }
                     except Exception:
                         fs_data[p.mountpoint] = "unavailable"

@@ -86,7 +86,7 @@ def get_app_capabilities():
             capabilities["tools"]["pywin32"] = True
         except ImportError:
             capabilities["tools"]["pywin32"] = False
-    capabilities["python_version"] = sys.version
+    capabilities["python_version"] = platform.python_version()
     return capabilities
 
 # /apps endpoint: Cross-platform process and GUI window management.
@@ -94,17 +94,10 @@ def get_app_capabilities():
 # macOS: AppleScript/osascript.
 # Windows: PowerShell/pywin32.
 
-from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel
-import subprocess, os, platform
-from utils.auth import verify_key
-
-router = APIRouter()
-
 from typing import Optional
 
 class AppRequest(BaseModel):
-    action: str
+    action: Optional[str] = None
     app: Optional[str] = None
     args: str = ""
     filter: Optional[str] = None  # For filtering app list
@@ -147,12 +140,11 @@ def handle_app_action(req: AppRequest, response: Response):
     import re
     start_time = time.time()
     def error_response(code, message, status_code=400, extra=None, errors=None):
-        response.status_code = status_code
+        response.status_code = 200  # Always return 200, put status in response body
         err_obj = {"code": code, "message": message}
         if extra:
             err_obj.update(extra)
         err = {
-            "status": "error",
             "errors": [err_obj],
             "timestamp": _now_ts(),
             "latency_ms": int((time.time() - start_time) * 1000)

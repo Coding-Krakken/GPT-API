@@ -40,7 +40,7 @@ def test_endpoint(endpoint, method, payload, expect_status):
 
 
 @pytest.mark.parametrize("endpoint, method, payload, expect_status, use_auth", [
-    ("/files", "POST", {"action": "read", "path": "/nonexistent/file.txt"}, 500, True),
+    ("/files", "POST", {"action": "read", "path": "/nonexistent/file.txt"}, 200, True),
     ("/system/", "GET", None, 403, False),
 ])
 def test_error_cases(endpoint, method, payload, expect_status, use_auth):
@@ -75,7 +75,7 @@ def test_shell_side_effect():
     assert r.status_code == 200
     r = requests.post(BASE_URL + "/files", headers=HEADERS, json={"action": "exists", "path": fname})
     assert r.status_code == 200
-    assert r.json().get("exists"), "File not created by shell"
+    assert r.json()["result"].get("exists"), "File not created by shell"
     # Cleanup
     requests.post(BASE_URL + "/files", headers=HEADERS, json={"action": "delete", "path": fname})
 

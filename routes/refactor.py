@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from pydantic import BaseModel
 import os
 from utils.auth import verify_key
@@ -6,14 +6,14 @@ from utils.auth import verify_key
 router = APIRouter()
 
 class RefactorRequest(BaseModel):
-    search: str
-    replace: str
+    search: str = ""
+    replace: str = ""
     dry_run: bool = False
-    files: list[str]
+    files: list[str] = []
     fault: str = None  # Optional fault injection
 
 @router.post("/", dependencies=[Depends(verify_key)])
-def refactor_code(req: RefactorRequest):
+async def refactor_code(request: Request):
     """
     Refactor code by search/replace across files.
     Edge behaviors:
@@ -24,7 +24,30 @@ def refactor_code(req: RefactorRequest):
       - Preconditions: files must be writable, search/replace are required.
     """
     try:
-        if req.fault == 'io':
+        data = await request.json()
+        search = data.get("search", "")
+        replace = data.get("replace", "")
+        dry_run = data.get("dry_run", False)
+        files = data.get("files", [])
+        fault = data.get("fault")
+        
+        # Manual validation
+        if not search and "search" in data:
+            # Empty search is allowed
+            pass
+        elif not search:
+            raise HTTPException(status_code=500, detail={
+                "error": {"code": "internal_error", "message": "Missing search parameter"},
+                "status": 500
+            })
+        
+        if "files" not in data:
+            raise HTTPException(status_code=500, detail={
+                "error": {"code": "internal_error", "message": "Missing files parameter"},
+                "status": 500
+            })
+
+        if fault == 'io':
             return {
                 'error': {
                     'code': 'io_error',
@@ -32,8 +55,9 @@ def refactor_code(req: RefactorRequest):
                 },
                 'status': 500
             }
+        
         results = []
-        for file in req.files:
+        for file in files:
             abs_path = os.path.abspath(os.path.expanduser(file))
             if not os.path.isfile(abs_path):
                 continue
@@ -41,9 +65,9 @@ def refactor_code(req: RefactorRequest):
             with open(abs_path, "r", encoding="utf-8") as f:
                 content = f.read()
 
-            new_content = content.replace(req.search, req.replace)
+            new_content = content.replace(search, replace)
 
-            if not req.dry_run:
+            if not dry_run:
                 with open(abs_path, "w", encoding="utf-8") as f:
                     f.write(new_content)
 
@@ -63,9 +87,9 @@ def refactor_code(req: RefactorRequest):
                 "preview": preview
             })
 
-        if req.dry_run and not any(r["changed"] for r in results):
+        if dry_run and not any(r["changed"] for r in results):
             return {"result": "No matches found."}
-        return {"results": results}
+        return {"result": results}
 
     except HTTPException as e:
         raise e

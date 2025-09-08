@@ -110,7 +110,7 @@ def handle_file_operation(req: FileRequest):
                     op_obj = op
                 results.append(_do_file_op(op_obj))
             latency = round((time.time() - start) * 1000, 2)
-            payload_size = len(str(req.dict()))
+            payload_size = len(str(req.model_dump()))
             return jsonable_encoder({"results": results, "latency_ms": latency, "payload_size": payload_size})
         # Single op
         if not req.action or not req.path:
@@ -125,7 +125,7 @@ def handle_file_operation(req: FileRequest):
         )
         result = _do_file_op(op)
         latency = round((time.time() - start) * 1000, 2)
-        payload_size = len(str(req.dict()))
+        payload_size = len(str(req.model_dump()))
         return {"result": result, "latency_ms": latency, "payload_size": payload_size}
     except Exception as e:
         return {"error": {"code": "internal_error", "message": str(e)}, "status": 500}

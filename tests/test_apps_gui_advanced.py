@@ -19,12 +19,12 @@ def test_missing_tools_guidance():
     payload = {"action": "list_windows"}
     r = client.post("/apps", headers=HEADERS, json=payload)
     os.environ["PATH"] = old_path
-    assert r.status_code == 500
+    assert r.status_code == 200
     data = r.json()
-    assert data["error"] == "MissingTools"
-    assert "Install with" in data["detail"]
-    assert "missing_tools" in data
-    assert "env" in data
+    assert "errors" in data
+    assert data["errors"][0]["code"] == "MISSING_TOOLS"
+    assert "missing_tools" in data["errors"][0]
+    assert "env" in data["errors"][0]
 
 def test_env_logging_and_fallback():
     payload = {"action": "list_windows"}

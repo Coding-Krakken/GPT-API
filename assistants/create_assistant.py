@@ -59,7 +59,7 @@ def create_assistant(data: AssistantCreateRequest):
                 logger.debug(f"📦 Loaded tools from {path}: {json.dumps(tools, indent=2)}")
                 loaded_tools.extend(tools)
 
-        payload = data.dict()
+        payload = data.model_dump()
         payload["tools"] = loaded_tools  # 🔧 Inject merged tools
         payload.pop("file_ids", None)
 

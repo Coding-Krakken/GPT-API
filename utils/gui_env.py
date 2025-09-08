@@ -43,6 +43,7 @@ def detect_gui_environment():
         for tool in ["wmctrl", "xprop", "Xvfb", "vncserver", "x11vnc"]:
             if not shutil.which(tool):
                 env["missing_tools"].append(tool)
+    return env
 def get_install_guidance(missing_tools):
     if not missing_tools:
         return None
