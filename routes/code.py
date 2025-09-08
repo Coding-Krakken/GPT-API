@@ -232,10 +232,11 @@ def handle_code_action(req: CodeAction):
                 )
 
         # Concurrency: file lock for all file-based actions
-        lockfile = abs_path + ".lock"
         lock_acquired = False
         lock_fd = None
+        lockfile = None
         try:
+            lockfile = abs_path + ".lock"
             lock_fd = open(lockfile, "w")
             fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
             lock_acquired = True
