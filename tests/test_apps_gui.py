@@ -1,10 +1,16 @@
-import os
-import requests
-import pytest
 
-API_KEY = os.getenv("API_KEY", "9e2b7c8a-4f1e-4b2a-9d3c-7f6e5a1b2c3d")
-BASE_URL = "http://localhost:8000"
-HEADERS = {"x-api-key": API_KEY, "Content-Type": "application/json"}
+import os
+import sys
+import pytest
+from fastapi.testclient import TestClient
+
+# Ensure project root is in sys.path for import
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from main import app
+
+API_KEY = os.environ.get("API_KEY", "test-key")
+HEADERS = {"x-api-key": API_KEY}
+client = TestClient(app)
 
 gui_actions = [
     ("focus", {}),
@@ -20,7 +26,7 @@ def test_gui_actions(action, extra):
     # Adjust window_title as needed for your environment.
     payload = {"action": action, "window_title": "code"}
     payload.update(extra)
-    r = requests.post(BASE_URL + "/apps", headers=HEADERS, json=payload)
+    r = client.post("/apps", headers=HEADERS, json=payload)
     # Accept 200 (success) or 404 (window not found) as valid for CI
     assert r.status_code in (200, 404), f"{action} failed: {r.text}"
     if r.status_code == 200:
