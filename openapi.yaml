@@ -1,9 +1,10 @@
 openapi: 3.1.0
 info:
   title: GPT Super-Agent Universal Control API
+  description: Universal FastAPI-based control API for GPT agents to perform system operations (file, shell, code, package, git, apps, refactor, monitor, batch, etc.).
   version: 4.0.0
 servers:
-  - url: https://7v6bdq8q-8000.usw3.devtunnels.ms
+  - url: https://gpt-api.ngrok.app
 paths:
   /shell:
     post:
@@ -208,6 +209,8 @@ paths:
 
   /system:
     get:
+      operationId: getSystemState
+      summary: Retrieve system information, resources, users, and time data
       responses:
         '200':
           description: System information
@@ -226,20 +229,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-      operationId: getSystemState
-      summary: Retrieve system information, resources, users, and time data
-      responses:
-        '200':
-          description: System information
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  os:
-                    type: string
-                  cpu_usage_percent:
-                    type: number
 
   /monitor:
     get:
@@ -354,24 +343,6 @@ paths:
 
   /package:
     post:
-      responses:
-        '200':
-          description: Package manager result
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  stdout:
-                    type: string
-                  stderr:
-                    type: string
-        '400':
-          description: Invalid input (e.g., empty command)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
       operationId: packageManager
       summary: Manage system or language packages and environments
       requestBody:
@@ -400,27 +371,17 @@ paths:
                     type: string
                   stderr:
                     type: string
-
-  /apps:
-    post:
-      responses:
-        '200':
-          description: App control output
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  result:
-                    type: string
         '400':
           description: Invalid input (e.g., empty command)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+
+  /apps:
+    post:
       operationId: appControl
-      summary: Launch, kill, or manipulate desktop and third-party applications
+      summary: Launch, kill, or manipulate desktop and third-party applications, or manage windows
       requestBody:
         required: true
         content:
@@ -430,11 +391,36 @@ paths:
               properties:
                 action:
                   type: string
-                  enum: [launch, kill, focus, close, list]
+                  enum: [launch, kill, list, list_windows, focus, minimize, maximize, move, resize]
+                  description: |
+                    Action to perform. 'list_windows' enumerates all open windows (platform-specific). 'focus', 'minimize', 'maximize', 'move', 'resize' are GUI actions.
                 app:
                   type: string
+                  description: Application name (for launch/kill/focus, or as window match hint)
                 args:
                   type: string
+                  description: Arguments to pass to the app (for launch)
+                window_title:
+                  type: string
+                  description: Window title to match (for GUI actions)
+                pid:
+                  type: integer
+                  description: Process ID to match (for GUI actions)
+                window_index:
+                  type: integer
+                  description: Index of window to act on if multiple match (default 0)
+                x:
+                  type: integer
+                  description: X position (for move/resize)
+                y:
+                  type: integer
+                  description: Y position (for move/resize)
+                width:
+                  type: integer
+                  description: Width (for resize)
+                height:
+                  type: integer
+                  description: Height (for resize)
                 # Pagination/filtering for 'list' action
                 limit:
                   type: integer
@@ -451,17 +437,136 @@ paths:
                   description: Filter apps by name substring (for 'list')
       responses:
         '200':
-          description: App control output
+          description: App control or window management output
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    properties:
+                      result:
+                        type: string
+                  - type: object
+                    properties:
+                      windows:
+                        type: array
+                        description: List of open windows (platform-specific fields)
+                        items:
+                          type: object
+                          properties:
+                            window_id:
+                              type: string
+                              description: Linux/X11 window ID (hex)
+                            window_handle:
+                              type: string
+                              description: Windows window handle (decimal)
+                            pid:
+                              type: string
+                              description: Process ID
+                            process:
+                              type: string
+                              description: Process name
+                            title:
+                              type: string
+                              description: Window title
+                            desktop:
+                              type: string
+                              description: Linux/X11 desktop number
+                            host:
+                              type: string
+                              description: Linux/X11 host
+                            geometry:
+                              type: object
+                              properties:
+                                x:
+                                  type: integer
+                                y:
+                                  type: integer
+                                width:
+                                  type: integer
+                                height:
+                                  type: integer
+                              description: Window geometry (Linux/X11)
+                            state:
+                              type: string
+                              description: Window state (Linux/X11)
+                      count:
+                        type: integer
+                        description: Number of windows returned
+                      env:
+                        type: object
+                        description: Environment info (Linux/X11)
+                        properties:
+                          DISPLAY:
+                            type: string
+                          WAYLAND_DISPLAY:
+                            type: string
+        '400':
+          description: Invalid input (e.g., empty command)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /apps/capabilities:
+    get:
+      operationId: getAppCapabilities
+      summary: Get supported /apps features for the current OS/session
+      responses:
+        '200':
+          description: Capabilities for /apps endpoint
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  result:
+                  os:
+                    type: string
+                  gui:
+                    type: boolean
+                  process_management:
+                    type: boolean
+                  window_management:
+                    type: boolean
+                  multi_window:
+                    type: boolean
+                  geometry:
+                    type: boolean
+                  state:
+                    type: boolean
+                  wayland:
+                    type: boolean
+                  x11:
+                    type: boolean
+                  tools:
+                    type: object
+                    additionalProperties:
+                      type: boolean
+                  python_version:
                     type: string
 
   /refactor:
     post:
+      operationId: refactorCode
+      summary: Mass refactors, renames, substitutions, and code moves
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                search:
+                  type: string
+                  maxLength: 1024
+                replace:
+                  type: string
+                  maxLength: 1024
+                dry_run:
+                  type: boolean
+                files:
+                  type: array
+                  items:
+                    type: string
       responses:
         '200':
           description: Refactor output
@@ -490,39 +595,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-      operationId: refactorCode
-      summary: Mass refactors, renames, substitutions, and code moves
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                search:
-                  type: string
-                  maxLength: 1024
-                replace:
-                  type: string
-                  maxLength: 1024
-                dry_run:
-                  type: boolean
-                files:
-                  type: array
-                  items:
-                    type: string
-      responses:
-        '200':
-          description: Refactor output
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  results:
-                    type: array
-                    items:
-                      type: object
 
   /batch:
     post:
@@ -561,19 +633,12 @@ paths:
                     type: array
                     items:
                       type: object
-                properties:
-                  results:
-                    type: array
-                    items:
-                      type: object
         '400':
           description: Invalid batch request (malformed operations)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-#
-# Standard error response schema
 components:
   schemas:
     ErrorResponse:

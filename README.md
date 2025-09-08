@@ -257,19 +257,28 @@ POST /package
 ```
 
 
+
 ### 📱 Application Control (`/apps`)
-Manage desktop applications:
+Manage desktop and GUI applications, including window management:
 
 ```json
 POST /apps
 {
-  "action": "launch|kill|list",
-  "app": "firefox|notepad|code", // required for launch/kill, optional for list
-  "args": "--new-window"
+  "action": "launch|kill|list|list_windows|focus|minimize|maximize|move|resize",
+  "app": "firefox|notepad|code",      // required for launch/kill/focus, optional for list
+  "args": "--new-window",             // for launch
+  "window_title": "My App",           // for GUI actions (focus, minimize, maximize, move, resize)
+  "pid": 12345,                        // for GUI actions (optional)
+  "window_index": 0,                   // for GUI actions (default: 0)
+  "x": 100, "y": 100,                 // for move/resize
+  "width": 800, "height": 600         // for resize
 }
 ```
 
-**Note:** For the `list` action, the `app` field is optional and can be omitted from the request body.
+**Note:**
+- For the `list` action, the `app` field is optional and can be omitted from the request body.
+- The `list_windows` action enumerates all open windows (platform-specific).
+- The `/apps/capabilities` endpoint returns supported features for the current OS/session.
 
 ### 🔄 Code Refactoring (`/refactor`)
 Search and replace across multiple files:
@@ -285,6 +294,20 @@ POST /refactor
 ```
 
 ### 🔄 Batch Operations (`/batch`)
+## ⚠️ Error Handling
+
+All endpoints return structured JSON error responses with `error.code` and `error.message` fields. For example:
+
+```json
+{
+  "error": {
+    "code": "invalid_args",
+    "message": "Arguments contain forbidden shell metacharacters."
+  },
+  "status": 400
+}
+```
+
 Execute multiple operations in sequence:
 
 ```json

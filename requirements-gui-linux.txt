@@ -1,0 +1,3 @@
+# Linux GUI window management tools
+wmctrl
+xdotool

@@ -1,0 +1,472 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.7, pytest-8.4.2, pluggy-1.6.0 -- /home/obsidian/Github/GPT-API/.venv/bin/python
+cachedir: .pytest_cache
+rootdir: /home/obsidian/Github/GPT-API
+plugins: anyio-4.9.0
+collecting ... collected 46 items
+
+tests/comprehensive_test.py::test_comprehensive_api PASSED               [  2%]
+tests/test_api.py::test_api PASSED                                       [  4%]
+tests/test_apps_gui.py::test_gui_actions[focus-extra0] FAILED            [  6%]
+tests/test_apps_gui.py::test_gui_actions[minimize-extra1] FAILED         [  8%]
+tests/test_apps_gui.py::test_gui_actions[maximize-extra2] FAILED         [ 10%]
+tests/test_apps_gui.py::test_gui_actions[move-extra3] FAILED             [ 13%]
+tests/test_apps_gui.py::test_gui_actions[resize-extra4] FAILED           [ 15%]
+tests/test_audit_log.py::test_shell_audit_log PASSED                     [ 17%]
+tests/test_audit_log.py::test_shell_audit_log_invalid_and_faults PASSED  [ 19%]
+tests/test_batch_code_structured.py::test_batch_code_error_propagation FAILED [ 21%]
+tests/test_batch_code_structured.py::test_batch_code_structured_error FAILED [ 23%]
+tests/test_batch_concurrency_edge.py::test_batch_shell_concurrent PASSED [ 26%]
+tests/test_batch_concurrency_edge.py::test_batch_code_content_mix FAILED [ 28%]
+tests/test_batch_concurrency_edge.py::test_batch_invalid_ops FAILED      [ 30%]
+tests/test_batch_concurrency_edge.py::test_batch_concurrent_file_ops FAILED [ 32%]
+tests/test_code_api_hardening.py::test_code_run_invalid_language FAILED  [ 34%]
+tests/test_code_api_hardening.py::test_code_run_concurrent PASSED        [ 36%]
+tests/test_code_api_hardening.py::test_code_path_injection FAILED        [ 39%]
+tests/test_code_api_hardening.py::test_code_path_too_long FAILED         [ 41%]
+tests/test_code_api_hardening.py::test_code_no_tests_found PASSED        [ 43%]
+tests/test_code_content_edge_cases.py::test_code_content_supported_actions FAILED [ 45%]
+tests/test_code_content_edge_cases.py::test_code_content_unsupported_action FAILED [ 47%]
+tests/test_code_content_edge_cases.py::test_code_content_and_path_missing FAILED [ 50%]
+tests/test_code_content_edge_cases.py::test_code_content_invalid_language FAILED [ 52%]
+tests/test_code_content_edge_cases.py::test_code_content_fuzz FAILED     [ 54%]
+tests/test_full_api.py::test_endpoint[/system/-GET-None-200] PASSED      [ 56%]
+tests/test_full_api.py::test_endpoint[/files-POST-payload1-200] PASSED   [ 58%]
+tests/test_full_api.py::test_endpoint[/files-POST-payload2-200] PASSED   [ 60%]
+tests/test_full_api.py::test_endpoint[/files-POST-payload3-200] PASSED   [ 63%]
+tests/test_full_api.py::test_endpoint[/files-POST-payload4-200] PASSED   [ 65%]
+tests/test_full_api.py::test_endpoint[/files-POST-payload5-200] PASSED   [ 67%]
+tests/test_full_api.py::test_endpoint[/shell-POST-payload6-200] PASSED   [ 69%]
+tests/test_full_api.py::test_endpoint[/code-POST-payload7-200] PASSED    [ 71%]
+tests/test_full_api.py::test_endpoint[/monitor-POST-payload8-200] PASSED [ 73%]
+tests/test_full_api.py::test_endpoint[/git-POST-payload9-200] PASSED     [ 76%]
+tests/test_full_api.py::test_endpoint[/package-POST-payload10-200] PASSED [ 78%]
+tests/test_full_api.py::test_endpoint[/apps-POST-payload11-200] PASSED   [ 80%]
+tests/test_full_api.py::test_endpoint[/apps-POST-payload12-200] FAILED   [ 82%]
+tests/test_full_api.py::test_endpoint[/refactor-POST-payload13-200] PASSED [ 84%]
+tests/test_full_api.py::test_endpoint[/refactor-POST-payload14-200] PASSED [ 86%]
+tests/test_full_api.py::test_endpoint[/batch-POST-payload15-200] PASSED  [ 89%]
+tests/test_full_api.py::test_error_cases[/files-POST-payload0-500-True] FAILED [ 91%]
+tests/test_full_api.py::test_error_cases[/system/-GET-None-403-False] PASSED [ 93%]
+tests/test_full_api.py::test_bulk_file_ops PASSED                        [ 95%]
+tests/test_full_api.py::test_shell_side_effect FAILED                    [ 97%]
+tests/test_full_api.py::test_auth_variants PASSED                        [100%]
+
+=================================== FAILURES ===================================
+________________________ test_gui_actions[focus-extra0] ________________________
+
+action = 'focus', extra = {}
+
+    @pytest.mark.parametrize("action, extra", gui_actions)
+    def test_gui_actions(action, extra):
+        # Use a common app that is likely to be open, e.g., 'code' or 'firefox'.
+        # Adjust window_title as needed for your environment.
+        payload = {"action": action, "window_title": "code"}
+        payload.update(extra)
+        r = requests.post(BASE_URL + "/apps", headers=HEADERS, json=payload)
+        # Accept 200 (success) or 404 (window not found) as valid for CI
+>       assert r.status_code in (200, 404), f"{action} failed: {r.text}"
+E       AssertionError: focus failed: {"detail":"501: X11 window management is not available: wmctrl could not access _NET_CLIENT_LIST. This usually means you are running under Wayland or XWayland without a compatible X11 window manager. Native Wayland GUI automation is not yet supported. Session info: DISPLAY=:1, WAYLAND_DISPLAY=wayland-1, XDG_SESSION_TYPE=wayland"}
+E       assert 500 in (200, 404)
+E        +  where 500 = <Response [500]>.status_code
+
+tests/test_apps_gui.py:25: AssertionError
+______________________ test_gui_actions[minimize-extra1] _______________________
+
+action = 'minimize', extra = {}
+
+    @pytest.mark.parametrize("action, extra", gui_actions)
+    def test_gui_actions(action, extra):
+        # Use a common app that is likely to be open, e.g., 'code' or 'firefox'.
+        # Adjust window_title as needed for your environment.
+        payload = {"action": action, "window_title": "code"}
+        payload.update(extra)
+        r = requests.post(BASE_URL + "/apps", headers=HEADERS, json=payload)
+        # Accept 200 (success) or 404 (window not found) as valid for CI
+>       assert r.status_code in (200, 404), f"{action} failed: {r.text}"
+E       AssertionError: minimize failed: {"detail":"501: X11 window management is not available: wmctrl could not access _NET_CLIENT_LIST. This usually means you are running under Wayland or XWayland without a compatible X11 window manager. Native Wayland GUI automation is not yet supported. Session info: DISPLAY=:1, WAYLAND_DISPLAY=wayland-1, XDG_SESSION_TYPE=wayland"}
+E       assert 500 in (200, 404)
+E        +  where 500 = <Response [500]>.status_code
+
+tests/test_apps_gui.py:25: AssertionError
+______________________ test_gui_actions[maximize-extra2] _______________________
+
+action = 'maximize', extra = {}
+
+    @pytest.mark.parametrize("action, extra", gui_actions)
+    def test_gui_actions(action, extra):
+        # Use a common app that is likely to be open, e.g., 'code' or 'firefox'.
+        # Adjust window_title as needed for your environment.
+        payload = {"action": action, "window_title": "code"}
+        payload.update(extra)
+        r = requests.post(BASE_URL + "/apps", headers=HEADERS, json=payload)
+        # Accept 200 (success) or 404 (window not found) as valid for CI
+>       assert r.status_code in (200, 404), f"{action} failed: {r.text}"
+E       AssertionError: maximize failed: {"detail":"501: X11 window management is not available: wmctrl could not access _NET_CLIENT_LIST. This usually means you are running under Wayland or XWayland without a compatible X11 window manager. Native Wayland GUI automation is not yet supported. Session info: DISPLAY=:1, WAYLAND_DISPLAY=wayland-1, XDG_SESSION_TYPE=wayland"}
+E       assert 500 in (200, 404)
+E        +  where 500 = <Response [500]>.status_code
+
+tests/test_apps_gui.py:25: AssertionError
+________________________ test_gui_actions[move-extra3] _________________________
+
+action = 'move', extra = {'x': 100, 'y': 100}
+
+    @pytest.mark.parametrize("action, extra", gui_actions)
+    def test_gui_actions(action, extra):
+        # Use a common app that is likely to be open, e.g., 'code' or 'firefox'.
+        # Adjust window_title as needed for your environment.
+        payload = {"action": action, "window_title": "code"}
+        payload.update(extra)
+        r = requests.post(BASE_URL + "/apps", headers=HEADERS, json=payload)
+        # Accept 200 (success) or 404 (window not found) as valid for CI
+>       assert r.status_code in (200, 404), f"{action} failed: {r.text}"
+E       AssertionError: move failed: {"detail":"501: X11 window management is not available: wmctrl could not access _NET_CLIENT_LIST. This usually means you are running under Wayland or XWayland without a compatible X11 window manager. Native Wayland GUI automation is not yet supported. Session info: DISPLAY=:1, WAYLAND_DISPLAY=wayland-1, XDG_SESSION_TYPE=wayland"}
+E       assert 500 in (200, 404)
+E        +  where 500 = <Response [500]>.status_code
+
+tests/test_apps_gui.py:25: AssertionError
+_______________________ test_gui_actions[resize-extra4] ________________________
+
+action = 'resize', extra = {'height': 300, 'width': 400}
+
+    @pytest.mark.parametrize("action, extra", gui_actions)
+    def test_gui_actions(action, extra):
+        # Use a common app that is likely to be open, e.g., 'code' or 'firefox'.
+        # Adjust window_title as needed for your environment.
+        payload = {"action": action, "window_title": "code"}
+        payload.update(extra)
+        r = requests.post(BASE_URL + "/apps", headers=HEADERS, json=payload)
+        # Accept 200 (success) or 404 (window not found) as valid for CI
+>       assert r.status_code in (200, 404), f"{action} failed: {r.text}"
+E       AssertionError: resize failed: {"detail":"501: X11 window management is not available: wmctrl could not access _NET_CLIENT_LIST. This usually means you are running under Wayland or XWayland without a compatible X11 window manager. Native Wayland GUI automation is not yet supported. Session info: DISPLAY=:1, WAYLAND_DISPLAY=wayland-1, XDG_SESSION_TYPE=wayland"}
+E       assert 500 in (200, 404)
+E        +  where 500 = <Response [500]>.status_code
+
+tests/test_apps_gui.py:25: AssertionError
+______________________ test_batch_code_error_propagation _______________________
+
+    def test_batch_code_error_propagation():
+        # Test batch with a valid and an invalid code action
+        fname = "batch_code_valid.py"
+        with open(fname, "w") as f:
+            f.write("print('ok')\n")
+        payload = {
+            "operations": [
+                {"action": "code", "args": {"action": "run", "path": fname, "language": "python"}},
+                {"action": "code", "args": {"action": "run", "path": "../etc/passwd", "language": "python"}},
+                {"action": "code", "args": {"action": "run", "content": "print('bad',)", "language": "python", "args": "; rm -rf /"}},
+            ]
+        }
+        r = requests.post(BASE_URL + "/batch", headers=HEADERS, json=payload)
+        assert r.status_code == 200
+        data = r.json()
+        assert "results" in data
+        # First should succeed, second should fail with invalid_path, third should fail with invalid_args
+        assert data["results"][0]["action"] == "code"
+        assert "stdout" in data["results"][0]["result"]
+        assert data["results"][1]["action"] == "code"
+>       assert data["results"][1]["error"]["code"] == "invalid_path"
+E       AssertionError: assert 'code_error' == 'invalid_path'
+E         
+E         - invalid_path
+E         + code_error
+
+tests/test_batch_code_structured.py:29: AssertionError
+_______________________ test_batch_code_structured_error _______________________
+
+    def test_batch_code_structured_error():
+        # Test batch with a code action that triggers a subprocess error
+        payload = {
+            "operations": [
+                {"action": "code", "args": {"action": "run", "content": "raise Exception('fail')", "language": "python"}},
+            ]
+        }
+        r = requests.post(BASE_URL + "/batch", headers=HEADERS, json=payload)
+        assert r.status_code == 200
+        data = r.json()
+        assert "results" in data
+        assert data["results"][0]["action"] == "code"
+        # Should return error with code 'execution_error' or 'subprocess_error'
+        assert "error" in data["results"][0]
+>       assert data["results"][0]["error"]["code"] in ("execution_error", "subprocess_error")
+E       AssertionError: assert 'code_error' in ('execution_error', 'subprocess_error')
+
+tests/test_batch_code_structured.py:48: AssertionError
+_________________________ test_batch_code_content_mix __________________________
+
+    def test_batch_code_content_mix():
+        # Test batch with both path and content for code actions
+        fname = "batch_code_test.py"
+        with open(fname, "w") as f:
+            f.write("print('file path')\n")
+        payload = {
+            "operations": [
+                {"action": "code", "args": {"action": "run", "path": fname, "language": "python"}},
+                {"action": "code", "args": {"action": "run", "content": "print('in-memory')\n", "language": "python"}},
+                {"action": "code", "args": {"action": "explain", "content": "print('should fail')\n", "language": "python"}},
+            ]
+        }
+        r = requests.post(BASE_URL + "/batch", headers=HEADERS, json=payload)
+        assert r.status_code == 200
+        data = r.json()
+        assert "results" in data
+        # First should succeed, second should succeed, third should fail with unsupported_content
+        assert data["results"][0]["action"] == "code"
+        assert data["results"][1]["action"] == "code"
+        assert data["results"][2]["action"] == "code"
+>       assert data["results"][2]["result"]["error"]["code"] == "unsupported_content"
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'result'
+
+tests/test_batch_concurrency_edge.py:47: KeyError
+____________________________ test_batch_invalid_ops ____________________________
+
+    def test_batch_invalid_ops():
+        # Test batch with invalid/malformed operations
+        payload = {"operations": [None, 123, {"foo": "bar"}]}
+        r = requests.post(BASE_URL + "/batch", headers=HEADERS, json=payload)
+>       assert r.status_code == 200
+E       assert 422 == 200
+E        +  where 422 = <Response [422]>.status_code
+
+tests/test_batch_concurrency_edge.py:54: AssertionError
+________________________ test_batch_concurrent_file_ops ________________________
+
+    def test_batch_concurrent_file_ops():
+        # Test concurrent file write/delete in batch
+        files = [f"batchfile_{i}.txt" for i in range(3)]
+        payload = {"operations": [
+            {"action": "files", "args": {"action": "write", "path": fname, "content": "data"}} for fname in files
+        ] + [
+            {"action": "files", "args": {"action": "delete", "path": fname}} for fname in files
+        ]}
+        r = requests.post(BASE_URL + "/batch", headers=HEADERS, json=payload)
+        assert r.status_code == 200
+        data = r.json()
+        assert "results" in data
+        # All writes and deletes should succeed
+        for result in data["results"]:
+            assert result["action"] == "files"
+>           assert result["result"]["status"] == 200
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           KeyError: 'status'
+
+tests/test_batch_concurrency_edge.py:75: KeyError
+________________________ test_code_run_invalid_language ________________________
+
+    def test_code_run_invalid_language():
+        payload = {"action": "run", "path": "test_code_endpoint.py", "language": "invalid_lang"}
+        r = requests.post(BASE_URL + "/code", headers=HEADERS, json=payload)
+        assert r.status_code == 400
+        data = r.json()
+>       assert data["error"]["code"] == "unsupported_language"
+               ^^^^^^^^^^^^^
+E       KeyError: 'error'
+
+tests/test_code_api_hardening.py:16: KeyError
+___________________________ test_code_path_injection ___________________________
+
+    def test_code_path_injection():
+        payload = {"action": "run", "path": "../etc/passwd", "language": "python"}
+        r = requests.post(BASE_URL + "/code", headers=HEADERS, json=payload)
+>       assert r.status_code == 400
+E       assert 500 == 400
+E        +  where 500 = <Response [500]>.status_code
+
+tests/test_code_api_hardening.py:41: AssertionError
+___________________________ test_code_path_too_long ____________________________
+
+    def test_code_path_too_long():
+        long_path = "a" * 300 + ".py"
+        payload = {"action": "run", "path": long_path, "language": "python"}
+        r = requests.post(BASE_URL + "/code", headers=HEADERS, json=payload)
+>       assert r.status_code == 400
+E       assert 500 == 400
+E        +  where 500 = <Response [500]>.status_code
+
+tests/test_code_api_hardening.py:49: AssertionError
+_____________________ test_code_content_supported_actions ______________________
+
+    def test_code_content_supported_actions():
+        # Supported actions for content: run, test, lint, fix, format
+        code = "print('hello')\n"
+        for action in ["run", "test", "lint", "fix", "format"]:
+            payload = {"action": action, "content": code, "language": "python"}
+            r = requests.post(BASE_URL + "/code", headers=HEADERS, json=payload)
+            # Accept 200 or 400 (e.g., lint/fix/format may fail if tools not installed)
+>           assert r.status_code in (200, 400), f"{action} with content failed: {r.text}"
+E           AssertionError: run with content failed: Internal Server Error
+E           assert 500 in (200, 400)
+E            +  where 500 = <Response [500]>.status_code
+
+tests/test_code_content_edge_cases.py:16: AssertionError
+_____________________ test_code_content_unsupported_action _____________________
+
+    def test_code_content_unsupported_action():
+        # 'explain' does not support content
+        code = "print('explain')\n"
+        payload = {"action": "explain", "content": code, "language": "python"}
+        r = requests.post(BASE_URL + "/code", headers=HEADERS, json=payload)
+>       assert r.status_code == 400
+E       assert 500 == 400
+E        +  where 500 = <Response [500]>.status_code
+
+tests/test_code_content_edge_cases.py:23: AssertionError
+______________________ test_code_content_and_path_missing ______________________
+
+    def test_code_content_and_path_missing():
+        # Should fail if neither path nor content is provided
+        payload = {"action": "run", "language": "python"}
+        r = requests.post(BASE_URL + "/code", headers=HEADERS, json=payload)
+>       assert r.status_code == 400
+E       assert 500 == 400
+E        +  where 500 = <Response [500]>.status_code
+
+tests/test_code_content_edge_cases.py:31: AssertionError
+______________________ test_code_content_invalid_language ______________________
+
+    def test_code_content_invalid_language():
+        # Should fail for unsupported language
+        payload = {"action": "run", "content": "print(1)", "language": "ruby"}
+        r = requests.post(BASE_URL + "/code", headers=HEADERS, json=payload)
+        assert r.status_code == 400
+        data = r.json()
+>       assert data["error"]["code"] == "unsupported_language"
+               ^^^^^^^^^^^^^
+E       KeyError: 'error'
+
+tests/test_code_content_edge_cases.py:41: KeyError
+____________________________ test_code_content_fuzz ____________________________
+
+    def test_code_content_fuzz():
+        # Fuzz with random/invalid content
+        import random, string
+        for _ in range(5):
+            fuzz_content = ''.join(random.choices(string.printable, k=100))
+            payload = {"action": "run", "content": fuzz_content, "language": "python"}
+            r = requests.post(BASE_URL + "/code", headers=HEADERS, json=payload)
+>           assert r.status_code in (200, 400), f"Fuzz run failed: {r.text}"
+E           AssertionError: Fuzz run failed: Internal Server Error
+E           assert 500 in (200, 400)
+E            +  where 500 = <Response [500]>.status_code
+
+tests/test_code_content_edge_cases.py:50: AssertionError
+___________________ test_endpoint[/apps-POST-payload12-200] ____________________
+
+endpoint = '/apps', method = 'POST'
+payload = {'action': 'open', 'app': 'firefox'}, expect_status = 200
+
+    @pytest.mark.parametrize("endpoint, method, payload, expect_status", [
+        ("/system/", "GET", None, 200),
+        ("/files", "POST", {"action": "write", "path": "testfile.txt", "content": "Hello, test!"}, 200),
+        ("/files", "POST", {"action": "read", "path": "testfile.txt"}, 200),
+        ("/files", "POST", {"action": "stat", "path": "testfile.txt"}, 200),
+        ("/files", "POST", {"action": "exists", "path": "testfile.txt"}, 200),
+        ("/files", "POST", {"action": "delete", "path": "testfile.txt"}, 200),
+        ("/shell", "POST", {"command": "echo 'pytest-shell'"}, 200),
+        ("/code", "POST", {"action": "run", "path": "main.py", "language": "python"}, 200),
+        ("/monitor", "POST", {"type": "cpu"}, 200),
+        ("/git", "POST", {"action": "status", "path": "."}, 200),
+        ("/package", "POST", {"manager": "pip", "action": "list"}, 200),
+        # Expanded /apps test: list and try to open a common app (may fail if not installed, but should not 500)
+        ("/apps", "POST", {"action": "list", "app": None}, 200),
+        ("/apps", "POST", {"action": "open", "app": "firefox"}, 200),
+        # Expanded /refactor test: dry run and real run (real run may fail if file is protected, but should not 500)
+        ("/refactor", "POST", {"search": "API_KEY", "replace": "API_TOKEN", "files": ["cli.py"], "dry_run": True}, 200),
+        ("/refactor", "POST", {"search": "API_KEY", "replace": "API_TOKEN", "files": ["cli.py"], "dry_run": False}, 200),
+        # Expanded /batch test: multiple shell commands
+        ("/batch", "POST", {"operations": [
+            {"action": "shell", "args": {"command": "echo 'batch1'"}},
+            {"action": "shell", "args": {"command": "echo 'batch2'"}}
+        ]}, 200),
+    ])
+    def test_endpoint(endpoint, method, payload, expect_status):
+        url = BASE_URL + endpoint
+        if method == "GET":
+            r = requests.get(url, headers=HEADERS)
+        else:
+            r = requests.post(url, headers=HEADERS, json=payload)
+>       assert r.status_code == expect_status, f"{endpoint} {method} failed: {r.text}"
+E       AssertionError: /apps POST failed: {"detail":"400: Invalid action"}
+E       assert 500 == 200
+E        +  where 500 = <Response [500]>.status_code
+
+tests/test_full_api.py:39: AssertionError
+_______________ test_error_cases[/files-POST-payload0-500-True] ________________
+
+endpoint = '/files', method = 'POST'
+payload = {'action': 'read', 'path': '/nonexistent/file.txt'}
+expect_status = 500, use_auth = True
+
+    @pytest.mark.parametrize("endpoint, method, payload, expect_status, use_auth", [
+        ("/files", "POST", {"action": "read", "path": "/nonexistent/file.txt"}, 500, True),
+        ("/system/", "GET", None, 403, False),
+    ])
+    def test_error_cases(endpoint, method, payload, expect_status, use_auth):
+        url = BASE_URL + endpoint
+        headers = dict(HEADERS) if use_auth else {"Content-Type": "application/json"}
+        if method == "GET":
+            r = requests.get(url, headers=headers)
+        else:
+            r = requests.post(url, headers=headers, json=payload)
+>       assert r.status_code == expect_status, f"Expected {expect_status}, got {r.status_code}: {r.text}"
+E       AssertionError: Expected 500, got 200: {"result":{"error":{"code":"not_found","message":"File '/nonexistent/file.txt' does not exist."},"status":404},"latency_ms":0.13,"payload_size":144}
+E       assert 200 == 500
+E        +  where 200 = <Response [200]>.status_code
+
+tests/test_full_api.py:53: AssertionError
+____________________________ test_shell_side_effect ____________________________
+
+    def test_shell_side_effect():
+        # Create a file using shell, then check existence
+        fname = "shell_created.txt"
+        cmd = f"echo 'created' > {fname}"
+        r = requests.post(BASE_URL + "/shell", headers=HEADERS, json={"command": cmd})
+        assert r.status_code == 200
+        r = requests.post(BASE_URL + "/files", headers=HEADERS, json={"action": "exists", "path": fname})
+        assert r.status_code == 200
+>       assert r.json().get("exists"), "File not created by shell"
+E       AssertionError: File not created by shell
+E       assert None
+E        +  where None = <built-in method get of dict object at 0x7f21d3e43840>('exists')
+E        +    where <built-in method get of dict object at 0x7f21d3e43840> = {'latency_ms': 0.05, 'payload_size': 142, 'result': {'exists': True, 'status': 200}}.get
+E        +      where {'latency_ms': 0.05, 'payload_size': 142, 'result': {'exists': True, 'status': 200}} = json()
+E        +        where json = <Response [200]>.json
+
+tests/test_full_api.py:78: AssertionError
+=============================== warnings summary ===============================
+tests/test_audit_log.py::test_shell_audit_log
+tests/test_audit_log.py::test_shell_audit_log_invalid_and_faults
+tests/test_audit_log.py::test_shell_audit_log_invalid_and_faults
+tests/test_audit_log.py::test_shell_audit_log_invalid_and_faults
+tests/test_audit_log.py::test_shell_audit_log_invalid_and_faults
+tests/test_audit_log.py::test_shell_audit_log_invalid_and_faults
+tests/test_audit_log.py::test_shell_audit_log_invalid_and_faults
+tests/test_audit_log.py::test_shell_audit_log_invalid_and_faults
+  /home/obsidian/Github/GPT-API/utils/audit.py:12: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "timestamp": datetime.utcnow().isoformat() + "Z",
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_apps_gui.py::test_gui_actions[focus-extra0] - AssertionErro...
+FAILED tests/test_apps_gui.py::test_gui_actions[minimize-extra1] - AssertionE...
+FAILED tests/test_apps_gui.py::test_gui_actions[maximize-extra2] - AssertionE...
+FAILED tests/test_apps_gui.py::test_gui_actions[move-extra3] - AssertionError...
+FAILED tests/test_apps_gui.py::test_gui_actions[resize-extra4] - AssertionErr...
+FAILED tests/test_batch_code_structured.py::test_batch_code_error_propagation
+FAILED tests/test_batch_code_structured.py::test_batch_code_structured_error
+FAILED tests/test_batch_concurrency_edge.py::test_batch_code_content_mix - Ke...
+FAILED tests/test_batch_concurrency_edge.py::test_batch_invalid_ops - assert ...
+FAILED tests/test_batch_concurrency_edge.py::test_batch_concurrent_file_ops
+FAILED tests/test_code_api_hardening.py::test_code_run_invalid_language - Key...
+FAILED tests/test_code_api_hardening.py::test_code_path_injection - assert 50...
+FAILED tests/test_code_api_hardening.py::test_code_path_too_long - assert 500...
+FAILED tests/test_code_content_edge_cases.py::test_code_content_supported_actions
+FAILED tests/test_code_content_edge_cases.py::test_code_content_unsupported_action
+FAILED tests/test_code_content_edge_cases.py::test_code_content_and_path_missing
+FAILED tests/test_code_content_edge_cases.py::test_code_content_invalid_language
+FAILED tests/test_code_content_edge_cases.py::test_code_content_fuzz - Assert...
+FAILED tests/test_full_api.py::test_endpoint[/apps-POST-payload12-200] - Asse...
+FAILED tests/test_full_api.py::test_error_cases[/files-POST-payload0-500-True]
+FAILED tests/test_full_api.py::test_shell_side_effect - AssertionError: File ...
+================== 21 failed, 25 passed, 8 warnings in 13.78s ==================

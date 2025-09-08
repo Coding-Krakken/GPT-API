@@ -55,7 +55,7 @@ async def run_batch(req: BatchRequest = None, request: Request = None):
                 results.append({"action": action, "dry_run": True, "args": op})
                 continue
             if action == "shell":
-                cmd = op.get("command") or op.get("args", {}).get("command")
+                cmd = op.get("command") or (op.get("args") or {}).get("command")
                 if not cmd:
                     results.append({"action": action, "error": {"code": "missing_command", "message": "Missing 'command' for shell action"}, "status": 400})
                     continue
@@ -81,20 +81,17 @@ async def run_batch(req: BatchRequest = None, request: Request = None):
                 from routes.code import CodeAction
                 code_args = op.get("args", op)
                 try:
-                    # Always convert to CodeAction model
                     if not isinstance(code_args, CodeAction):
                         code_args = CodeAction(**code_args)
                     resp = handle_code_action(code_args)
-                    # If resp is a dict with 'error', propagate as error
                     if isinstance(resp, dict) and 'error' in resp:
-                        results.append({"action": action, **resp})
+                        results.append({"action": action, "error": resp['error'], "status": resp.get('status', 400)})
                     else:
                         results.append({"action": action, "result": resp})
                 except HTTPException as e:
-                    # Propagate structured error from /code
                     detail = getattr(e, 'detail', None)
                     if isinstance(detail, dict) and 'error' in detail:
-                        results.append({"action": action, **detail})
+                        results.append({"action": action, "error": detail['error'], "status": getattr(e, 'status_code', 500)})
                     else:
                         results.append({"action": action, "error": {"code": "code_error", "message": str(e)}, "status": getattr(e, 'status_code', 500)})
                 except Exception as e:
@@ -102,5 +99,6 @@ async def run_batch(req: BatchRequest = None, request: Request = None):
             else:
                 results.append({"action": action, "error": {"code": "unsupported_action", "message": "Unsupported action in batch"}, "status": 400})
         except Exception as e:
-            results.append({"action": op.get("action"), "error": {"code": "internal_error", "message": str(e)}, "trace": traceback.format_exc(), "status": 500})
+            results.append({"action": op.get("action"), "error": {"code": "internal_error", "message": str(e)}, "status": 500})
+    return {"results": results}
     return {"results": results}
