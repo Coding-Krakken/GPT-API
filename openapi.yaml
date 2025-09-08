@@ -257,8 +257,21 @@ paths:
                 type:
                   type: string
                   enum: [cpu, memory, disk, network, logs, filesystem, performance, custom]
+                  description: |
+                    Type of system metric to monitor.
+                    - cpu: CPU usage percentage
+                    - memory: Memory usage statistics
+                    - disk: Disk usage statistics
+                    - network: Network I/O statistics
+                    - logs: Log stream monitoring (not yet implemented)
+                    - filesystem: Filesystem usage statistics
+                    - performance: Combined CPU, memory, disk performance metrics
+                    - custom: Custom monitoring (not yet implemented)
                 live:
                   type: boolean
+                  description: |
+                    If true, enables live monitoring mode. Currently not implemented - returns a message suggesting WebSocket or polling alternatives.
+                    Supported values: false (default). true is not yet supported.
       responses:
         '200':
           description: Live monitoring data or stream token
@@ -271,6 +284,12 @@ paths:
                       result:
                         type: string
                         description: 'For non-structured or stream token responses.'
+                  - type: object
+                    properties:
+                      result:
+                        type: string
+                        description: 'Response for unimplemented monitoring types.'
+                        example: "Log stream not yet implemented"
                   - type: object
                     properties:
                       memory:
@@ -301,6 +320,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalid_type:
+                  summary: Invalid or unimplemented monitor type
+                  value:
+                    error:
+                      code: "unknown_monitor_type"
+                      message: "Unknown monitor type: custom. Supported: cpu, memory, disk, network, logs, filesystem, performance, custom."
+                    status: 400
 
   /git:
     post:

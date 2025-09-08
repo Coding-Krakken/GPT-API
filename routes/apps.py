@@ -196,11 +196,38 @@ def handle_app_action(req: AppRequest, response: Response):
                 elif full_env["test_mode"] is None:
                     full_env["test_mode"] = False
                 return error_response("MISSING_TOOLS", get_install_guidance(missing), 500, {"missing_tools": missing, "env": full_env})
-            if os.environ.get("GUI_TEST_MODE") == "1":
-                full_env["test_mode"] = True
-            elif full_env["test_mode"] is None:
-                full_env["test_mode"] = False
-            return {"result": {"windows": []}, "env": full_env, "timestamp": _now_ts(), "latency_ms": int((time.time() - start_time) * 1000)}
+            # Actually list windows using wmctrl
+            try:
+                import subprocess
+                result = subprocess.run(["wmctrl", "-lG"], capture_output=True, text=True, timeout=10)
+                if result.returncode == 0:
+                    windows = []
+                    for line in result.stdout.strip().split('\n'):
+                        if line.strip():
+                            parts = line.split()
+                            if len(parts) >= 8:
+                                win_id = parts[0]
+                                desktop = parts[1]
+                                pid = parts[2] if parts[2] != '-1' else None
+                                geometry = {
+                                    "x": int(parts[3]),
+                                    "y": int(parts[4]),
+                                    "width": int(parts[5]),
+                                    "height": int(parts[6])
+                                }
+                                title = ' '.join(parts[7:])
+                                windows.append({
+                                    "window_id": win_id,
+                                    "desktop": desktop,
+                                    "pid": pid,
+                                    "title": title,
+                                    "geometry": geometry
+                                })
+                    return {"result": {"windows": windows}, "env": full_env, "timestamp": _now_ts(), "latency_ms": int((time.time() - start_time) * 1000)}
+                else:
+                    return {"result": {"windows": []}, "env": full_env, "timestamp": _now_ts(), "latency_ms": int((time.time() - start_time) * 1000)}
+            except Exception as e:
+                return error_response("WINDOW_LIST_ERROR", f"Failed to list windows: {str(e)}", 500, {"env": full_env})
         # For app list, return all active instances
         with _apps_registry_lock:
             apps = []

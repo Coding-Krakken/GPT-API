@@ -3,6 +3,7 @@ from pydantic import BaseModel
 import subprocess
 import re
 import os
+import time
 from utils.auth import verify_key
 from utils.audit import log_api_action
 
@@ -28,27 +29,30 @@ class ShellCommand(BaseModel):
 
 @router.post("/", dependencies=[Depends(verify_key)])
 async def run_shell_command(data: ShellCommand, request: Request):
+    start = time.time()
     if not data.command or not data.command.strip():
         resp = {
             "result": {
                 "error": {"code": "missing_command", "message": "Command cannot be empty or whitespace."},
                 "status": 400
-            }
+            },
+            "latency_ms": round((time.time() - start) * 1000, 2),
+            "timestamp": int(time.time() * 1000)
         }
         log_api_action(request, "/shell", "run_shell_command", 400, str(resp))
         return resp
     # Enforce max command length (4096 chars, as in OpenAPI schema)
     if len(data.command) > 4096:
         resp = {
-            "result": {
-                "error": {"code": "command_too_long", "message": "Command exceeds maximum allowed length (4096 characters)."},
-                "status": 400
+                "result": {
+                    "error": {"code": "command_too_long", "message": "Command exceeds maximum allowed length (4096 characters)."},
+                    "status": 400
+                },
+                "latency_ms": round((time.time() - start) * 1000, 2),
+                "timestamp": int(time.time() * 1000)
             }
-        }
         log_api_action(request, "/shell", "run_shell_command", 400, str(resp))
         return resp
-    import time
-    start = time.time()
     payload_size = len(data.command) if data.command else 0
     try:
         if data.fault == 'permission':
@@ -56,7 +60,9 @@ async def run_shell_command(data: ShellCommand, request: Request):
                 "result": {
                     "error": {"code": "permission_denied", "message": "Permission denied"},
                     "status": 403
-                }
+                },
+                "latency_ms": round((time.time() - start) * 1000, 2),
+                "timestamp": int(time.time() * 1000)
             }
             log_api_action(request, "/shell", "run_shell_command", 403, str(resp))
             return resp
@@ -65,7 +71,9 @@ async def run_shell_command(data: ShellCommand, request: Request):
                 "result": {
                     "error": {"code": "io_error", "message": "I/O error occurred"},
                     "status": 500
-                }
+                },
+                "latency_ms": round((time.time() - start) * 1000, 2),
+                "timestamp": int(time.time() * 1000)
             }
             log_api_action(request, "/shell", "run_shell_command", 500, str(resp))
             return resp
@@ -91,7 +99,9 @@ async def run_shell_command(data: ShellCommand, request: Request):
                 "stderr": redact_secrets(stderr.strip()),
                 "exit_code": exit_code,
                 "pid": proc.pid,
-                "status": 200
+                "status": 200,
+                "latency_ms": round((time.time() - start) * 1000, 2),
+                "timestamp": int(time.time() * 1000)
             }
             log_api_action(request, "/shell", "run_shell_command", 200, str(resp))
             return resp
@@ -107,7 +117,9 @@ async def run_shell_command(data: ShellCommand, request: Request):
                 "stdout": redact_secrets(result.stdout.strip()),
                 "stderr": redact_secrets(result.stderr.strip()),
                 "exit_code": result.returncode,
-                "status": 200
+                "status": 200,
+                "latency_ms": round((time.time() - start) * 1000, 2),
+                "timestamp": int(time.time() * 1000)
             }
             log_api_action(request, "/shell", "run_shell_command", 200, str(resp))
             return resp
@@ -116,7 +128,9 @@ async def run_shell_command(data: ShellCommand, request: Request):
             "result": {
                 "error": {"code": "subprocess_error", "message": str(e)},
                 "status": 500
-            }
+            },
+            "latency_ms": round((time.time() - start) * 1000, 2),
+            "timestamp": int(time.time() * 1000)
         }
         log_api_action(request, "/shell", "run_shell_command", 500, str(resp))
         return resp

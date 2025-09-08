@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends, Request
 from pydantic import BaseModel
 import subprocess
+import time
 from utils.auth import verify_key
 
 router = APIRouter()
@@ -12,6 +13,7 @@ class PackageRequest(BaseModel):
 
 @router.post("/", dependencies=[Depends(verify_key)])
 async def package_post(request: Request):
+    start_time = time.time()
     if request.headers.get("content-type", "").startswith("application/json"):
         try:
             data = await request.json()
@@ -38,7 +40,60 @@ async def package_post(request: Request):
         raise HTTPException(status_code=400, detail="Unsupported action")
     
     req = PackageRequest(manager=manager, action=action, package=package)
-    return handle_package_action(req)
+    return handle_package_action(req, start_time)
+
+def handle_package_action(req: PackageRequest, start_time):
+    """
+    Handle package manager actions with paging/limit for large outputs (e.g., pacman list).
+    """
+    try:
+        base_cmd = {
+            "pip": "pip",
+            "npm": "npm",
+            "apt": "apt-get",
+            "pacman": "pacman",
+            "brew": "brew",
+            "winget": "winget"
+        }.get(req.manager)
+
+        if not base_cmd:
+            raise HTTPException(status_code=400, detail="Unsupported package manager")
+
+        args = translate_package_args(req.manager, req.action, req.package)
+        if not args:
+            raise HTTPException(status_code=400, detail="Unsupported action")
+
+        # Add limit for list actions to avoid huge output
+        limit = 100
+        if req.manager == "pacman" and req.action == "list":
+            # Use head to limit output
+            cmd = f"{base_cmd} {args} | head -n {limit}"
+        elif req.manager == "apt" and req.action == "list":
+            cmd = f"{base_cmd} {args} | head -n {limit}"
+        elif req.manager == "npm" and req.action == "list":
+            cmd = f"{base_cmd} {args} --depth=0 | head -n {limit}"
+        else:
+            cmd = f"{base_cmd} {args}"
+
+        result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+        # Cap output length for very large responses
+        max_len = 8000
+        stdout = result.stdout
+        if len(stdout) > max_len:
+            stdout = stdout[:max_len] + "\n...output truncated. Use filtering or pagination for full list."
+        response = {
+            "stdout": stdout,
+            "stderr": result.stderr,
+            "exit_code": result.returncode,
+            "latency_ms": round((time.time() - start_time) * 1000, 2),
+            "timestamp": int(time.time() * 1000)
+        }
+        return response
+    except HTTPException:
+        # Re-raise HTTP exceptions to preserve their status codes
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 def translate_package_args(manager: str, action: str, package: str = "") -> str:
     PACMAN_ACTION_MAP = {
@@ -92,53 +147,3 @@ def translate_package_args(manager: str, action: str, package: str = "") -> str:
         "winget": WINGET_ACTION_MAP
     }
     return maps.get(manager, {}).get(action, "")
-
-def handle_package_action(req: PackageRequest):
-    """
-    Handle package manager actions with paging/limit for large outputs (e.g., pacman list).
-    """
-    try:
-        base_cmd = {
-            "pip": "pip",
-            "npm": "npm",
-            "apt": "apt-get",
-            "pacman": "pacman",
-            "brew": "brew",
-            "winget": "winget"
-        }.get(req.manager)
-
-        if not base_cmd:
-            raise HTTPException(status_code=400, detail="Unsupported package manager")
-
-        args = translate_package_args(req.manager, req.action, req.package)
-        if not args:
-            raise HTTPException(status_code=400, detail="Unsupported action")
-
-        # Add limit for list actions to avoid huge output
-        limit = 100
-        if req.manager == "pacman" and req.action == "list":
-            # Use head to limit output
-            cmd = f"{base_cmd} {args} | head -n {limit}"
-        elif req.manager == "apt" and req.action == "list":
-            cmd = f"{base_cmd} {args} | head -n {limit}"
-        elif req.manager == "npm" and req.action == "list":
-            cmd = f"{base_cmd} {args} --depth=0 | head -n {limit}"
-        else:
-            cmd = f"{base_cmd} {args}"
-
-        result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-        # Cap output length for very large responses
-        max_len = 8000
-        stdout = result.stdout
-        if len(stdout) > max_len:
-            stdout = stdout[:max_len] + "\n...output truncated. Use filtering or pagination for full list."
-        return {
-            "stdout": stdout,
-            "stderr": result.stderr,
-            "exit_code": result.returncode
-        }
-    except HTTPException:
-        # Re-raise HTTP exceptions to preserve their status codes
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))

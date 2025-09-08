@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends, Request
 from pydantic import BaseModel
 import os
+import time
 from utils.auth import verify_key
 
 router = APIRouter()
@@ -23,6 +24,7 @@ async def refactor_code(request: Request):
       - Schema drift: new fields in request are ignored.
       - Preconditions: files must be writable, search/replace are required.
     """
+    start_time = time.time()
     try:
         data = await request.json()
         search = data.get("search", "")
@@ -53,7 +55,9 @@ async def refactor_code(request: Request):
                     'code': 'io_error',
                     'message': 'I/O error occurred'
                 },
-                'status': 500
+                'status': 500,
+                "latency_ms": round((time.time() - start_time) * 1000, 2),
+                "timestamp": int(time.time() * 1000)
             }
         
         results = []
@@ -88,8 +92,8 @@ async def refactor_code(request: Request):
             })
 
         if dry_run and not any(r["changed"] for r in results):
-            return {"result": "No matches found."}
-        return {"result": results}
+            return {"result": "No matches found.", "latency_ms": round((time.time() - start_time) * 1000, 2), "timestamp": int(time.time() * 1000)}
+        return {"result": results, "latency_ms": round((time.time() - start_time) * 1000, 2), "timestamp": int(time.time() * 1000)}
 
     except HTTPException as e:
         raise e

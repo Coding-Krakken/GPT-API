@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 import subprocess, os
+import time
 from typing import List, Optional
 from utils.auth import verify_key
 
@@ -37,8 +38,6 @@ class GitRequest(BaseModel):
 
 
 
-import time
-
 @router.post("/", dependencies=[Depends(verify_key)])
 def handle_git_command(req: GitRequest):
     """
@@ -53,7 +52,7 @@ def handle_git_command(req: GitRequest):
     try:
         validation_error = req.validate(allowed_actions)
         if validation_error:
-            return validation_error
+            return {**validation_error, "timestamp": int(time.time() * 1000)}
         repo_path = os.path.abspath(os.path.expanduser(req.path))
         payload_size = len(str(req.model_dump()))
         debug_info = [] if req.debug else None
@@ -185,7 +184,8 @@ def handle_git_command(req: GitRequest):
                 "exit_code": result.returncode,
                 "latency_ms": latency,
                 "payload_size": payload_size,
-                "status": 400
+                "status": 400,
+                "timestamp": int(time.time() * 1000)
             }
             if req.debug:
                 err_resp["debug"] = debug_info
@@ -197,13 +197,14 @@ def handle_git_command(req: GitRequest):
             "exit_code": result.returncode,
             "latency_ms": latency,
             "payload_size": payload_size,
-            "status": 200
+            "status": 200,
+            "timestamp": int(time.time() * 1000)
         }
         if req.debug:
             resp["debug"] = debug_info
         return resp
     except Exception as e:
-        resp = {"error": {"code": "internal_error", "message": f"Internal error: {str(e)}"}, "status": 500}
+        resp = {"error": {"code": "internal_error", "message": f"Internal error: {str(e)}"}, "status": 500, "timestamp": int(time.time() * 1000)}
         if req.debug:
             resp["debug"] = debug_info
         return resp

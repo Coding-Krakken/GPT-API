@@ -6,6 +6,7 @@ router = APIRouter()
 
 @router.get("/", dependencies=[Depends(verify_key)])
 def get_system_info():
+    start_time = time.time()
     try:
         cpu_info = platform.processor()
         if not cpu_info:
@@ -15,7 +16,7 @@ def get_system_info():
             # Final fallback
             cpu_info = "Unknown"
             
-        return {
+        result = {
             "os": platform.system(),
             "platform": platform.platform(),
             "hostname": socket.gethostname(),
@@ -30,5 +31,10 @@ def get_system_info():
             "uptime_seconds": time.time() - psutil.boot_time(),
             "current_user": os.getlogin()
         }
+        latency_ms = round((time.time() - start_time) * 1000, 2)
+        result["latency_ms"] = latency_ms
+        result["timestamp"] = int(time.time() * 1000)
+        return result
     except Exception as e:
-        return {"error": str(e)}
+        latency_ms = round((time.time() - start_time) * 1000, 2)
+        return {"error": str(e), "latency_ms": latency_ms, "timestamp": int(time.time() * 1000)}

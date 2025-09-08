@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 import os, shutil
+import time
 from utils.auth import verify_key
 
 router = APIRouter()
@@ -26,8 +27,6 @@ class FileRequest(BaseModel):
     recursive: bool = False
     operations: Optional[List[FileOp]] = None
 
-
-import time
 
 def _do_file_op(op: FileOp):
     # Validate required fields
@@ -111,7 +110,7 @@ def handle_file_operation(req: FileRequest):
                 results.append(_do_file_op(op_obj))
             latency = round((time.time() - start) * 1000, 2)
             payload_size = len(str(req.model_dump()))
-            return jsonable_encoder({"results": results, "latency_ms": latency, "payload_size": payload_size})
+            return jsonable_encoder({"results": results, "latency_ms": latency, "payload_size": payload_size, "timestamp": int(time.time() * 1000)})
         # Single op
         if not req.action or not req.path:
             return {"error": {"code": "missing_field", "message": "Missing required field: 'action' or 'path'"}, "status": 400}
@@ -126,6 +125,6 @@ def handle_file_operation(req: FileRequest):
         result = _do_file_op(op)
         latency = round((time.time() - start) * 1000, 2)
         payload_size = len(str(req.model_dump()))
-        return {"result": result, "latency_ms": latency, "payload_size": payload_size}
+        return {"result": result, "latency_ms": latency, "payload_size": payload_size, "timestamp": int(time.time() * 1000)}
     except Exception as e:
         return {"error": {"code": "internal_error", "message": str(e)}, "status": 500}

@@ -2,6 +2,7 @@ from typing import Optional, List
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 import subprocess, os, tempfile
+import time
 from utils.auth import verify_key
 
 router = APIRouter()
@@ -88,6 +89,14 @@ class CodeAction(BaseModel):
 
 @router.post("/", dependencies=[Depends(verify_key)])
 def handle_code_action(req: CodeAction):
+    start_time = time.time()
+    # Initialize context for storing metadata
+    context = {
+        "action": req.action,
+        "language": req.language,
+        "path": req.path if hasattr(req, 'path') else None,
+        "duration": 0
+    }
     # Chaining support: allow 'actions' as a list for basic chaining (e.g., ["lint", "fix", "run"])
     if req.actions and isinstance(req.actions, list) and req.actions:
         results = []
@@ -108,7 +117,7 @@ def handle_code_action(req: CodeAction):
             # If any error, stop chaining and return immediately
             if isinstance(result, dict) and "error" in result.get("result", {}):
                 break
-        return {"chained": True, "results": results}
+        return {"chained": True, "results": results, "latency_ms": round((time.time() - start_time) * 1000, 2), "timestamp": int(time.time() * 1000)}
 
     """
     Execute, test, lint, and manipulate code files in a safe, validated, and concurrent-aware manner.
@@ -145,11 +154,24 @@ def handle_code_action(req: CodeAction):
             "result": {
                 "error": {"code": "unsupported_language", "message": f"'language' must be one of {supported_languages}."},
                 "status": 400
-            }
+            },
+            "latency_ms": round((time.time() - start_time) * 1000, 2),
+            "timestamp": int(time.time() * 1000)
         }
+    
+    # Strict action whitelist
+    supported_actions = ["run", "test", "lint", "fix", "format", "explain"]
+    if not req.action or req.action not in supported_actions:
+        return {
+            "result": {
+                "error": {"code": "invalid_action", "message": f"'action' must be one of {supported_actions}."},
+                "status": 400
+            },
+            "latency_ms": round((time.time() - start_time) * 1000, 2),
+            "timestamp": int(time.time() * 1000)
+        }
+    
     import fcntl
-    import time
-    start_time = time.time()
     
     # Initialize lock variables
     lock_acquired = False
@@ -164,14 +186,18 @@ def handle_code_action(req: CodeAction):
                     "result": {
                         "error": {"code": "invalid_path", "message": "Path contains unsafe characters or sequences."},
                         "status": 400
-                    }
+                    },
+                    "latency_ms": round((time.time() - start_time) * 1000, 2),
+                    "timestamp": int(time.time() * 1000)
                 }
             if len(req.path) > 255:
                 return {
                     "result": {
                         "error": {"code": "path_too_long", "message": "File path is too long."},
                         "status": 400
-                    }
+                    },
+                    "latency_ms": round((time.time() - start_time) * 1000, 2),
+                    "timestamp": int(time.time() * 1000)
                 }
 
         # Argument validation
@@ -181,7 +207,9 @@ def handle_code_action(req: CodeAction):
                 "result": {
                     "error": {"code": "invalid_args", "message": f"Unsupported, malformed, or unsafe argument: {bad_arg}"},
                     "status": 400
-                }
+                },
+                "latency_ms": round((time.time() - start_time) * 1000, 2),
+                "timestamp": int(time.time() * 1000)
             }
 
         # Content validation (if present)
@@ -191,7 +219,9 @@ def handle_code_action(req: CodeAction):
                 "result": {
                     "error": {"code": "invalid_content", "message": f"Invalid content: {content_err}"},
                     "status": 400
-                }
+                },
+                "latency_ms": round((time.time() - start_time) * 1000, 2),
+                "timestamp": int(time.time() * 1000)
             }
 
         # Language-type matching
@@ -201,7 +231,9 @@ def handle_code_action(req: CodeAction):
                 "result": {
                     "error": {"code": "language_mismatch", "message": f"File extension '{actual_ext}' does not match language '{req.language}' (expected '{expected_ext}')"},
                     "status": 400
-                }
+                },
+                "latency_ms": round((time.time() - start_time) * 1000, 2),
+                "timestamp": int(time.time() * 1000)
             }
         if req.fault == 'syntax':
             return {
@@ -211,7 +243,9 @@ def handle_code_action(req: CodeAction):
                         'message': 'Syntax error in code'
                     },
                     'status': 400
-                }
+                },
+                "latency_ms": round((time.time() - start_time) * 1000, 2),
+                "timestamp": int(time.time() * 1000)
             }
         if req.fault == 'io':
             return {
@@ -221,7 +255,9 @@ def handle_code_action(req: CodeAction):
                         'message': 'I/O error occurred'
                     },
                     'status': 500
-                }
+                },
+                "latency_ms": round((time.time() - start_time) * 1000, 2),
+                "timestamp": int(time.time() * 1000)
             }
         if req.fault == 'permission':
             return {
@@ -231,7 +267,9 @@ def handle_code_action(req: CodeAction):
                         'message': 'Permission denied'
                     },
                     'status': 403
-                }
+                },
+                "latency_ms": round((time.time() - start_time) * 1000, 2),
+                "timestamp": int(time.time() * 1000)
             }
         # If content is provided, write to a temp file and use that path
         supported_content_actions = ["run", "test", "lint", "fix", "format"]
@@ -241,7 +279,9 @@ def handle_code_action(req: CodeAction):
                     "result": {
                         "error": {"code": "unsupported_content", "message": f"'content' is not supported for action '{req.action}'. Please use a file path."},
                         "status": 400
-                    }
+                    },
+                    "latency_ms": round((time.time() - start_time) * 1000, 2),
+                    "timestamp": int(time.time() * 1000)
                 }
             try:
                 with tempfile.NamedTemporaryFile(delete=False, mode='w', suffix=f'.{req.language}') as tmp:
@@ -252,7 +292,9 @@ def handle_code_action(req: CodeAction):
                     "result": {
                         "error": {"code": "tempfile_error", "message": f"Failed to create temp file: {str(e)}"},
                         "status": 500
-                    }
+                    },
+                    "latency_ms": round((time.time() - start_time) * 1000, 2),
+                    "timestamp": int(time.time() * 1000)
                 }
         else:
             if not req.path:
@@ -260,7 +302,9 @@ def handle_code_action(req: CodeAction):
                     "result": {
                         "error": {"code": "missing_path_or_content", "message": "Missing 'path' or 'content'. Please provide a valid file path (e.g., 'script.py') or code content."},
                         "status": 400
-                    }
+                    },
+                    "latency_ms": round((time.time() - start_time) * 1000, 2),
+                    "timestamp": int(time.time() * 1000)
                 }
             abs_path = os.path.abspath(os.path.expanduser(req.path))
             if not os.path.exists(abs_path):
@@ -268,7 +312,9 @@ def handle_code_action(req: CodeAction):
                     "result": {
                         "error": {"code": "file_not_found", "message": f"File '{req.path}' not found. Use the /files endpoint to create or upload."},
                         "status": 404
-                    }
+                    },
+                    "latency_ms": round((time.time() - start_time) * 1000, 2),
+                    "timestamp": int(time.time() * 1000)
                 }
 
         # Concurrency: file lock for all file-based actions
@@ -282,7 +328,9 @@ def handle_code_action(req: CodeAction):
                 "result": {
                     "error": {"code": "concurrent_access", "message": "File is currently being processed by another operation. Try again later."},
                     "status": 429
-                }
+                },
+                "latency_ms": round((time.time() - start_time) * 1000, 2),
+                "timestamp": int(time.time() * 1000)
             }
 
         if req.action == "run":
@@ -292,7 +340,9 @@ def handle_code_action(req: CodeAction):
                     "result": {
                         "error": {"code": "unsupported_language", "message": f"Run not supported for language '{req.language}'. Supported: python, bash, node."},
                         "status": 400
-                    }
+                    },
+                    "latency_ms": round((time.time() - start_time) * 1000, 2),
+                    "timestamp": int(time.time() * 1000)
                 }
             cmd = {
                 "python": f"python \"{abs_path}\" {req.args}",
@@ -315,7 +365,9 @@ def handle_code_action(req: CodeAction):
                     "result": {
                         "error": {"code": "unsupported_language", "message": f"Linter not configured for language '{req.language}'. Supported: python, js."},
                         "status": 400
-                    }
+                    },
+                    "latency_ms": round((time.time() - start_time) * 1000, 2),
+                    "timestamp": int(time.time() * 1000)
                 }
 
         elif req.action == "test":
@@ -328,7 +380,9 @@ def handle_code_action(req: CodeAction):
                     "result": {
                         "error": {"code": "unsupported_language", "message": f"Testing not configured for language '{req.language}'. Supported: python, js."},
                         "status": 400
-                    }
+                    },
+                    "latency_ms": round((time.time() - start_time) * 1000, 2),
+                    "timestamp": int(time.time() * 1000)
                 }
 
         elif req.action == "format":
@@ -341,7 +395,9 @@ def handle_code_action(req: CodeAction):
                     "result": {
                         "error": {"code": "unsupported_language", "message": f"Formatter not configured for language '{req.language}'. Supported: python, js."},
                         "status": 400
-                    }
+                    },
+                    "latency_ms": round((time.time() - start_time) * 1000, 2),
+                    "timestamp": int(time.time() * 1000)
                 }
 
         elif req.action == "fix":
@@ -354,20 +410,18 @@ def handle_code_action(req: CodeAction):
                     "result": {
                         "error": {"code": "unsupported_language", "message": f"Fixer not configured for language '{req.language}'. Supported: python, js."},
                         "status": 400
-                    }
+                    },
+                    "latency_ms": round((time.time() - start_time) * 1000, 2),
+                    "timestamp": int(time.time() * 1000)
                 }
 
         elif req.action == "explain":
             with open(abs_path, 'r', encoding='utf-8') as f:
-                return {"result": {"code": f.read(), "explanation": "[GPT should explain this]"}}
-
-        else:
-            return {
-                "result": {
-                    "error": {"code": "invalid_action", "message": "Invalid action. Supported: run, test, lint, fix, format, explain."},
-                    "status": 400
+                return {
+                    "result": {"code": f.read(), "explanation": "[GPT should explain this]"},
+                    "latency_ms": round((time.time() - start_time) * 1000, 2),
+                    "timestamp": int(time.time() * 1000)
                 }
-            }
 
         try:
             result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
@@ -381,7 +435,9 @@ def handle_code_action(req: CodeAction):
                     "stderr": str(e),
                     "exit_code": -1,
                     "duration": duration
-                }
+                },
+                "latency_ms": round(duration * 1000, 2),
+                "timestamp": int(time.time() * 1000)
             }
         if req.action == "test" and req.language == "python" and result.returncode == 5:
             duration = time.time() - start_time
@@ -396,7 +452,9 @@ def handle_code_action(req: CodeAction):
                     "stderr": result.stderr,
                     "exit_code": result.returncode,
                     "duration": duration
-                }
+                },
+                "latency_ms": round(duration * 1000, 2),
+                "timestamp": int(time.time() * 1000)
             }
         if req.action == "test" and req.language == "python" and result.returncode == 127:
             duration = time.time() - start_time
@@ -411,7 +469,9 @@ def handle_code_action(req: CodeAction):
                     "stderr": result.stderr,
                     "exit_code": result.returncode,
                     "duration": duration
-                }
+                },
+                "latency_ms": round(duration * 1000, 2),
+                "timestamp": int(time.time() * 1000)
             }
         if req.action == "run" and result.returncode == 127:
             duration = time.time() - start_time
@@ -426,7 +486,9 @@ def handle_code_action(req: CodeAction):
                     "stderr": result.stderr,
                     "exit_code": result.returncode,
                     "duration": duration
-                }
+                },
+                "latency_ms": round(duration * 1000, 2),
+                "timestamp": int(time.time() * 1000)
             }
         if result.returncode != 0 and req.action == "run":
             duration = time.time() - start_time
@@ -441,20 +503,55 @@ def handle_code_action(req: CodeAction):
                     "stderr": result.stderr,
                     "exit_code": result.returncode,
                     "duration": duration
-                }
+                },
+                "latency_ms": round(duration * 1000, 2),
+                "timestamp": int(time.time() * 1000)
             }
+        # Special handling for lint: parse output to classify warnings/errors
+        if req.action == "lint":
+            issues = []
+            output = result.stderr + result.stdout
+            if req.language == "python" and output:
+                for line in output.strip().split('\n'):
+                    if ':' in line:
+                        parts = line.split(':', 4)
+                        if len(parts) >= 4:
+                            filename, line_num, col, code, message = parts
+                            severity = "error" if code.startswith('E') or code.startswith('F') else "warning"
+                            issues.append({
+                                "file": filename,
+                                "line": int(line_num),
+                                "column": int(col),
+                                "code": code,
+                                "message": message.strip(),
+                                "severity": severity
+                            })
+            elif req.language == "js" and output:
+                # Basic parsing for eslint text output
+                for line in output.strip().split('\n'):
+                    if line.strip():
+                        # Simple parsing - could be improved
+                        if 'error' in line.lower():
+                            severity = "error"
+                        elif 'warning' in line.lower():
+                            severity = "warning"
+                        else:
+                            severity = "info"
+                        issues.append({
+                            "message": line.strip(),
+                            "severity": severity
+                        })
+            context["issues"] = issues
+            context["issues_count"] = len(issues)
+            context["errors_count"] = len([i for i in issues if i.get("severity") == "error"])
+            context["warnings_count"] = len([i for i in issues if i.get("severity") == "warning"])
         # Add context: file path, action, language, and content hash (if content provided)
         import hashlib
         duration = time.time() - start_time
-        context = {
-            "action": req.action,
-            "language": req.language,
-            "path": req.path if hasattr(req, 'path') else None,
-            "duration": duration
-        }
+        context["duration"] = duration
         if req.content:
             context["content_hash"] = hashlib.sha256(req.content.encode()).hexdigest()
-        return {
+        result_dict = {
             "result": {
                 **context,
                 "stdout": result.stdout,
@@ -462,6 +559,10 @@ def handle_code_action(req: CodeAction):
                 "exit_code": result.returncode
             }
         }
+        # Add observability fields
+        result_dict["latency_ms"] = round(duration * 1000, 2)
+        result_dict["timestamp"] = int(time.time() * 1000)
+        return result_dict
     finally:
         if lock_acquired and lock_fd:
             try:

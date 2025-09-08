@@ -90,17 +90,19 @@ def main():
     end_time = time.time()
 
     print(f"\n{'=' * 50}")
-    print("📊 Test Results Summary"    print(".2f")
+    print("📊 Test Results Summary")
+    print(f"   Duration: {end_time - start_time:.2f} seconds")
     print(f"   Status: {'✅ PASSED' if success else '❌ FAILED'}")
 
     if not args.no_cov and success:
-        print("
-📈 Coverage Report:"        print("   HTML report: htmlcov/index.html"
+        print("\n📈 Coverage Report:")
+        print("   HTML report: htmlcov/index.html")
+    
     if success:
-        print("
-🎉 All tests passed! Your API is ready for production."    else:
-        print("
-💥 Some tests failed. Please review the output above."        sys.exit(1)
+        print("\n🎉 All tests passed! Your API is ready for production.")
+    else:
+        print("\n💥 Some tests failed. Please review the output above.")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()

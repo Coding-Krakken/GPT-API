@@ -17,6 +17,7 @@ app.add_middleware(
 # Register all routers
 app.include_router(shell.router, prefix="/shell")
 app.include_router(files.router, prefix="/files")
+app.include_router(files.router, prefix="/manageFiles")  # Alias for tool compatibility
 app.include_router(code.router, prefix="/code")
 app.include_router(system.router, prefix="/system")
 app.include_router(monitor.router, prefix="/monitor")
