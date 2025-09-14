@@ -107,7 +107,7 @@ def _error_response(code: str, message: str, extra: Optional[Dict] = None) -> Di
     return result
 
 def _get_monitors():
-    """Get information about available monitors"""
+    """Get comprehensive information about available monitors with enhanced detection"""
     monitors = []
     
     if platform.system() == "Linux" and XLIB_AVAILABLE:
@@ -116,25 +116,123 @@ def _get_monitors():
             screen = d.screen()
             resources = randr.get_screen_resources(screen.root)
             
-            for output in resources.outputs:
+            for i, output in enumerate(resources.outputs):
                 output_info = randr.get_output_info(d, output, resources.config_timestamp)
-                if output_info.connection == randr.Connected:
+                if output_info.connection == randr.Connected and output_info.crtc:
                     crtc = randr.get_crtc_info(d, output_info.crtc, resources.config_timestamp)
+                    # Get DPI information if available
+                    dpi_x = dpi_y = 96  # Default DPI
+                    try:
+                        if output_info.mm_width > 0 and output_info.mm_height > 0:
+                            dpi_x = int(crtc.width * 25.4 / output_info.mm_width)
+                            dpi_y = int(crtc.height * 25.4 / output_info.mm_height)
+                    except:
+                        pass
+                    
                     monitors.append({
-                        "index": len(monitors),
+                        "index": i,
                         "x": crtc.x,
                         "y": crtc.y, 
                         "width": crtc.width,
                         "height": crtc.height,
-                        "primary": len(monitors) == 0
+                        "primary": i == 0,
+                        "scale_factor": max(dpi_x, dpi_y) / 96.0,
+                        "dpi": {"x": dpi_x, "y": dpi_y},
+                        "name": f"Monitor_{i}",
+                        "rotation": 0  # Could detect rotation if needed
                     })
+        except Exception as e:
+            # Enhanced fallback with system detection
+            try:
+                # Try to get screen dimensions from environment
+                display_env = os.environ.get("DISPLAY")
+                if display_env:
+                    # Parse display info if available
+                    screen_width = int(os.environ.get("SCREEN_WIDTH", "1920"))
+                    screen_height = int(os.environ.get("SCREEN_HEIGHT", "1080"))
+                else:
+                    screen_width, screen_height = 1920, 1080
+            except:
+                screen_width, screen_height = 1920, 1080
+                
+            monitors.append({
+                "index": 0, "x": 0, "y": 0, 
+                "width": screen_width, "height": screen_height, 
+                "primary": True, "scale_factor": 1.0,
+                "dpi": {"x": 96, "y": 96}, "name": "Primary", "rotation": 0
+            })
+    
+    elif platform.system() == "Windows" and WIN32_AVAILABLE:
+        try:
+            # Enhanced Windows monitor detection
+            import win32api
+            import win32con
+            
+            def enum_display_monitor(hMonitor, hdcMonitor, lprcMonitor, dwData):
+                monitors.append({
+                    "index": len(monitors),
+                    "x": lprcMonitor[0],
+                    "y": lprcMonitor[1],
+                    "width": lprcMonitor[2] - lprcMonitor[0],
+                    "height": lprcMonitor[3] - lprcMonitor[1],
+                    "primary": len(monitors) == 0,
+                    "scale_factor": 1.0,  # Could get actual DPI scaling
+                    "dpi": {"x": 96, "y": 96},
+                    "name": f"Monitor_{len(monitors)}",
+                    "rotation": 0
+                })
+                return True
+            
+            win32api.EnumDisplayMonitors(None, None, enum_display_monitor, 0)
+            
         except Exception:
-            # Fallback to single monitor
-            monitors.append({"index": 0, "x": 0, "y": 0, "width": 1920, "height": 1080, "primary": True})
+            # Windows fallback
+            try:
+                width = win32api.GetSystemMetrics(win32con.SM_CXSCREEN)
+                height = win32api.GetSystemMetrics(win32con.SM_CYSCREEN)
+                monitors.append({
+                    "index": 0, "x": 0, "y": 0,
+                    "width": width, "height": height,
+                    "primary": True, "scale_factor": 1.0,
+                    "dpi": {"x": 96, "y": 96}, "name": "Primary", "rotation": 0
+                })
+            except:
+                monitors.append({
+                    "index": 0, "x": 0, "y": 0, "width": 1920, "height": 1080,
+                    "primary": True, "scale_factor": 1.0,
+                    "dpi": {"x": 96, "y": 96}, "name": "Primary", "rotation": 0
+                })
+    
+    elif platform.system() == "Darwin" and QUARTZ_AVAILABLE:
+        try:
+            # Enhanced macOS monitor detection
+            display_count = Quartz.CGGetActiveDisplayList(10, None, None)[1]
+            for i in range(display_count):
+                display_id = Quartz.CGGetActiveDisplayList(10, None, None)[2][i]
+                bounds = Quartz.CGDisplayBounds(display_id)
+                
+                monitors.append({
+                    "index": i,
+                    "x": int(bounds.origin.x),
+                    "y": int(bounds.origin.y),
+                    "width": int(bounds.size.width),
+                    "height": int(bounds.size.height),
+                    "primary": Quartz.CGDisplayIsMain(display_id),
+                    "scale_factor": 1.0,  # Could get Retina scaling
+                    "dpi": {"x": 72, "y": 72},  # macOS default
+                    "name": f"Display_{i}",
+                    "rotation": 0
+                })
+        except Exception:
+            monitors.append({
+                "index": 0, "x": 0, "y": 0, "width": 1920, "height": 1080,
+                "primary": True, "scale_factor": 1.0,
+                "dpi": {"x": 72, "y": 72}, "name": "Primary", "rotation": 0
+            })
     
     elif PYAUTOGUI_AVAILABLE:
         try:
-            # PyAutoGUI can detect multiple monitors
+            # Enhanced PyAutoGUI detection with multiple monitors
             size = pyautogui.size()
             monitors.append({
                 "index": 0,
@@ -142,39 +240,102 @@ def _get_monitors():
                 "y": 0,
                 "width": size.width,
                 "height": size.height,
-                "primary": True
+                "primary": True,
+                "scale_factor": 1.0,
+                "dpi": {"x": 96, "y": 96},
+                "name": "Primary",
+                "rotation": 0
             })
         except Exception:
-            monitors.append({"index": 0, "x": 0, "y": 0, "width": 1920, "height": 1080, "primary": True})
+            monitors.append({
+                "index": 0, "x": 0, "y": 0, "width": 1920, "height": 1080,
+                "primary": True, "scale_factor": 1.0,
+                "dpi": {"x": 96, "y": 96}, "name": "Primary", "rotation": 0
+            })
     
     else:
-        # Default fallback
-        monitors.append({"index": 0, "x": 0, "y": 0, "width": 1920, "height": 1080, "primary": True})
+        # Default fallback with enhanced metadata
+        monitors.append({
+            "index": 0, "x": 0, "y": 0, "width": 1920, "height": 1080,
+            "primary": True, "scale_factor": 1.0,
+            "dpi": {"x": 96, "y": 96}, "name": "Primary", "rotation": 0
+        })
     
     return monitors
 
-def _capture_screenshot(region=None, monitor=0):
-    """Capture screenshot using available methods"""
+def _capture_screenshot(region=None, monitor=0, scale_factor=1.0):
+    """Enhanced screenshot capture with validation and error handling"""
     if not PYAUTOGUI_AVAILABLE:
         raise Exception("PyAutoGUI not available for screenshot capture")
     
     try:
-        if region:
-            # Capture specific region
-            screenshot = pyautogui.screenshot(region=(region["x"], region["y"], region["width"], region["height"]))
-        else:
-            # Capture full screen or specific monitor
-            screenshot = pyautogui.screenshot()
+        monitors = _get_monitors()
         
-        return screenshot
+        # Validate monitor index
+        if monitor >= len(monitors):
+            raise Exception(f"Invalid monitor index {monitor}. Available monitors: 0-{len(monitors)-1}")
+        
+        selected_monitor = monitors[monitor]
+        
+        if region:
+            # Validate region bounds
+            if region["x"] < 0 or region["y"] < 0:
+                raise Exception("Region coordinates cannot be negative")
+            if region["width"] <= 0 or region["height"] <= 0:
+                raise Exception("Region dimensions must be positive")
+                
+            # Adjust region for monitor offset
+            adjusted_region = (
+                selected_monitor["x"] + region["x"],
+                selected_monitor["y"] + region["y"],
+                region["width"],
+                region["height"]
+            )
+            
+            # Validate region doesn't exceed monitor bounds
+            max_x = selected_monitor["x"] + selected_monitor["width"]
+            max_y = selected_monitor["y"] + selected_monitor["height"]
+            
+            if (adjusted_region[0] + adjusted_region[2]) > max_x:
+                raise Exception(f"Region extends beyond monitor width ({max_x} pixels)")
+            if (adjusted_region[1] + adjusted_region[3]) > max_y:
+                raise Exception(f"Region extends beyond monitor height ({max_y} pixels)")
+            
+            screenshot = pyautogui.screenshot(region=adjusted_region)
+        else:
+            # Full screen capture
+            if len(monitors) == 1:
+                screenshot = pyautogui.screenshot()
+            else:
+                # For multi-monitor, capture the specific monitor
+                monitor_region = (
+                    selected_monitor["x"],
+                    selected_monitor["y"], 
+                    selected_monitor["width"],
+                    selected_monitor["height"]
+                )
+                screenshot = pyautogui.screenshot(region=monitor_region)
+        
+        # Apply DPI scaling if needed
+        if scale_factor != 1.0 and scale_factor > 0:
+            new_width = int(screenshot.width * scale_factor)
+            new_height = int(screenshot.height * scale_factor)
+            if PIL_AVAILABLE:
+                screenshot = screenshot.resize((new_width, new_height), Image.LANCZOS)
+            else:
+                # Basic resize without PIL
+                screenshot = screenshot.resize((new_width, new_height))
+        
+        return screenshot, selected_monitor
+        
     except Exception as e:
         raise Exception(f"Screenshot capture failed: {str(e)}")
 
 @router.post("/capture", dependencies=[Depends(verify_key)])
 def screen_capture(req: ScreenCaptureRequest, response: Response):
     """
-    Capture screenshots with multi-monitor and HiDPI support.
-    Supports full screen, regional, and multi-monitor capture.
+    Enhanced screenshot capture with multi-monitor and HiDPI support.
+    Supports full screen, regional, and multi-monitor capture with comprehensive validation.
     """
     start_time = time.time()
     
@@ -184,6 +345,19 @@ def screen_capture(req: ScreenCaptureRequest, response: Response):
     if not PYAUTOGUI_AVAILABLE:
         return _error_response("DEPENDENCY_MISSING", "PyAutoGUI not available for screen capture")
     
+    # Input validation
+    if req.monitor < 0:
+        return _error_response("INVALID_MONITOR", "Monitor index cannot be negative")
+    
+    if req.scale <= 0:
+        return _error_response("INVALID_SCALE", "Scale factor must be positive")
+    
+    if req.quality < 1 or req.quality > 100:
+        return _error_response("INVALID_QUALITY", "JPEG quality must be between 1-100")
+    
+    if req.format not in ["png", "jpeg", "base64"]:
+        return _error_response("INVALID_FORMAT", "Format must be 'png', 'jpeg', or 'base64'")
+    
     try:
         monitors = _get_monitors()
         
@@ -191,13 +365,8 @@ def screen_capture(req: ScreenCaptureRequest, response: Response):
         if req.monitor >= len(monitors):
             return _error_response("INVALID_MONITOR", f"Monitor {req.monitor} not available. Found {len(monitors)} monitors.")
         
-        # Capture screenshot
-        screenshot = _capture_screenshot(req.region, req.monitor)
-        
-        # Apply scaling for HiDPI if needed
-        if req.scale != 1.0:
-            new_size = (int(screenshot.width * req.scale), int(screenshot.height * req.scale))
-            screenshot = screenshot.resize(new_size, Image.LANCZOS if PIL_AVAILABLE else None)
+        # Enhanced capture with validation
+        screenshot, selected_monitor = _capture_screenshot(req.region, req.monitor, req.scale)
         
         # Encode output
         if req.format == "base64":
@@ -212,29 +381,75 @@ def screen_capture(req: ScreenCaptureRequest, response: Response):
                     "format": "png",
                     "width": screenshot.width,
                     "height": screenshot.height,
-                    "monitor": req.monitor,
-                    "region": req.region
+                    "monitor": {
+                        "index": req.monitor,
+                        "name": selected_monitor["name"],
+                        "dimensions": {
+                            "x": selected_monitor["x"],
+                            "y": selected_monitor["y"],
+                            "width": selected_monitor["width"],
+                            "height": selected_monitor["height"]
+                        },
+                        "dpi": selected_monitor["dpi"],
+                        "scale_factor": selected_monitor["scale_factor"],
+                        "primary": selected_monitor["primary"]
+                    },
+                    "region": req.region,
+                    "applied_scale": req.scale,
+                    "capture_time": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
                 },
                 "monitors": monitors,
                 "timestamp": int(time.time() * 1000),
                 "latency_ms": int((time.time() - start_time) * 1000)
             }
         else:
-            # Save to temporary file
-            temp_path = f"/tmp/screenshot_{int(time.time())}.{req.format}"
+            # Enhanced file output with metadata
+            timestamp = int(time.time())
+            temp_path = f"/tmp/screenshot_{timestamp}_m{req.monitor}.{req.format}"
+            
             if req.format == "jpeg":
-                screenshot.save(temp_path, format="JPEG", quality=req.quality)
+                screenshot.save(temp_path, format="JPEG", quality=req.quality, optimize=True)
             else:
-                screenshot.save(temp_path, format="PNG")
+                screenshot.save(temp_path, format="PNG", optimize=True)
+                
+            # Create metadata file alongside the image
+            metadata_path = temp_path.replace(f".{req.format}", "_metadata.json")
+            metadata = {
+                "capture_timestamp": timestamp,
+                "monitor": selected_monitor,
+                "region": req.region,
+                "applied_scale": req.scale,
+                "format": req.format,
+                "file_path": temp_path,
+                "dimensions": {"width": screenshot.width, "height": screenshot.height}
+            }
+            
+            with open(metadata_path, 'w') as f:
+                json.dump(metadata, f, indent=2)
                 
             return {
                 "result": {
                     "file_path": temp_path,
+                    "metadata_path": metadata_path,
                     "format": req.format,
                     "width": screenshot.width,
                     "height": screenshot.height,
-                    "monitor": req.monitor,
-                    "region": req.region
+                    "monitor": {
+                        "index": req.monitor,
+                        "name": selected_monitor["name"],
+                        "dimensions": {
+                            "x": selected_monitor["x"],
+                            "y": selected_monitor["y"],
+                            "width": selected_monitor["width"],
+                            "height": selected_monitor["height"]
+                        },
+                        "dpi": selected_monitor["dpi"],
+                        "scale_factor": selected_monitor["scale_factor"],
+                        "primary": selected_monitor["primary"]
+                    },
+                    "region": req.region,
+                    "applied_scale": req.scale,
+                    "file_size_bytes": os.path.getsize(temp_path) if os.path.exists(temp_path) else 0
                 },
                 "monitors": monitors,
                 "timestamp": int(time.time() * 1000),
@@ -247,8 +462,8 @@ def screen_capture(req: ScreenCaptureRequest, response: Response):
 @router.post("/ocr", dependencies=[Depends(verify_key)])
 def ocr_read_region(req: OCRRequest, response: Response):
     """
-    Extract text from screen regions or images using OCR.
-    Supports multiple languages and confidence scoring.
+    Enhanced OCR text extraction from screen regions or images.
+    Supports multiple languages, confidence scoring, and detailed word-level analysis.
     """
     start_time = time.time()
     
@@ -258,51 +473,146 @@ def ocr_read_region(req: OCRRequest, response: Response):
     if not TESSERACT_AVAILABLE:
         return _error_response("DEPENDENCY_MISSING", "pytesseract not available for OCR")
     
+    # Input validation
+    if req.confidence_threshold < 0 or req.confidence_threshold > 100:
+        return _error_response("INVALID_CONFIDENCE", "Confidence threshold must be between 0-100")
+    
+    if req.language and not all(c.isalnum() or c in ['_', '+'] for c in req.language):
+        return _error_response("INVALID_LANGUAGE", "Language code contains invalid characters")
+    
     try:
         # Get image to process
+        image_source = "screen_capture"
         if req.image_data:
             # Decode base64 image
-            image_bytes = base64.b64decode(req.image_data)
-            import io
-            image = Image.open(io.BytesIO(image_bytes))
+            try:
+                image_bytes = base64.b64decode(req.image_data)
+                import io
+                image = Image.open(io.BytesIO(image_bytes))
+                image_source = "base64_data"
+            except Exception as e:
+                return _error_response("INVALID_IMAGE_DATA", f"Failed to decode image data: {str(e)}")
         else:
             # Capture screen region
             if not PYAUTOGUI_AVAILABLE:
                 return _error_response("DEPENDENCY_MISSING", "PyAutoGUI required for screen capture")
-            image = _capture_screenshot(req.region)
+            
+            try:
+                screenshot, monitor_info = _capture_screenshot(req.region, 0)  # Default to monitor 0
+                image = screenshot
+            except Exception as e:
+                return _error_response("CAPTURE_ERROR", f"Failed to capture screen: {str(e)}")
         
-        # Run OCR
-        custom_config = f'--oem 3 --psm 6 -l {req.language}'
+        # Prepare OCR configuration
+        config_parts = [
+            '--oem 3',  # OCR Engine Mode: Default
+            '--psm 6',  # Page Segmentation Mode: Uniform block of text
+            f'-l {req.language}'  # Language
+        ]
         
-        # Get text with confidence scores
-        ocr_data = pytesseract.image_to_data(image, config=custom_config, output_type=pytesseract.Output.DICT)
+        # Add additional OCR optimizations
+        config_parts.extend([
+            '-c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 .,-:;!?()[]{}',
+            '-c preserve_interword_spaces=1'
+        ])
         
-        # Filter results by confidence threshold
-        filtered_results = []
+        custom_config = ' '.join(config_parts)
+        
+        # Enhanced OCR processing with multiple output formats
+        try:
+            # Get detailed word-level data
+            ocr_data = pytesseract.image_to_data(image, config=custom_config, output_type=pytesseract.Output.DICT)
+            
+            # Get full text with confidence
+            full_text = pytesseract.image_to_string(image, config=custom_config)
+            
+            # Get bounding boxes
+            boxes = pytesseract.image_to_boxes(image, config=custom_config)
+            
+        except Exception as e:
+            return _error_response("OCR_PROCESSING_ERROR", f"OCR processing failed: {str(e)}")
+        
+        # Process and filter results by confidence threshold
+        filtered_words = []
+        lines = []
+        current_line = []
+        current_line_num = -1
+        
         for i in range(len(ocr_data['text'])):
-            if int(ocr_data['conf'][i]) >= req.confidence_threshold:
-                if ocr_data['text'][i].strip():  # Non-empty text
-                    filtered_results.append({
-                        "text": ocr_data['text'][i],
-                        "confidence": int(ocr_data['conf'][i]),
-                        "bbox": {
-                            "x": ocr_data['left'][i],
-                            "y": ocr_data['top'][i], 
-                            "width": ocr_data['width'][i],
-                            "height": ocr_data['height'][i]
-                        }
-                    })
+            confidence = int(ocr_data['conf'][i])
+            text = ocr_data['text'][i].strip()
+            
+            if confidence >= req.confidence_threshold and text:
+                word_data = {
+                    "text": text,
+                    "confidence": confidence,
+                    "bbox": {
+                        "x": ocr_data['left'][i],
+                        "y": ocr_data['top'][i],
+                        "width": ocr_data['width'][i],
+                        "height": ocr_data['height'][i]
+                    },
+                    "block_num": ocr_data['block_num'][i],
+                    "par_num": ocr_data['par_num'][i],
+                    "line_num": ocr_data['line_num'][i],
+                    "word_num": ocr_data['word_num'][i]
+                }
+                
+                filtered_words.append(word_data)
+                
+                # Group words by lines
+                line_num = ocr_data['line_num'][i]
+                if line_num != current_line_num:
+                    if current_line:
+                        lines.append({
+                            "line_num": current_line_num,
+                            "text": " ".join([w["text"] for w in current_line]),
+                            "words": current_line,
+                            "avg_confidence": sum([w["confidence"] for w in current_line]) / len(current_line),
+                            "bbox": _calculate_line_bbox(current_line)
+                        })
+                    current_line = [word_data]
+                    current_line_num = line_num
+                else:
+                    current_line.append(word_data)
         
-        # Get full text
-        full_text = pytesseract.image_to_string(image, config=custom_config)
+        # Add the last line
+        if current_line:
+            lines.append({
+                "line_num": current_line_num,
+                "text": " ".join([w["text"] for w in current_line]),
+                "words": current_line,
+                "avg_confidence": sum([w["confidence"] for w in current_line]) / len(current_line),
+                "bbox": _calculate_line_bbox(current_line)
+            })
+        
+        # Calculate overall statistics
+        if filtered_words:
+            avg_confidence = sum([w["confidence"] for w in filtered_words]) / len(filtered_words)
+            min_confidence = min([w["confidence"] for w in filtered_words])
+            max_confidence = max([w["confidence"] for w in filtered_words])
+        else:
+            avg_confidence = min_confidence = max_confidence = 0
         
         return {
             "result": {
                 "text": full_text.strip(),
-                "words": filtered_results,
+                "words": filtered_words,
+                "lines": lines,
                 "language": req.language,
                 "region": req.region,
-                "total_words": len(filtered_results)
+                "image_source": image_source,
+                "statistics": {
+                    "total_words": len(filtered_words),
+                    "total_lines": len(lines),
+                    "confidence_threshold": req.confidence_threshold,
+                    "avg_confidence": round(avg_confidence, 2),
+                    "min_confidence": min_confidence,
+                    "max_confidence": max_confidence,
+                    "words_filtered": len([w for w in ocr_data['text'] if w.strip()]) - len(filtered_words)
+                },
+                "config_used": custom_config,
+                "image_dimensions": {"width": image.width, "height": image.height} if hasattr(image, 'width') else None
             },
             "timestamp": int(time.time() * 1000),
             "latency_ms": int((time.time() - start_time) * 1000)
@@ -310,6 +620,23 @@ def ocr_read_region(req: OCRRequest, response: Response):
         
     except Exception as e:
         return _error_response("OCR_ERROR", str(e))
+
+def _calculate_line_bbox(words):
+    """Calculate bounding box for a line of words"""
+    if not words:
+        return {"x": 0, "y": 0, "width": 0, "height": 0}
+    
+    min_x = min([w["bbox"]["x"] for w in words])
+    min_y = min([w["bbox"]["y"] for w in words])
+    max_x = max([w["bbox"]["x"] + w["bbox"]["width"] for w in words])
+    max_y = max([w["bbox"]["y"] + w["bbox"]["height"] for w in words])
+    
+    return {
+        "x": min_x,
+        "y": min_y,
+        "width": max_x - min_x,
+        "height": max_y - min_y
+    }
 
 @router.post("/template_match", dependencies=[Depends(verify_key)])
 def vision_template_match(req: TemplateMatchRequest, response: Response):
