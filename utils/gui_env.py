@@ -3,10 +3,17 @@ import shutil
 import platform
 import subprocess
 import json
-import psutil
 import time
 import re
 from typing import Dict, List, Any, Optional
+
+# Optional imports with fallbacks
+try:
+    import psutil
+    PSUTIL_AVAILABLE = True
+except ImportError:
+    PSUTIL_AVAILABLE = False
+    print("Warning: psutil not available. Some process detection features will be limited.")
 
 def get_microsecond_timestamp():
     """Get current timestamp with microsecond precision"""
@@ -50,6 +57,29 @@ def run_with_observability(command, timeout=10):
         result["latency_us"] = calculate_latency_us(start_time)
     
     return result
+
+def get_process_list_fallback():
+    """Fallback process detection without psutil"""
+    processes = []
+    try:
+        # Try using ps command as fallback
+        result = subprocess.run(['ps', 'aux'], capture_output=True, text=True, timeout=10)
+        if result.returncode == 0:
+            for line in result.stdout.split('\n')[1:]:  # Skip header
+                if line.strip():
+                    parts = line.split()
+                    if len(parts) >= 11:
+                        try:
+                            processes.append({
+                                'pid': int(parts[1]),
+                                'name': parts[10],
+                                'command': ' '.join(parts[10:])
+                            })
+                        except (ValueError, IndexError):
+                            continue
+    except Exception:
+        pass
+    return processes
 
 def detect_gui_environment_comprehensive():
     """Comprehensive GUI environment detection with Wayland/X11 hybrid support"""
@@ -126,17 +156,32 @@ def detect_gui_environment_comprehensive():
                     pass
             
             # Check for other Wayland compositors via process detection
-            for compositor in ["gnome-shell", "kwin_wayland", "weston", "hyprland", "mutter"]:
+            compositor_names = ["gnome-shell", "kwin_wayland", "weston", "hyprland", "mutter"]
+            
+            if PSUTIL_AVAILABLE:
                 try:
                     for proc in psutil.process_iter(['name']):
-                        if proc.info['name'] and compositor in proc.info['name']:
+                        if proc.info['name']:
+                            for compositor in compositor_names:
+                                if compositor in proc.info['name']:
+                                    env["compositor"] = compositor
+                                    env["detection_methods"].append(f"process_{compositor}")
+                                    break
+                        if env["compositor"]:
+                            break
+                except:
+                    pass
+            else:
+                # Fallback using ps command
+                processes = get_process_list_fallback()
+                for proc in processes:
+                    for compositor in compositor_names:
+                        if compositor in proc['name']:
                             env["compositor"] = compositor
-                            env["detection_methods"].append(f"process_{compositor}")
+                            env["detection_methods"].append(f"process_{compositor}_fallback")
                             break
                     if env["compositor"]:
                         break
-                except:
-                    continue
             
             # Wayland capabilities
             if env["tools"]["wlr-randr"]:
