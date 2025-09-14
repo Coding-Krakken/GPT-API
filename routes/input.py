@@ -9,6 +9,7 @@ from typing import Optional, List, Dict, Any, Union
 import time
 import platform
 import json
+import os
 from utils.auth import verify_key
 from utils.safety import safety_check, log_action
 
