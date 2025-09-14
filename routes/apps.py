@@ -2,6 +2,7 @@
 from fastapi import APIRouter, HTTPException, Depends, Response
 from pydantic import BaseModel
 import subprocess, os, platform, time, threading, psutil
+from utils.platform_tools import is_windows
 from utils.auth import verify_key
 from utils.gui_env import detect_gui_environment, ensure_x11_or_fail, get_install_guidance, log_full_gui_env
 import random
@@ -174,7 +175,21 @@ def handle_app_action(req: AppRequest, response: Response):
 
     if action == "list" or action == "list_windows":
         # List apps or windows
-        if action == "list_windows":
+        if is_windows():
+            try:
+                from utils.win32_windows import list_windows
+                winlist = list_windows()
+                windows = []
+                for w in winlist:
+                    windows.append({
+                        "window_id": w["hwnd"],
+                        "pid": w["pid"],
+                        "title": w["title"]
+                    })
+                return {"result": {"windows": windows}, "env": full_env, "timestamp": _now_ts(), "latency_ms": int((time.time() - start_time) * 1000)}
+            except Exception as e:
+                return error_response("WINDOW_LIST_ERROR", f"Failed to list windows: {str(e)}", 500, {"env": full_env})
+        elif action == "list_windows":
             required_tools = ["wmctrl", "xprop"]
             path_dirs = os.environ.get("PATH")
             if not path_dirs:
@@ -228,7 +243,7 @@ def handle_app_action(req: AppRequest, response: Response):
                     return {"result": {"windows": []}, "env": full_env, "timestamp": _now_ts(), "latency_ms": int((time.time() - start_time) * 1000)}
             except Exception as e:
                 return error_response("WINDOW_LIST_ERROR", f"Failed to list windows: {str(e)}", 500, {"env": full_env})
-        # For app list, return all active instances
+        # For app list (not windows), return all active instances
         with _apps_registry_lock:
             apps = []
             for pid, meta in _apps_registry.items():

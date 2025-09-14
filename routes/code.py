@@ -1,9 +1,10 @@
 from typing import Optional, List
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
-import subprocess, os, tempfile
+import subprocess, os, tempfile, platform, sys
 import time
 from utils.auth import verify_key
+from utils.platform_tools import is_windows, normalize_path
 
 router = APIRouter()
 
@@ -171,9 +172,7 @@ def handle_code_action(req: CodeAction):
             "timestamp": int(time.time() * 1000)
         }
     
-    import fcntl
-    
-    # Initialize lock variables
+    # Only import fcntl and use file locks on non-Windows
     lock_acquired = False
     lock_fd = None
     lockfile = None
@@ -284,7 +283,9 @@ def handle_code_action(req: CodeAction):
                     "timestamp": int(time.time() * 1000)
                 }
             try:
-                with tempfile.NamedTemporaryFile(delete=False, mode='w', suffix=f'.{req.language}') as tmp:
+                temp_dir = os.environ.get('TEMP') if is_windows() else None
+                # On Windows, ensure temp file is not opened with delete=True (prevents file lock issues)
+                with tempfile.NamedTemporaryFile(delete=False, mode='w', suffix=f'.{req.language}', dir=temp_dir) as tmp:
                     tmp.write(req.content)
                     abs_path = tmp.name
             except Exception as e:
@@ -306,7 +307,7 @@ def handle_code_action(req: CodeAction):
                     "latency_ms": round((time.time() - start_time) * 1000, 2),
                     "timestamp": int(time.time() * 1000)
                 }
-            abs_path = os.path.abspath(os.path.expanduser(req.path))
+            abs_path = normalize_path(os.path.abspath(os.path.expanduser(req.path)))
             if not os.path.exists(abs_path):
                 return {
                     "result": {
@@ -317,21 +318,23 @@ def handle_code_action(req: CodeAction):
                     "timestamp": int(time.time() * 1000)
                 }
 
-        # Concurrency: file lock for all file-based actions
-        try:
-            lockfile = abs_path + ".lock"
-            lock_fd = open(lockfile, "w")
-            fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            lock_acquired = True
-        except Exception:
-            return {
-                "result": {
-                    "error": {"code": "concurrent_access", "message": "File is currently being processed by another operation. Try again later."},
-                    "status": 429
-                },
-                "latency_ms": round((time.time() - start_time) * 1000, 2),
-                "timestamp": int(time.time() * 1000)
-            }
+        # Concurrency: file lock for all file-based actions (skip on Windows)
+        if not is_windows():
+            try:
+                import fcntl
+                lockfile = abs_path + ".lock"
+                lock_fd = open(lockfile, "w")
+                fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                lock_acquired = True
+            except Exception:
+                return {
+                    "result": {
+                        "error": {"code": "concurrent_access", "message": "File is currently being processed by another operation. Try again later."},
+                        "status": 429
+                    },
+                    "latency_ms": round((time.time() - start_time) * 1000, 2),
+                    "timestamp": int(time.time() * 1000)
+                }
 
         if req.action == "run":
             # Only allow supported languages for run
@@ -344,11 +347,20 @@ def handle_code_action(req: CodeAction):
                     "latency_ms": round((time.time() - start_time) * 1000, 2),
                     "timestamp": int(time.time() * 1000)
                 }
-            cmd = {
-                "python": f"python \"{abs_path}\" {req.args}",
-                "bash": f"bash \"{abs_path}\" {req.args}",
-                "node": f"node \"{abs_path}\" {req.args}",
-            }[req.language]
+            if req.language == "python":
+                # On Windows, always use absolute path to python.exe (prefer sys.executable, fallback to where python)
+                if is_windows():
+                    python_exec = sys.executable
+                    if not python_exec or not os.path.exists(python_exec):
+                        import shutil
+                        python_exec = shutil.which("python.exe") or shutil.which("python") or "python"
+                else:
+                    python_exec = "python"
+                cmd = f'"{python_exec}" "{abs_path}" {req.args}'
+            elif req.language == "bash":
+                cmd = f"bash \"{abs_path}\" {req.args}"
+            elif req.language == "node":
+                cmd = f"node \"{abs_path}\" {req.args}"
 
         elif req.action == "lint":
             if req.language == "python":
@@ -424,7 +436,9 @@ def handle_code_action(req: CodeAction):
                 }
 
         try:
-            result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+            # On Windows, ensure encoding is handled and shell is True
+            # Also, on Windows, avoid file lock issues by not opening temp file in exclusive mode
+            result = subprocess.run(cmd, shell=True, capture_output=True, text=True, encoding="utf-8" if not is_windows() else "cp1252")
         except Exception as e:
             duration = time.time() - start_time
             return {
@@ -564,8 +578,9 @@ def handle_code_action(req: CodeAction):
         result_dict["timestamp"] = int(time.time() * 1000)
         return result_dict
     finally:
-        if lock_acquired and lock_fd:
+        if not is_windows() and lock_acquired and lock_fd:
             try:
+                import fcntl
                 fcntl.flock(lock_fd, fcntl.LOCK_UN)
                 lock_fd.close()
                 os.remove(lockfile)

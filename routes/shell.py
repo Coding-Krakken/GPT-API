@@ -1,11 +1,14 @@
 from fastapi import APIRouter, HTTPException, Depends, Response, Request
 from pydantic import BaseModel
 import subprocess
+import shutil
 import re
 import os
 import time
+import platform
 from utils.auth import verify_key
 from utils.audit import log_api_action
+from utils.platform_tools import is_windows, normalize_path, translate_command_for_windows
 
 router = APIRouter()
 
@@ -25,7 +28,7 @@ class ShellCommand(BaseModel):
     run_as_sudo: bool = False
     background: bool = False
     fault: str = None  # Optional fault injection
-    shell: str = "/bin/bash"  # Default shell for UNIX systems
+    shell: str = None  # Default shell is auto-detected
 
 @router.post("/", dependencies=[Depends(verify_key)])
 async def run_shell_command(data: ShellCommand, request: Request):
@@ -77,8 +80,50 @@ async def run_shell_command(data: ShellCommand, request: Request):
             }
             log_api_action(request, "/shell", "run_shell_command", 500, str(resp))
             return resp
+
+
+        # Windows compatibility: auto-detect shell and translate commands
+        shell_executable = data.shell
+        if not shell_executable:
+            if is_windows():
+                # Prefer PowerShell if available, else fallback to cmd.exe (absolute path)
+                powershell_path = shutil.which("powershell.exe")
+                cmd_path = shutil.which("cmd.exe")
+                shell_executable = powershell_path or cmd_path or os.path.join(os.environ.get("SystemRoot", r"C:\\Windows"), "System32", "cmd.exe")
+            else:
+                shell_executable = "/bin/bash"
+        else:
+            # If shell_executable is not an absolute path on Windows, resolve via PATH
+            if is_windows() and not os.path.isabs(shell_executable):
+                resolved = shutil.which(shell_executable)
+                if resolved:
+                    shell_executable = resolved
+
+        # --- Windows PATH resolution for command itself ---
         full_command = data.command
-        if data.run_as_sudo:
+        if is_windows():
+            import shlex
+            # Only resolve the first word (the executable)
+            parts = shlex.split(full_command, posix=False)
+            if parts:
+                exe = parts[0]
+                # Only resolve if not an absolute path and not already quoted
+                if not os.path.isabs(exe) and not (exe.startswith('"') or exe.startswith("'")):
+                    resolved_exe = shutil.which(exe)
+                    if resolved_exe:
+                        parts[0] = resolved_exe
+                        full_command = ' '.join(parts)
+            full_command = translate_command_for_windows(full_command)
+            # Sudo is not supported on Windows
+        elif data.run_as_sudo:
+            full_command = f"sudo {full_command}"
+
+
+        full_command = data.command
+        if is_windows():
+            full_command = translate_command_for_windows(full_command)
+            # Sudo is not supported on Windows
+        elif data.run_as_sudo:
             full_command = f"sudo {full_command}"
 
         latency = round((time.time() - start) * 1000, 2)
@@ -87,7 +132,7 @@ async def run_shell_command(data: ShellCommand, request: Request):
             proc = subprocess.Popen(
                 full_command,
                 shell=True,
-                executable=os.path.expanduser(data.shell),
+                executable=shell_executable,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True
@@ -109,7 +154,7 @@ async def run_shell_command(data: ShellCommand, request: Request):
             result = subprocess.run(
                 full_command,
                 shell=True,
-                executable=os.path.expanduser(data.shell),
+                executable=shell_executable,
                 capture_output=True,
                 text=True
             )
