@@ -1,6 +1,9 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
+import time
+import traceback
 from routes import (
     shell, files, code, system, monitor, git, package, apps, refactor, batch, 
     screen, input, safety, session, flow, clipboard, batch_gui, debug, plugins,
@@ -17,6 +20,50 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc"
 )
+
+# Exception handler for better 500 error observability
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """
+    Global exception handler to provide consistent error format with observability data.
+    """
+    current_time = time.time()
+    timestamp = int(current_time * 1000)
+    
+    # Determine if this is an HTTPException or internal server error
+    if isinstance(exc, HTTPException):
+        status_code = exc.status_code
+        error_code = f"http_{status_code}"
+        message = str(exc.detail)
+    else:
+        status_code = 500
+        error_code = "internal_server_error"
+        message = "An internal server error occurred"
+    
+    # For 500 errors, include additional debugging information
+    error_detail = {
+        "error": {
+            "code": error_code,
+            "message": message
+        },
+        "status": status_code,
+        "timestamp": timestamp,
+        "path": str(request.url.path),
+        "method": request.method
+    }
+    
+    # Add traceback for 500 errors in development/debug mode
+    if status_code == 500:
+        error_detail["error"]["traceback"] = traceback.format_exc()
+        error_detail["error"]["exception_type"] = type(exc).__name__
+        # Log the error for server-side debugging
+        print(f"Internal Server Error at {request.url.path}: {exc}")
+        print(traceback.format_exc())
+    
+    return JSONResponse(
+        status_code=status_code,
+        content=error_detail
+    )
 
 app.add_middleware(
     CORSMiddleware,
