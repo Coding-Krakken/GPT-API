@@ -687,3 +687,481 @@ components:
             type: string
         trace:
           type: string
+
+  # Enhanced GUI Control Layer Endpoints
+  /gui/session:
+    get:
+      operationId: getGuiSession
+      summary: Get comprehensive GUI session information with Wayland/X11 detection
+      responses:
+        '200':
+          description: GUI session details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  session_type:
+                    type: string
+                    enum: [wayland, x11]
+                  compositor:
+                    type: string
+                  display:
+                    type: string
+                  wayland_display:
+                    type: string
+                  tools:
+                    type: object
+                    additionalProperties:
+                      type: boolean
+                  capabilities:
+                    type: object
+                    properties:
+                      window_management:
+                        type: boolean
+                      wayland_introspection:
+                        type: boolean
+                      x11_fallback:
+                        type: boolean
+                      screenshot:
+                        type: boolean
+                      input_automation:
+                        type: boolean
+                      accessibility:
+                        type: boolean
+                  detection_methods:
+                    type: array
+                    items:
+                      type: string
+                  detection_latency_us:
+                    type: integer
+
+  /gui/test:
+    get:
+      operationId: testGuiEnvironment
+      summary: Test GUI detection across different environments
+      responses:
+        '200':
+          description: GUI environment test results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tests:
+                    type: object
+                    properties:
+                      session_detection:
+                        type: boolean
+                      window_enumeration:
+                        type: boolean
+                      tool_availability:
+                        type: boolean
+                      fallback_methods:
+                        type: boolean
+                  overall_status:
+                    type: string
+                    enum: [healthy, degraded]
+                  latency_us:
+                    type: integer
+
+  /apps_advanced/list_windows_detailed:
+    get:
+      operationId: listWindowsDetailed
+      summary: Get detailed window list with position, size, state, focus, z-index
+      responses:
+        '200':
+          description: Detailed window information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  windows:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        window_id:
+                          type: string
+                        desktop:
+                          type: integer
+                        pid:
+                          type: integer
+                        geometry:
+                          type: object
+                          properties:
+                            x:
+                              type: integer
+                            y:
+                              type: integer
+                            width:
+                              type: integer
+                            height:
+                              type: integer
+                        title:
+                          type: string
+                        state:
+                          type: string
+                        focus:
+                          type: boolean
+                        z_index:
+                          type: integer
+                        method:
+                          type: string
+                  methods_tried:
+                    type: array
+                    items:
+                      type: string
+                  latency_us:
+                    type: integer
+
+  /apps_advanced/launch:
+    post:
+      operationId: launchAppWithTracking
+      summary: Launch app with PID tracking and GUI metadata attachment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - app
+              properties:
+                app:
+                  type: string
+                args:
+                  type: string
+                workspace:
+                  type: integer
+                geometry:
+                  type: object
+                  properties:
+                    x:
+                      type: integer
+                    y:
+                      type: integer
+                    width:
+                      type: integer
+                    height:
+                      type: integer
+      responses:
+        '200':
+          description: App launch result with PID
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: object
+                    properties:
+                      status:
+                        type: string
+                      pid:
+                        type: integer
+                      app:
+                        type: string
+                      metadata:
+                        type: object
+                  latency_us:
+                    type: integer
+
+  /apps_advanced/focus:
+    post:
+      operationId: focusWindow
+      summary: Focus a specific window
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+              properties:
+                action:
+                  type: string
+                  enum: [focus]
+                window_id:
+                  type: string
+                pid:
+                  type: integer
+                window_title:
+                  type: string
+      responses:
+        '200':
+          description: Window focus result
+        '404':
+          description: Window not found
+
+  /apps_advanced/resize:
+    post:
+      operationId: resizeWindow
+      summary: Resize a window
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+                - x
+                - y
+                - width
+                - height
+              properties:
+                action:
+                  type: string
+                  enum: [resize]
+                window_id:
+                  type: string
+                x:
+                  type: integer
+                y:
+                  type: integer
+                width:
+                  type: integer
+                  minimum: 1
+                height:
+                  type: integer
+                  minimum: 1
+      responses:
+        '200':
+          description: Window resize result
+
+  /apps_advanced/move:
+    post:
+      operationId: moveWindow
+      summary: Move a window to new position
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+                - x
+                - y
+              properties:
+                action:
+                  type: string
+                  enum: [move]
+                window_id:
+                  type: string
+                x:
+                  type: integer
+                y:
+                  type: integer
+      responses:
+        '200':
+          description: Window move result
+
+  /apps_advanced/screenshot:
+    post:
+      operationId: captureScreenshot
+      summary: Capture window or screen screenshot
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                window_id:
+                  type: string
+                format:
+                  type: string
+                  enum: [png, jpg]
+                  default: png
+      responses:
+        '200':
+          description: Screenshot capture result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: object
+                    properties:
+                      screenshot_path:
+                        type: string
+                      format:
+                        type: string
+                      file_size:
+                        type: integer
+                      success:
+                        type: boolean
+                  latency_us:
+                    type: integer
+
+  /input_enhanced/type:
+    post:
+      operationId: typeText
+      summary: Type text via input automation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+                - text
+              properties:
+                action:
+                  type: string
+                  enum: [type]
+                text:
+                  type: string
+                window_id:
+                  type: string
+      responses:
+        '200':
+          description: Text input result
+
+  /input_enhanced/keyboard:
+    post:
+      operationId: sendKeypress
+      summary: Send keyboard input (key press)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+                - key
+              properties:
+                action:
+                  type: string
+                  enum: [key]
+                key:
+                  type: string
+                window_id:
+                  type: string
+      responses:
+        '200':
+          description: Keyboard input result
+
+  /input_enhanced/mouse:
+    post:
+      operationId: mouseAction
+      summary: Perform mouse actions (click, move)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+              properties:
+                action:
+                  type: string
+                  enum: [click, move]
+                x:
+                  type: integer
+                y:
+                  type: integer
+                button:
+                  type: string
+                  enum: [left, right, middle]
+                  default: left
+      responses:
+        '200':
+          description: Mouse action result
+
+  /vision/ocr:
+    post:
+      operationId: performOcr
+      summary: OCR text recognition from screenshot
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - screenshot_path
+              properties:
+                screenshot_path:
+                  type: string
+      responses:
+        '200':
+          description: OCR result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: object
+                    properties:
+                      text:
+                        type: string
+                      confidence:
+                        type: number
+                      words:
+                        type: array
+                        items:
+                          type: object
+                      success:
+                        type: boolean
+                  latency_us:
+                    type: integer
+
+  /vision/find_element:
+    post:
+      operationId: findVisualElement
+      summary: Visual element recognition with OpenCV
+      responses:
+        '200':
+          description: Visual element recognition result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: object
+                    properties:
+                      elements:
+                        type: array
+                        items:
+                          type: object
+                      method:
+                        type: string
+                      success:
+                        type: boolean
+                  latency_us:
+                    type: integer
+
+  /apps_advanced/mock_window:
+    post:
+      operationId: createMockWindow
+      summary: Create a mock window for testing (Xvfb or dummy window)
+      responses:
+        '200':
+          description: Mock window creation result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: object
+                    properties:
+                      mock_pid:
+                        type: integer
+                      type:
+                        type: string
+                      success:
+                        type: boolean
+                  latency_us:
+                    type: integer

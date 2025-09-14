@@ -6,6 +6,7 @@ from routes import (
     screen, input, safety, session, flow, clipboard, batch_gui, debug, plugins,
     orchestrator, universal_driver, ai_planner, workflow_editor, reliability
 )
+from routes.gui_control import gui_router, apps_router as enhanced_apps_router, input_router as enhanced_input_router, vision_router
 
 load_dotenv()
 
@@ -44,6 +45,12 @@ app.include_router(safety.router, prefix="/safety")
 app.include_router(session.router, prefix="/session")
 app.include_router(flow.router, prefix="/flow")
 app.include_router(clipboard.router, prefix="/clipboard")
+
+# Enhanced GUI Control Layer (New Implementation)
+app.include_router(gui_router, prefix="/gui")
+app.include_router(enhanced_apps_router, prefix="/apps_advanced")  # Enhanced apps endpoints
+app.include_router(enhanced_input_router, prefix="/input_enhanced") 
+app.include_router(vision_router, prefix="/vision")
 
 # Performance & Developer Tools
 app.include_router(batch_gui.router, prefix="/batch_gui")
