@@ -190,7 +190,7 @@ def list_windows_multi_method():
     session_info = get_cached_gui_session()
     
     # Method 1: wmctrl for X11/XWayland
-    if session_info["tools"]["wmctrl"]:
+    if session_info.get("tools", {}).get("wmctrl", False):
         methods_tried.append("wmctrl")
         try:
             result = run_with_observability("wmctrl -lG")
@@ -219,7 +219,8 @@ def list_windows_multi_method():
             errors.append({"method": "wmctrl", "error": str(e)})
     
     # Method 2: swaymsg for Sway/wlroots
-    if session_info["tools"]["swaymsg"] and session_info["session_type"] == "wayland":
+    if (session_info.get("tools", {}).get("swaymsg", False) and 
+        session_info.get("session_type") == "wayland"):
         methods_tried.append("swaymsg")
         try:
             result = run_with_observability("swaymsg -t get_tree")
@@ -258,7 +259,7 @@ def list_windows_multi_method():
             errors.append({"method": "swaymsg", "error": str(e)})
     
     # Method 3: xdg-desktop-portal via DBus (future implementation)
-    if session_info["capabilities"]["screenshot"]:
+    if session_info.get("capabilities", {}).get("screenshot", False):
         methods_tried.append("desktop_portal")
         # TODO: Implement DBus introspection
         # This would use python-dbus to query xdg-desktop-portal
