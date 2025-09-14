@@ -10,10 +10,12 @@ import os
 from fastapi.testclient import TestClient
 from main import app
 from unittest.mock import patch, MagicMock
-from utils.safety import get_safety_manager, ActionType, SafetyLevel, ConfirmationMode
+
+# Set consistent API key for tests
+os.environ["API_KEY"] = "9e2b7c8a-4f1e-4b2a-9d3c-7f6e5a1b2c3d"
 
 client = TestClient(app)
-API_KEY = "test-key-123"
+API_KEY = "9e2b7c8a-4f1e-4b2a-9d3c-7f6e5a1b2c3d"
 HEADERS = {"x-api-key": API_KEY}
 
 class TestEnhancedSafetyCheck:

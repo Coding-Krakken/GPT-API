@@ -96,12 +96,15 @@ class AccessibilityRequest(BaseModel):
     properties: Optional[List[str]] = None  # Properties to retrieve
     max_depth: Optional[int] = 5  # Maximum tree depth
 
-def _error_response(code: str, message: str, extra: Optional[Dict] = None) -> Dict:
+def _error_response(code: str, message: str, extra: Optional[Dict] = None, start_time: Optional[float] = None) -> Dict:
     """Create standardized error response"""
+    current_time = time.time()
     result = {
         "errors": [{"code": code, "message": message}],
-        "timestamp": int(time.time() * 1000)
+        "timestamp": int(current_time * 1000)
     }
+    if start_time is not None:
+        result["latency_ms"] = int((current_time - start_time) * 1000)
     if extra:
         result.update(extra)
     return result
@@ -340,30 +343,30 @@ def screen_capture(req: ScreenCaptureRequest, response: Response):
     start_time = time.time()
     
     if req.action != "capture":
-        return _error_response("INVALID_ACTION", f"Unsupported action: {req.action}")
+        return _error_response("INVALID_ACTION", f"Unsupported action: {req.action}", start_time=start_time)
     
     if not PYAUTOGUI_AVAILABLE:
-        return _error_response("DEPENDENCY_MISSING", "PyAutoGUI not available for screen capture")
+        return _error_response("DEPENDENCY_MISSING", "PyAutoGUI not available for screen capture", start_time=start_time)
     
     # Input validation
     if req.monitor < 0:
-        return _error_response("INVALID_MONITOR", "Monitor index cannot be negative")
+        return _error_response("INVALID_MONITOR", "Monitor index cannot be negative", start_time=start_time)
     
     if req.scale <= 0:
-        return _error_response("INVALID_SCALE", "Scale factor must be positive")
+        return _error_response("INVALID_SCALE", "Scale factor must be positive", start_time=start_time)
     
     if req.quality < 1 or req.quality > 100:
-        return _error_response("INVALID_QUALITY", "JPEG quality must be between 1-100")
+        return _error_response("INVALID_QUALITY", "JPEG quality must be between 1-100", start_time=start_time)
     
     if req.format not in ["png", "jpeg", "base64"]:
-        return _error_response("INVALID_FORMAT", "Format must be 'png', 'jpeg', or 'base64'")
+        return _error_response("INVALID_FORMAT", "Format must be 'png', 'jpeg', or 'base64'", start_time=start_time)
     
     try:
         monitors = _get_monitors()
         
         # Validate monitor index
         if req.monitor >= len(monitors):
-            return _error_response("INVALID_MONITOR", f"Monitor {req.monitor} not available. Found {len(monitors)} monitors.")
+            return _error_response("INVALID_MONITOR", f"Monitor {req.monitor} not available. Found {len(monitors)} monitors.", start_time=start_time)
         
         # Enhanced capture with validation
         screenshot, selected_monitor = _capture_screenshot(req.region, req.monitor, req.scale)
@@ -457,7 +460,7 @@ def screen_capture(req: ScreenCaptureRequest, response: Response):
             }
             
     except Exception as e:
-        return _error_response("CAPTURE_ERROR", str(e))
+        return _error_response("CAPTURE_ERROR", str(e), start_time=start_time)
 
 @router.post("/ocr", dependencies=[Depends(verify_key)])
 def ocr_read_region(req: OCRRequest, response: Response):
