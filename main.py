@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
-from routes import shell, files, code, system, monitor, git, package, apps, refactor, batch, screen, input, safety
+from routes import shell, files, code, system, monitor, git, package, apps, refactor, batch, screen, input, safety, session, flow, clipboard
 
 load_dotenv()
 
@@ -31,6 +31,9 @@ app.include_router(batch.router, prefix="/batch")
 app.include_router(screen.router, prefix="/screen")
 app.include_router(input.router, prefix="/input")
 app.include_router(safety.router, prefix="/safety")
+app.include_router(session.router, prefix="/session")
+app.include_router(flow.router, prefix="/flow")
+app.include_router(clipboard.router, prefix="/clipboard")
 
 @app.get("/debug/routes")
 def list_routes():

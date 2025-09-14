@@ -41,3 +41,4 @@ pytesseract==0.3.13
 pyautogui==0.9.54
 pynput==1.7.7
 python-xlib==0.33
+pyperclip==1.9.0
