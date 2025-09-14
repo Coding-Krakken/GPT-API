@@ -4,6 +4,7 @@ from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 import time
 import traceback
+import os
 from routes import (
     shell, files, code, system, monitor, git, package, apps, refactor, batch, 
     screen, input, safety, session, flow, clipboard, batch_gui, debug, plugins,
@@ -52,13 +53,22 @@ async def global_exception_handler(request: Request, exc: Exception):
         "method": request.method
     }
     
-    # Add traceback for 500 errors in development/debug mode
+    # For 500 errors, include debugging info only in development
     if status_code == 500:
-        error_detail["error"]["traceback"] = traceback.format_exc()
-        error_detail["error"]["exception_type"] = type(exc).__name__
-        # Log the error for server-side debugging
-        print(f"Internal Server Error at {request.url.path}: {exc}")
-        print(traceback.format_exc())
+        # Only include stack traces in development mode
+        debug_mode = os.getenv('DEBUG', 'false').lower() == 'true'
+        
+        if debug_mode:
+            error_detail["error"]["traceback"] = traceback.format_exc()
+            error_detail["error"]["exception_type"] = type(exc).__name__
+            # Log the error for server-side debugging
+            print(f"Internal Server Error at {request.url.path}: {exc}")
+            print(traceback.format_exc())
+        else:
+            # Production mode - sanitized error info only
+            error_detail["error"]["exception_type"] = type(exc).__name__
+            # Log sanitized version without exposing stack trace to response
+            print(f"Internal Server Error at {request.url.path}: {type(exc).__name__}")
     
     return JSONResponse(
         status_code=status_code,

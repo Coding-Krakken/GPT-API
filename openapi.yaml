@@ -1,8 +1,27 @@
 openapi: 3.1.0
 info:
   title: GPT Super-Agent Universal Control API
-  description: Universal FastAPI-based control API for GPT agents to perform system operations (file, shell, code, package, git, apps, refactor, monitor, batch, etc.).
+  description: |
+    Universal FastAPI-based control API for GPT agents to perform system operations (file, shell, code, package, git, apps, refactor, monitor, batch, etc.).
+    
+    **BREAKING CHANGES in v4.0.0:**
+    - `/batch` endpoint now includes `errors[]` array and `operation_index` fields for better error tracking
+    - `/code` endpoint returns structured error codes instead of plain strings  
+    - Enhanced security: All subprocess calls use input sanitization and allow-lists
+    - GUI automation endpoints added with Wayland/X11 hybrid support
+    
+    **Backward Compatibility:** 
+    - All existing field structures remain but additional fields have been added
+    - API consumers should ignore unknown fields for forward compatibility
+    
+    **Security Features:**
+    - Command sanitization with allow-lists prevents injection attacks
+    - Path validation prevents directory traversal
+    - Production mode sanitizes error traces
   version: 4.0.0
+  contact:
+    name: GPT-API Support
+    url: https://github.com/Coding-Krakken/GPT-API
 servers:
   - url: https://gpt-api.ngrok.app
 paths:

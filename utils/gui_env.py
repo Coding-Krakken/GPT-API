@@ -6,6 +6,7 @@ import json
 import time
 import re
 from typing import Dict, List, Any, Optional
+from utils.security import safe_subprocess_run
 
 # Optional imports with fallbacks
 try:
@@ -24,39 +25,8 @@ def calculate_latency_us(start_time_us):
     return get_microsecond_timestamp() - start_time_us
 
 def run_with_observability(command, timeout=10):
-    """Run command with full observability and error capture"""
-    start_time = get_microsecond_timestamp()
-    result = {
-        "timestamp": start_time,
-        "stdout": "",
-        "stderr": "",
-        "exit_code": -1,
-        "latency_us": 0,
-        "error": None
-    }
-    
-    try:
-        proc = subprocess.run(
-            command,
-            shell=True,
-            capture_output=True,
-            text=True,
-            timeout=timeout
-        )
-        result.update({
-            "stdout": proc.stdout.strip(),
-            "stderr": proc.stderr.strip(),
-            "exit_code": proc.returncode,
-            "latency_us": calculate_latency_us(start_time)
-        })
-    except subprocess.TimeoutExpired:
-        result["error"] = {"code": "timeout", "message": f"Command timed out after {timeout}s"}
-        result["latency_us"] = calculate_latency_us(start_time)
-    except Exception as e:
-        result["error"] = {"code": "execution_error", "message": str(e)}
-        result["latency_us"] = calculate_latency_us(start_time)
-    
-    return result
+    """Run command with full observability and error capture - SECURE VERSION"""
+    return safe_subprocess_run(command, timeout=timeout)
 
 def get_process_list_fallback():
     """Fallback process detection without psutil"""

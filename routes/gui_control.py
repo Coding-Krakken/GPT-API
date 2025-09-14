@@ -16,6 +16,7 @@ import re
 from typing import Optional, List, Dict, Any, Union
 from utils.auth import verify_key
 from utils.platform_tools import is_windows
+from utils.security import safe_subprocess_run, safe_popen
 import shutil
 from pathlib import Path
 
@@ -52,39 +53,8 @@ def calculate_latency_us(start_time_us):
     return get_microsecond_timestamp() - start_time_us
 
 def run_with_observability(command, timeout=10):
-    """Run command with full observability and error capture"""
-    start_time = get_microsecond_timestamp()
-    result = {
-        "timestamp": start_time,
-        "stdout": "",
-        "stderr": "",
-        "exit_code": -1,
-        "latency_us": 0,
-        "error": None
-    }
-    
-    try:
-        proc = subprocess.run(
-            command,
-            shell=True,
-            capture_output=True,
-            text=True,
-            timeout=timeout
-        )
-        result.update({
-            "stdout": proc.stdout.strip(),
-            "stderr": proc.stderr.strip(),
-            "exit_code": proc.returncode,
-            "latency_us": calculate_latency_us(start_time)
-        })
-    except subprocess.TimeoutExpired:
-        result["error"] = {"code": "timeout", "message": f"Command timed out after {timeout}s"}
-        result["latency_us"] = calculate_latency_us(start_time)
-    except Exception as e:
-        result["error"] = {"code": "execution_error", "message": str(e)}
-        result["latency_us"] = calculate_latency_us(start_time)
-    
-    return result
+    """Run command with full observability and error capture - SECURE VERSION"""
+    return safe_subprocess_run(command, timeout=timeout)
 
 def detect_gui_session_comprehensive():
     """Comprehensive GUI session detection for Wayland/X11 hybrid environments"""
@@ -465,7 +435,7 @@ def launch_app_with_tracking(request: AppLaunchRequest):
             # TODO: Add workspace assignment logic for different compositors
             pass
             
-        proc = subprocess.Popen(command, shell=True)
+        proc = safe_popen(command)
         
         # Store in registry with metadata
         with _apps_registry_lock:
