@@ -3,6 +3,7 @@ Comprehensive test suite for enhanced safety and governance functionality.
 Tests confirmation flows, audit logging, step-through debugging, and telemetry.
 """
 
+
 import pytest
 import json
 import time
@@ -11,9 +12,10 @@ from fastapi.testclient import TestClient
 from main import app
 from unittest.mock import patch, MagicMock
 from utils.safety import get_safety_manager, ActionType, SafetyLevel, ConfirmationMode
+from tests.test_utils import get_api_key
 
 client = TestClient(app)
-API_KEY = "test-key-123"
+API_KEY = get_api_key()
 HEADERS = {"x-api-key": API_KEY}
 
 class TestEnhancedSafetyCheck:

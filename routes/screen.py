@@ -35,34 +35,41 @@ try:
 except ImportError:
     TESSERACT_AVAILABLE = False
 
-try:
-    import pyautogui
-    PYAUTOGUI_AVAILABLE = True
-    # Disable pyautogui failsafe for automation
-    pyautogui.FAILSAFE = False
-except ImportError:
-    PYAUTOGUI_AVAILABLE = False
+
+# Do not import pyautogui at the module level to avoid DISPLAY errors in headless environments
+PYAUTOGUI_AVAILABLE = None
+def _import_pyautogui():
+    global PYAUTOGUI_AVAILABLE
+    try:
+        import pyautogui
+        pyautogui.FAILSAFE = False
+        PYAUTOGUI_AVAILABLE = True
+        return pyautogui
+    except (ImportError, KeyError) as e:
+        # KeyError can occur if DISPLAY is not set
+        PYAUTOGUI_AVAILABLE = False
+        return None
 
 # Platform-specific accessibility imports
 if platform.system() == "Linux":
     try:
-        from Xlib import display, X
-        from Xlib.ext import randr
+        from Xlib import display, X  # type: ignore
+        from Xlib.ext import randr  # type: ignore
         XLIB_AVAILABLE = True
     except ImportError:
         XLIB_AVAILABLE = False
 elif platform.system() == "Windows":
     try:
-        import win32gui
-        import win32con
-        import win32api
+        import win32gui  # type: ignore
+        import win32con  # type: ignore
+        import win32api  # type: ignore
         WIN32_AVAILABLE = True
     except ImportError:
         WIN32_AVAILABLE = False
 elif platform.system() == "Darwin":
     try:
-        import Quartz
-        import ApplicationServices
+        import Quartz  # type: ignore
+        import ApplicationServices  # type: ignore
         QUARTZ_AVAILABLE = True
     except ImportError:
         QUARTZ_AVAILABLE = False
@@ -268,6 +275,10 @@ def _capture_screenshot(region=None, monitor=0, scale_factor=1.0):
     if not PYAUTOGUI_AVAILABLE:
         raise Exception("PyAutoGUI not available for screenshot capture")
     
+    pyautogui = _import_pyautogui()
+    if not pyautogui:
+        raise Exception("PyAutoGUI not available or DISPLAY not set for screenshot capture")
+    
     try:
         monitors = _get_monitors()
         
@@ -337,6 +348,9 @@ def screen_capture(req: ScreenCaptureRequest, response: Response):
     Enhanced screenshot capture with multi-monitor and HiDPI support.
     Supports full screen, regional, and multi-monitor capture with comprehensive validation.
     """
+    pyautogui = _import_pyautogui()
+    if not pyautogui:
+        return _error_response("MISSING_DEPENDENCY", "PyAutoGUI is not available or DISPLAY is not set on this system.")
     start_time = time.time()
     
     if req.action != "capture":

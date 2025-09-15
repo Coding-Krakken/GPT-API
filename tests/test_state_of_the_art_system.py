@@ -3,15 +3,17 @@ Comprehensive test suite for the state-of-the-art GUI automation system.
 Validates all advanced features and enterprise capabilities.
 """
 
+
 import pytest
 from fastapi.testclient import TestClient
 from main import app
 import json
 import time
 import asyncio
+from tests.test_utils import get_api_key
 
 client = TestClient(app)
-API_KEY = "test-key-123"
+API_KEY = get_api_key()
 HEADERS = {"x-api-key": API_KEY}
 
 class TestStateOfTheArtSystem:

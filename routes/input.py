@@ -15,15 +15,20 @@ from utils.safety import safety_check, log_action
 
 router = APIRouter()
 
-# Import input automation dependencies with fallbacks
-try:
-    import pyautogui
-    PYAUTOGUI_AVAILABLE = True
-    # Configure PyAutoGUI
-    pyautogui.FAILSAFE = False  # Disable failsafe for automation
-    pyautogui.PAUSE = 0.1  # Default pause between actions
-except ImportError:
-    PYAUTOGUI_AVAILABLE = False
+
+# Do not import pyautogui at the module level to avoid DISPLAY errors in headless environments
+PYAUTOGUI_AVAILABLE = None
+def _import_pyautogui():
+    global PYAUTOGUI_AVAILABLE
+    try:
+        import pyautogui
+        pyautogui.FAILSAFE = False
+        pyautogui.PAUSE = 0.1
+        PYAUTOGUI_AVAILABLE = True
+        return pyautogui
+    except (ImportError, KeyError):
+        PYAUTOGUI_AVAILABLE = False
+        return None
 
 try:
     from pynput import mouse, keyboard
@@ -283,6 +288,9 @@ def _inject_drag_payload(payload_type, payload_data):
 
 @router.post("/mouse_drag", dependencies=[Depends(verify_key)])
 def mouse_drag(req: MouseDragRequest, response: Response):
+    pyautogui = _import_pyautogui()
+    if not pyautogui:
+        return _error_response("MISSING_DEPENDENCY", "PyAutoGUI is not available or DISPLAY is not set on this system.")
     """
     Enhanced drag and drop operations with payload injection and smooth interpolation.
     Supports various drag patterns, payload injection, and comprehensive validation.
@@ -421,6 +429,9 @@ def mouse_drag(req: MouseDragRequest, response: Response):
 
 @router.post("/key_combo", dependencies=[Depends(verify_key)])
 def key_combo(req: KeyComboRequest, response: Response):
+    pyautogui = _import_pyautogui()
+    if not pyautogui:
+        return _error_response("MISSING_DEPENDENCY", "PyAutoGUI is not available or DISPLAY is not set on this system.")
     """
     Enhanced keyboard combinations and shortcuts with advanced timing control.
     Supports complex sequences, chords, and precise timing patterns.
@@ -747,6 +758,9 @@ def _simulate_typing_errors(text, error_rate=0.02):
 
 @router.post("/type_text", dependencies=[Depends(verify_key)])
 def type_text(req: TypeTextRequest, response: Response):
+    pyautogui = _import_pyautogui()
+    if not pyautogui:
+        return _error_response("MISSING_DEPENDENCY", "PyAutoGUI is not available or DISPLAY is not set on this system.")
     """
     Enhanced text input with IME support, multilingual handling, and human-like typing.
     Supports various typing patterns, error simulation, and advanced input methods.
@@ -953,6 +967,9 @@ def type_text(req: TypeTextRequest, response: Response):
 
 @router.post("/gesture", dependencies=[Depends(verify_key)])
 def gesture(req: GestureRequest, response: Response):
+    pyautogui = _import_pyautogui()
+    if not pyautogui:
+        return _error_response("MISSING_DEPENDENCY", "PyAutoGUI is not available or DISPLAY is not set on this system.")
     """
     Perform touch gestures and multi-point input.
     Supports swipe, pinch, rotate, tap, and long press gestures.
@@ -1046,6 +1063,9 @@ def gesture(req: GestureRequest, response: Response):
 
 @router.post("/stylus", dependencies=[Depends(verify_key)])
 def stylus(req: StylusRequest, response: Response):
+    pyautogui = _import_pyautogui()
+    if not pyautogui:
+        return _error_response("MISSING_DEPENDENCY", "PyAutoGUI is not available or DISPLAY is not set on this system.")
     """
     Perform stylus/pen input with pressure and tilt sensitivity.
     Supports digital ink, drawing, and annotation workflows.
