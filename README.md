@@ -23,15 +23,17 @@ At its core, this project exposes a complete FastAPI-based API for system operat
 ## 🚀 Features
 
 - **🔐 Secure Authentication** - API key-based authentication for all endpoints
-- **💻 Shell Command Execution** - Execute system commands with sudo, background, and custom shell support
+- **💻 Shell Command Execution** - Execute system commands with input sanitization and allow-lists  
 - **📁 File Operations** - Complete file system management (read, write, delete, copy, move, stat)
 - **⚡ Code Operations** - Run, test, lint, format, and analyze code in multiple languages
 - **📦 Package Management** - Universal package manager support (pip, npm, apt, brew, winget, etc.)
 - **🌐 Git Integration** - Full Git repository management and operations
 - **📱 Application Control** - Launch, kill, and manage desktop applications
+- **🎯 GUI Automation** - Advanced GUI control with Wayland/X11 hybrid support ([Installation Guide](INSTALL_GUI_TOOLS.md))
 - **🔄 Code Refactoring** - Search and replace across multiple files with dry-run support
 - **📊 System Monitoring** - Real-time system metrics and resource monitoring
-- **🔄 Batch Operations** - Execute multiple operations in a single request
+- **🔄 Batch Operations** - Execute multiple operations in a single request with detailed error tracking
+- **🛡️ Security Features** - Input sanitization, command allow-lists, and secure subprocess execution
 
 ## 📋 Prerequisites
 
@@ -64,7 +66,28 @@ At its core, this project exposes a complete FastAPI-based API for system operat
    API_KEY=your_secure_api_key_here
    API_HOST=127.0.0.1
    API_PORT=8000
+   DEBUG=false  # Set to true for development debugging
    ```
+
+4. **For GUI automation features (optional):**
+   Follow the [GUI Tools Installation Guide](INSTALL_GUI_TOOLS.md) to set up Wayland/X11 tools.
+
+## 🛡️ Security Features
+
+This API includes comprehensive security measures to prevent command injection and unauthorized access:
+
+- **Command Sanitization**: All shell commands are parsed and validated against allow-lists
+- **Input Validation**: Path traversal protection and argument sanitization  
+- **No Shell Injection**: Subprocess calls use `shell=False` with parsed command arrays
+- **API Key Authentication**: All endpoints require valid API key authentication
+- **Production Logging**: Stack traces are sanitized in production mode (DEBUG=false)
+- **Async Operations**: GUI detection runs asynchronously to prevent blocking the event loop
+
+**Security Configuration:**
+```env
+DEBUG=false  # Disables detailed error traces in production
+API_KEY=your-strong-api-key-here
+```
 
 ## 🚀 Quick Start
 

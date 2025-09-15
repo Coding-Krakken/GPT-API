@@ -1,11 +1,16 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
+import time
+import traceback
+import os
 from routes import (
     shell, files, code, system, monitor, git, package, apps, refactor, batch, 
     screen, input, safety, session, flow, clipboard, batch_gui, debug, plugins,
     orchestrator, universal_driver, ai_planner, workflow_editor, reliability
 )
+from routes.gui_control import gui_router, apps_router as enhanced_apps_router, input_router as enhanced_input_router, vision_router
 
 load_dotenv()
 
@@ -16,6 +21,59 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc"
 )
+
+# Exception handler for better 500 error observability
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """
+    Global exception handler to provide consistent error format with observability data.
+    """
+    current_time = time.time()
+    timestamp = int(current_time * 1000)
+    
+    # Determine if this is an HTTPException or internal server error
+    if isinstance(exc, HTTPException):
+        status_code = exc.status_code
+        error_code = f"http_{status_code}"
+        message = str(exc.detail)
+    else:
+        status_code = 500
+        error_code = "internal_server_error"
+        message = "An internal server error occurred"
+    
+    # For 500 errors, include additional debugging information
+    error_detail = {
+        "error": {
+            "code": error_code,
+            "message": message
+        },
+        "status": status_code,
+        "timestamp": timestamp,
+        "path": str(request.url.path),
+        "method": request.method
+    }
+    
+    # For 500 errors, include debugging info only in development
+    if status_code == 500:
+        # Only include stack traces in development mode
+        debug_mode = os.getenv('DEBUG', 'false').lower() == 'true'
+        
+        if debug_mode:
+            error_detail["error"]["traceback"] = traceback.format_exc()
+            error_detail["error"]["exception_type"] = type(exc).__name__
+            # Log the error for server-side debugging
+            print(f"Internal Server Error at {request.url.path}: {exc}")
+            print(traceback.format_exc())
+        else:
+            # Production mode - sanitized error info only
+            error_detail["error"]["exception_type"] = type(exc).__name__
+            # Log sanitized version without exposing stack trace to response
+            print(f"Internal Server Error at {request.url.path}: {type(exc).__name__}")
+    
+    return JSONResponse(
+        status_code=status_code,
+        content=error_detail
+    )
 
 app.add_middleware(
     CORSMiddleware,
@@ -44,6 +102,12 @@ app.include_router(safety.router, prefix="/safety")
 app.include_router(session.router, prefix="/session")
 app.include_router(flow.router, prefix="/flow")
 app.include_router(clipboard.router, prefix="/clipboard")
+
+# Enhanced GUI Control Layer (New Implementation)
+app.include_router(gui_router, prefix="/gui")
+app.include_router(enhanced_apps_router, prefix="/apps_advanced")  # Enhanced apps endpoints
+app.include_router(enhanced_input_router, prefix="/input_enhanced") 
+app.include_router(vision_router, prefix="/vision")
 
 # Performance & Developer Tools
 app.include_router(batch_gui.router, prefix="/batch_gui")

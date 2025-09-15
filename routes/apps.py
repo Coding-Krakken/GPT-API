@@ -281,7 +281,7 @@ def handle_app_action(req: AppRequest, response: Response):
         return {"result": {"apps": apps}, "env": full_env, "timestamp": _now_ts(), "latency_ms": int((time.time() - start_time) * 1000)}
 
     if action == "launch":
-        if not req.app:
+        if req.app is None or req.app == "":
             return error_response("MISSING_FIELD", "'app' is required for launch.")
         if not is_safe_app(req.app):
             return error_response("INVALID_APP", "'app' contains invalid characters.")
@@ -303,7 +303,7 @@ def handle_app_action(req: AppRequest, response: Response):
         return {"result": {"status": "ok", "action": action, "app": req.app, "pid": pid}, "env": full_env, "timestamp": _now_ts(), "latency_ms": int((time.time() - start_time) * 1000)}
 
     if action == "kill":
-        if not req.pid:
+        if req.pid is None:
             return error_response("MISSING_FIELD", "'pid' required for kill.")
         with _apps_registry_lock:
             meta = _apps_registry.get(req.pid)

@@ -3,14 +3,16 @@ Comprehensive test suite for enhanced input synthesis functionality.
 Tests the improved mouse drag, keyboard combinations, and text typing with advanced features.
 """
 
+
 import pytest
 from fastapi.testclient import TestClient
 from main import app
 import json
 from unittest.mock import patch, MagicMock
+from tests.test_utils import get_api_key
 
 client = TestClient(app)
-API_KEY = "test-key-123"
+API_KEY = get_api_key()
 HEADERS = {"x-api-key": API_KEY}
 
 class TestEnhancedMouseDrag:

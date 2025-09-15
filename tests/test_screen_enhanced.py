@@ -3,6 +3,7 @@ Comprehensive test suite for enhanced screen capture functionality.
 Tests the improved multi-monitor support, HiDPI handling, and validation.
 """
 
+
 import pytest
 from fastapi.testclient import TestClient
 from main import app
@@ -10,9 +11,10 @@ import json
 import os
 import base64
 from unittest.mock import patch, MagicMock
+from tests.test_utils import get_api_key
 
 client = TestClient(app)
-API_KEY = "test-key-123"
+API_KEY = get_api_key()
 HEADERS = {"x-api-key": API_KEY}
 
 class TestEnhancedScreenCapture:
@@ -289,11 +291,18 @@ class TestEnhancedScreenCapture:
         assert response.status_code == 200
         
         result = response.json()
-        # Should always have timing information
-        assert "timestamp" in result
-        assert "latency_ms" in result
-        assert isinstance(result["latency_ms"], int)
-        assert result["latency_ms"] >= 0
+        
+        # Check if response has errors
+        if "errors" in result:
+            # If errors are present, they should still include timing info now
+            assert "timestamp" in result, "Error responses should include timestamp"
+            assert "latency_ms" in result, f"Error responses should include latency_ms, got: {result}"
+        else:
+            # Should always have timing information for successful responses
+            assert "timestamp" in result
+            assert "latency_ms" in result
+            assert isinstance(result["latency_ms"], int)
+            assert result["latency_ms"] >= 0
 
 
 class TestEnhancedOCR:

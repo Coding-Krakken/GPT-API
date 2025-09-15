@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends
 from utils.auth import verify_key
+from utils.gui_env import detect_gui_environment_comprehensive
 import platform, socket, psutil, time, os
 
 router = APIRouter()
@@ -15,7 +16,10 @@ def get_system_info():
         if not cpu_info:
             # Final fallback
             cpu_info = "Unknown"
-            
+        
+        # Enhanced GUI session information as per audit requirements    
+        gui_session = detect_gui_environment_comprehensive()
+        
         result = {
             "os": platform.system(),
             "platform": platform.platform(),
@@ -29,7 +33,19 @@ def get_system_info():
             "memory_usage_percent": psutil.virtual_memory().percent,
             "disk_usage_percent": psutil.disk_usage("/").percent,
             "uptime_seconds": time.time() - psutil.boot_time(),
-            "current_user": os.getlogin()
+            "current_user": os.getlogin(),
+            # Enhanced GUI session context (addresses audit requirement)
+            "gui_session": {
+                "session_type": gui_session.get("session_type"),
+                "compositor": gui_session.get("compositor"),
+                "display": gui_session.get("display"),
+                "wayland_display": gui_session.get("wayland_display"),
+                "desktop_session": gui_session.get("desktop_session"),
+                "tools_available": gui_session.get("tools", {}),
+                "capabilities": gui_session.get("capabilities", {}),
+                "detection_methods": gui_session.get("detection_methods", []),
+                "detection_latency_us": gui_session.get("detection_latency_us", 0)
+            }
         }
         latency_ms = round((time.time() - start_time) * 1000, 2)
         result["latency_ms"] = latency_ms

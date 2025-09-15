@@ -35,34 +35,41 @@ try:
 except ImportError:
     TESSERACT_AVAILABLE = False
 
-try:
-    import pyautogui
-    PYAUTOGUI_AVAILABLE = True
-    # Disable pyautogui failsafe for automation
-    pyautogui.FAILSAFE = False
-except ImportError:
-    PYAUTOGUI_AVAILABLE = False
+
+# Do not import pyautogui at the module level to avoid DISPLAY errors in headless environments
+PYAUTOGUI_AVAILABLE = None
+def _import_pyautogui():
+    global PYAUTOGUI_AVAILABLE
+    try:
+        import pyautogui
+        pyautogui.FAILSAFE = False
+        PYAUTOGUI_AVAILABLE = True
+        return pyautogui
+    except (ImportError, KeyError) as e:
+        # KeyError can occur if DISPLAY is not set
+        PYAUTOGUI_AVAILABLE = False
+        return None
 
 # Platform-specific accessibility imports
 if platform.system() == "Linux":
     try:
-        from Xlib import display, X
-        from Xlib.ext import randr
+        from Xlib import display, X  # type: ignore
+        from Xlib.ext import randr  # type: ignore
         XLIB_AVAILABLE = True
     except ImportError:
         XLIB_AVAILABLE = False
 elif platform.system() == "Windows":
     try:
-        import win32gui
-        import win32con
-        import win32api
+        import win32gui  # type: ignore
+        import win32con  # type: ignore
+        import win32api  # type: ignore
         WIN32_AVAILABLE = True
     except ImportError:
         WIN32_AVAILABLE = False
 elif platform.system() == "Darwin":
     try:
-        import Quartz
-        import ApplicationServices
+        import Quartz  # type: ignore
+        import ApplicationServices  # type: ignore
         QUARTZ_AVAILABLE = True
     except ImportError:
         QUARTZ_AVAILABLE = False
@@ -96,12 +103,15 @@ class AccessibilityRequest(BaseModel):
     properties: Optional[List[str]] = None  # Properties to retrieve
     max_depth: Optional[int] = 5  # Maximum tree depth
 
-def _error_response(code: str, message: str, extra: Optional[Dict] = None) -> Dict:
+def _error_response(code: str, message: str, extra: Optional[Dict] = None, start_time: Optional[float] = None) -> Dict:
     """Create standardized error response"""
+    current_time = time.time()
     result = {
         "errors": [{"code": code, "message": message}],
-        "timestamp": int(time.time() * 1000)
+        "timestamp": int(current_time * 1000)
     }
+    if start_time is not None:
+        result["latency_ms"] = int((current_time - start_time) * 1000)
     if extra:
         result.update(extra)
     return result
@@ -268,6 +278,10 @@ def _capture_screenshot(region=None, monitor=0, scale_factor=1.0):
     if not PYAUTOGUI_AVAILABLE:
         raise Exception("PyAutoGUI not available for screenshot capture")
     
+    pyautogui = _import_pyautogui()
+    if not pyautogui:
+        raise Exception("PyAutoGUI not available or DISPLAY not set for screenshot capture")
+    
     try:
         monitors = _get_monitors()
         
@@ -337,33 +351,36 @@ def screen_capture(req: ScreenCaptureRequest, response: Response):
     Enhanced screenshot capture with multi-monitor and HiDPI support.
     Supports full screen, regional, and multi-monitor capture with comprehensive validation.
     """
+    pyautogui = _import_pyautogui()
+    if not pyautogui:
+        return _error_response("MISSING_DEPENDENCY", "PyAutoGUI is not available or DISPLAY is not set on this system.")
     start_time = time.time()
     
     if req.action != "capture":
-        return _error_response("INVALID_ACTION", f"Unsupported action: {req.action}")
+        return _error_response("INVALID_ACTION", f"Unsupported action: {req.action}", start_time=start_time)
     
     if not PYAUTOGUI_AVAILABLE:
-        return _error_response("DEPENDENCY_MISSING", "PyAutoGUI not available for screen capture")
+        return _error_response("DEPENDENCY_MISSING", "PyAutoGUI not available for screen capture", start_time=start_time)
     
     # Input validation
     if req.monitor < 0:
-        return _error_response("INVALID_MONITOR", "Monitor index cannot be negative")
+        return _error_response("INVALID_MONITOR", "Monitor index cannot be negative", start_time=start_time)
     
     if req.scale <= 0:
-        return _error_response("INVALID_SCALE", "Scale factor must be positive")
+        return _error_response("INVALID_SCALE", "Scale factor must be positive", start_time=start_time)
     
     if req.quality < 1 or req.quality > 100:
-        return _error_response("INVALID_QUALITY", "JPEG quality must be between 1-100")
+        return _error_response("INVALID_QUALITY", "JPEG quality must be between 1-100", start_time=start_time)
     
     if req.format not in ["png", "jpeg", "base64"]:
-        return _error_response("INVALID_FORMAT", "Format must be 'png', 'jpeg', or 'base64'")
+        return _error_response("INVALID_FORMAT", "Format must be 'png', 'jpeg', or 'base64'", start_time=start_time)
     
     try:
         monitors = _get_monitors()
         
         # Validate monitor index
         if req.monitor >= len(monitors):
-            return _error_response("INVALID_MONITOR", f"Monitor {req.monitor} not available. Found {len(monitors)} monitors.")
+            return _error_response("INVALID_MONITOR", f"Monitor {req.monitor} not available. Found {len(monitors)} monitors.", start_time=start_time)
         
         # Enhanced capture with validation
         screenshot, selected_monitor = _capture_screenshot(req.region, req.monitor, req.scale)
@@ -457,7 +474,7 @@ def screen_capture(req: ScreenCaptureRequest, response: Response):
             }
             
     except Exception as e:
-        return _error_response("CAPTURE_ERROR", str(e))
+        return _error_response("CAPTURE_ERROR", str(e), start_time=start_time)
 
 @router.post("/ocr", dependencies=[Depends(verify_key)])
 def ocr_read_region(req: OCRRequest, response: Response):
