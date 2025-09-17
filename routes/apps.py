@@ -112,6 +112,11 @@ class AppRequest(BaseModel):
     height: Optional[int] = None
     pid: Optional[int] = None  # For direct PID matching
     window_index: Optional[int] = 0  # For multi-window selection (default: first match)
+    # Window management fields
+    workspace: Optional[int] = None  # Virtual desktop/workspace number
+    snap_position: Optional[str] = None  # "left", "right", "top", "bottom", "maximize", "minimize"
+    tile_position: Optional[str] = None  # "top-left", "top-right", "bottom-left", "bottom-right"
+    pin_to_top: Optional[bool] = None  # Always on top
     # Special action for window enumeration
     # action: 'list_windows' returns all open windows (Linux/X11 only for now)
 
@@ -308,21 +313,76 @@ def handle_app_action(req: AppRequest, response: Response):
             # Optionally, remove from registry: del _apps_registry[req.pid]
         return {"result": {"status": "ok", "action": action, "pid": req.pid}, "env": full_env, "timestamp": _now_ts(), "latency_ms": int((time.time() - start_time) * 1000)}
 
-    if action in ("resize", "move"):
+    if action in ("resize", "move", "snap", "tile", "pin", "virtual_desktop"):
         if is_headless:
             return error_response("HEADLESS_ENVIRONMENT", "GUI operations not allowed in headless mode.", 403)
         if req.pid is None:
-            return error_response("MISSING_FIELD", "'pid' required for geometry ops.")
-        if req.x is None or req.y is None or req.width is None or req.height is None:
-            return error_response("MISSING_FIELD", "'x', 'y', 'width', and 'height' required for geometry ops.")
-        if not (0 <= req.x <= 10000 and 0 <= req.y <= 10000 and 1 <= req.width <= 10000 and 1 <= req.height <= 10000):
-            return error_response("INVALID_GEOMETRY", "Geometry values out of bounds.")
+            return error_response("MISSING_FIELD", "'pid' required for window operations.")
+        
         with _apps_registry_lock:
             meta = _apps_registry.get(req.pid)
             if not meta:
                 return error_response("NOT_FOUND", f"No such PID: {req.pid}")
-            meta["geometry"] = {"x": req.x, "y": req.y, "width": req.width, "height": req.height}
-        return {"result": {"status": "ok", "action": action, "pid": req.pid, "geometry": {"x": req.x, "y": req.y, "width": req.width, "height": req.height}}, "env": full_env, "timestamp": _now_ts(), "latency_ms": int((time.time() - start_time) * 1000)}
+            
+            # Handle different window operations
+            if action in ("resize", "move"):
+                if req.x is None or req.y is None or req.width is None or req.height is None:
+                    return error_response("MISSING_FIELD", "'x', 'y', 'width', and 'height' required for geometry ops.")
+                if not (0 <= req.x <= 10000 and 0 <= req.y <= 10000 and 1 <= req.width <= 10000 and 1 <= req.height <= 10000):
+                    return error_response("INVALID_GEOMETRY", "Geometry values out of bounds.")
+                meta["geometry"] = {"x": req.x, "y": req.y, "width": req.width, "height": req.height}
+                return {"result": {"status": "ok", "action": action, "pid": req.pid, "geometry": meta["geometry"]}, "env": full_env, "timestamp": _now_ts(), "latency_ms": int((time.time() - start_time) * 1000)}
+            
+            elif action == "snap":
+                if not req.snap_position:
+                    return error_response("MISSING_FIELD", "'snap_position' required for snap operation.")
+                valid_positions = ["left", "right", "top", "bottom", "maximize", "minimize"]
+                if req.snap_position not in valid_positions:
+                    return error_response("INVALID_SNAP_POSITION", f"snap_position must be one of: {valid_positions}")
+                
+                # Simulate snapping
+                snap_geometries = {
+                    "left": {"x": 0, "y": 0, "width": 960, "height": 1080},
+                    "right": {"x": 960, "y": 0, "width": 960, "height": 1080},
+                    "top": {"x": 0, "y": 0, "width": 1920, "height": 540},
+                    "bottom": {"x": 0, "y": 540, "width": 1920, "height": 540},
+                    "maximize": {"x": 0, "y": 0, "width": 1920, "height": 1080},
+                    "minimize": {"x": 0, "y": 0, "width": 0, "height": 0}
+                }
+                meta["geometry"] = snap_geometries[req.snap_position]
+                meta["snap_position"] = req.snap_position
+                return {"result": {"status": "ok", "action": action, "pid": req.pid, "snap_position": req.snap_position, "geometry": meta["geometry"]}, "env": full_env, "timestamp": _now_ts(), "latency_ms": int((time.time() - start_time) * 1000)}
+            
+            elif action == "tile":
+                if not req.tile_position:
+                    return error_response("MISSING_FIELD", "'tile_position' required for tile operation.")
+                valid_positions = ["top-left", "top-right", "bottom-left", "bottom-right"]
+                if req.tile_position not in valid_positions:
+                    return error_response("INVALID_TILE_POSITION", f"tile_position must be one of: {valid_positions}")
+                
+                # Simulate tiling
+                tile_geometries = {
+                    "top-left": {"x": 0, "y": 0, "width": 960, "height": 540},
+                    "top-right": {"x": 960, "y": 0, "width": 960, "height": 540},
+                    "bottom-left": {"x": 0, "y": 540, "width": 960, "height": 540},
+                    "bottom-right": {"x": 960, "y": 540, "width": 960, "height": 540}
+                }
+                meta["geometry"] = tile_geometries[req.tile_position]
+                meta["tile_position"] = req.tile_position
+                return {"result": {"status": "ok", "action": action, "pid": req.pid, "tile_position": req.tile_position, "geometry": meta["geometry"]}, "env": full_env, "timestamp": _now_ts(), "latency_ms": int((time.time() - start_time) * 1000)}
+            
+            elif action == "pin":
+                pin_state = req.pin_to_top if req.pin_to_top is not None else True
+                meta["pin_to_top"] = pin_state
+                return {"result": {"status": "ok", "action": action, "pid": req.pid, "pin_to_top": pin_state}, "env": full_env, "timestamp": _now_ts(), "latency_ms": int((time.time() - start_time) * 1000)}
+            
+            elif action == "virtual_desktop":
+                if req.workspace is None:
+                    return error_response("MISSING_FIELD", "'workspace' required for virtual desktop operation.")
+                if not (0 <= req.workspace <= 10):
+                    return error_response("INVALID_WORKSPACE", "workspace must be between 0 and 10.")
+                meta["workspace"] = req.workspace
+                return {"result": {"status": "ok", "action": action, "pid": req.pid, "workspace": req.workspace}, "env": full_env, "timestamp": _now_ts(), "latency_ms": int((time.time() - start_time) * 1000)}
 
     # Unknown or unsupported action
     return error_response("UNSUPPORTED_ACTION", f"Action '{action}' is not supported.", 400)
