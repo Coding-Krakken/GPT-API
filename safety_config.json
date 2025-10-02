@@ -1,0 +1,91 @@
+{
+  "version": "2.0",
+  "policies": {
+    "read": {
+      "level": "low",
+      "require_confirmation": false,
+      "allow_dry_run": true,
+      "audit_required": true,
+      "step_through_mode": false,
+      "confirmation_mode": "none",
+      "timeout_seconds": 300,
+      "max_retries": 3
+    },
+    "write": {
+      "level": "medium",
+      "require_confirmation": true,
+      "allow_dry_run": true,
+      "audit_required": true,
+      "step_through_mode": false,
+      "confirmation_mode": "prompt",
+      "timeout_seconds": 300,
+      "max_retries": 3
+    },
+    "execute": {
+      "level": "medium",
+      "require_confirmation": true,
+      "allow_dry_run": true,
+      "audit_required": true,
+      "step_through_mode": false,
+      "confirmation_mode": "prompt",
+      "timeout_seconds": 300,
+      "max_retries": 3
+    },
+    "delete": {
+      "level": "strict",
+      "require_confirmation": true,
+      "allow_dry_run": true,
+      "audit_required": true,
+      "step_through_mode": true,
+      "confirmation_mode": "step_through",
+      "timeout_seconds": 600,
+      "max_retries": 1
+    },
+    "system": {
+      "level": "strict",
+      "require_confirmation": true,
+      "allow_dry_run": true,
+      "audit_required": true,
+      "step_through_mode": true,
+      "confirmation_mode": "step_through",
+      "timeout_seconds": 600,
+      "max_retries": 1
+    },
+    "network": {
+      "level": "medium",
+      "require_confirmation": false,
+      "allow_dry_run": true,
+      "audit_required": true,
+      "step_through_mode": false,
+      "confirmation_mode": "automatic",
+      "timeout_seconds": 300,
+      "max_retries": 3
+    },
+    "gui_input": {
+      "level": "medium",
+      "require_confirmation": true,
+      "allow_dry_run": true,
+      "audit_required": true,
+      "step_through_mode": false,
+      "confirmation_mode": "prompt",
+      "timeout_seconds": 300,
+      "max_retries": 3
+    },
+    "screen_capture": {
+      "level": "low",
+      "require_confirmation": false,
+      "allow_dry_run": true,
+      "audit_required": true,
+      "step_through_mode": false,
+      "confirmation_mode": "none",
+      "timeout_seconds": 300,
+      "max_retries": 3
+    }
+  },
+  "global_settings": {
+    "telemetry_enabled": true,
+    "audit_retention_days": 30,
+    "max_pending_actions": 100,
+    "default_timeout_seconds": 300
+  }
+}

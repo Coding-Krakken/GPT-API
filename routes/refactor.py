@@ -75,20 +75,44 @@ async def refactor_code(request: Request):
                 with open(abs_path, "w", encoding="utf-8") as f:
                     f.write(new_content)
 
+            # Enhanced visual diff with full context (addresses audit requirement)
             import difflib
             diff = list(difflib.unified_diff(
                 content.splitlines(),
                 new_content.splitlines(),
-                fromfile=file,
-                tofile=file,
+                fromfile=f"a/{file}",
+                tofile=f"b/{file}",
                 lineterm='',
                 n=3
             ))
-            preview = '\n'.join(diff[:10])
+            
+            # For dry-run, show complete visual diff like git diff
+            if dry_run and content != new_content:
+                full_diff = '\n'.join(diff)
+                # Create git-like diff output
+                git_style_diff = f"diff --git a/{file} b/{file}\n"
+                git_style_diff += f"index {'a' * 7}..{'b' * 7} 100644\n"
+                git_style_diff += full_diff
+                visual_diff = git_style_diff
+            else:
+                visual_diff = '\n'.join(diff[:10]) if diff else ""
+            
+            # Calculate change statistics
+            additions = sum(1 for line in diff if line.startswith('+') and not line.startswith('+++'))
+            deletions = sum(1 for line in diff if line.startswith('-') and not line.startswith('---'))
+            
             results.append({
                 "file": file,
                 "changed": content != new_content,
-                "preview": preview
+                "preview": visual_diff,
+                "full_diff": '\n'.join(diff) if dry_run else visual_diff,
+                "stats": {
+                    "additions": additions,
+                    "deletions": deletions,
+                    "total_changes": additions + deletions
+                },
+                "lines_before": len(content.splitlines()),
+                "lines_after": len(new_content.splitlines())
             })
 
         if dry_run and not any(r["changed"] for r in results):

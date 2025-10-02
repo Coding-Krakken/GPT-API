@@ -22,15 +22,18 @@ class TestCodeEndpoints:
         assert "Hello from test script!" in data["result"]["stdout"]
 
     def test_invalid_content_syntax(self, client, auth_headers):
-        """Test running a Python script."""
+        """Test handling of invalid Python syntax in content."""
+        payload = {
+            "action": "run",
+            "content": "print('Hello' invalid syntax",  # Invalid Python syntax
+            "language": "python"
+        }
         response = client.post("/code", headers=auth_headers, json=payload)
         assert response.status_code == 200
         data = response.json()
-        assert "stdout" in data
-        assert "stderr" in data
-        assert "exit_code" in data
-        assert data["exit_code"] == 0
-        assert "Hello from test script!" in data["stdout"]
+        assert "result" in data
+        assert "error" in data["result"]
+        assert data["result"]["error"]["code"] == "invalid_python_syntax"
 
     def test_run_python_with_content(self, client, auth_headers):
         """Test running Python code from content."""
