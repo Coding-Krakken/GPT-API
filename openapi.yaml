@@ -685,28 +685,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-components:
-  schemas:
-    ErrorResponse:
-      type: object
-      properties:
-        error:
-          type: object
-          properties:
-            code:
-              type: string
-            message:
-              type: string
-          required: [code, message]
-        status:
-          type: integer
-        debug:
-          type: array
-          items:
-            type: string
-        trace:
-          type: string
-
   # Enhanced GUI Control Layer Endpoints
   /gui/session:
     get:
@@ -1184,3 +1162,1064 @@ components:
                         type: boolean
                   latency_us:
                     type: integer
+
+  # ========================================
+  # Core Automation Endpoints (Previously Missing)
+  # ========================================
+
+  /manageFiles:
+    post:
+      operationId: manageFilesAlias
+      summary: File management operations (backward compatibility alias for /files)
+      description: |
+        Alias endpoint for /files to maintain backward compatibility with existing tools and scripts.
+        Supports all file operations: read, write, delete, copy, move, stat, exists, list.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                action:
+                  type: string
+                  enum: [read, write, delete, copy, move, stat, exists, list]
+                path:
+                  type: string
+                target_path:
+                  type: string
+                content:
+                  type: string
+                recursive:
+                  type: boolean
+      responses:
+        '200':
+          description: File operation result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: object
+                  timestamp:
+                    type: integer
+
+  /screen:
+    post:
+      operationId: screenCapture
+      summary: Screen capture and visual perception operations
+      description: |
+        Provides screenshot capture, OCR, template matching, and accessibility querying.
+        Supports multi-monitor setups, region-based captures, and various image formats.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+              properties:
+                action:
+                  type: string
+                  enum: [capture, ocr, template_match, accessibility_tree, find_element]
+                  description: Type of screen operation to perform
+                region:
+                  type: object
+                  description: Screen region {x, y, width, height}
+                  properties:
+                    x:
+                      type: integer
+                    y:
+                      type: integer
+                    width:
+                      type: integer
+                    height:
+                      type: integer
+                monitor:
+                  type: integer
+                  description: Monitor index for multi-monitor setups
+                format:
+                  type: string
+                  enum: [png, jpeg, base64]
+                  description: Output image format
+                quality:
+                  type: integer
+                  minimum: 1
+                  maximum: 100
+                  description: JPEG quality
+                language:
+                  type: string
+                  description: OCR language code (e.g., 'eng', 'spa')
+                template_data:
+                  type: string
+                  description: Base64 encoded template image for matching
+                threshold:
+                  type: number
+                  minimum: 0.0
+                  maximum: 1.0
+                  description: Match confidence threshold
+      responses:
+        '200':
+          description: Screen operation result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: object
+                  image_data:
+                    type: string
+                  text:
+                    type: string
+                  matches:
+                    type: array
+                    items:
+                      type: object
+                  latency_ms:
+                    type: integer
+                  timestamp:
+                    type: integer
+
+  /input:
+    post:
+      operationId: inputAutomation
+      summary: Basic input automation (mouse and keyboard)
+      description: |
+        Provides mouse movement, clicks, keyboard input, and drag-drop operations.
+        Supports various mouse buttons, key combinations, and gestures.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+              properties:
+                action:
+                  type: string
+                  enum: [mouse_move, mouse_click, mouse_drag, keyboard_type, keyboard_press, keyboard_hotkey]
+                x:
+                  type: integer
+                y:
+                  type: integer
+                from_x:
+                  type: integer
+                from_y:
+                  type: integer
+                to_x:
+                  type: integer
+                to_y:
+                  type: integer
+                button:
+                  type: string
+                  enum: [left, right, middle]
+                text:
+                  type: string
+                key:
+                  type: string
+                keys:
+                  type: array
+                  items:
+                    type: string
+                duration:
+                  type: number
+                clicks:
+                  type: integer
+                interval:
+                  type: number
+                dry_run:
+                  type: boolean
+      responses:
+        '200':
+          description: Input operation result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  action:
+                    type: string
+                  latency_ms:
+                    type: integer
+                  timestamp:
+                    type: integer
+
+  /safety:
+    post:
+      operationId: safetyCheck
+      summary: Safety checks and governance for GUI automation
+      description: |
+        Provides confirmation flows, audit logging, step-through modes, and comprehensive governance.
+        Ensures safe execution of potentially destructive or sensitive operations.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - endpoint
+                - action
+                - params
+              properties:
+                endpoint:
+                  type: string
+                  description: Target endpoint for safety check
+                action:
+                  type: string
+                  description: Action to be performed
+                params:
+                  type: object
+                  description: Action parameters
+                dry_run:
+                  type: boolean
+                  description: Perform validation without execution
+                confirmed:
+                  type: boolean
+                  description: Whether user has confirmed the action
+                confirmation_token:
+                  type: string
+                  description: Token from confirmation request
+      responses:
+        '200':
+          description: Safety check result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: object
+                    properties:
+                      safe:
+                        type: boolean
+                      level:
+                        type: string
+                        enum: [safe, warning, destructive, critical]
+                      requires_confirmation:
+                        type: boolean
+                      confirmation_token:
+                        type: string
+                      warnings:
+                        type: array
+                        items:
+                          type: string
+                      recommendations:
+                        type: array
+                        items:
+                          type: string
+                  endpoint:
+                    type: string
+                  action:
+                    type: string
+                  latency_ms:
+                    type: integer
+                  timestamp:
+                    type: integer
+
+  /session:
+    post:
+      operationId: sessionManagement
+      summary: Remote session management (RDP, VNC, headless)
+      description: |
+        Provides RDP, VNC, and headless session support for distributed automation.
+        Manages remote desktop connections and virtual display environments.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+              properties:
+                action:
+                  type: string
+                  enum: [start, stop, list, configure, status]
+                session_type:
+                  type: string
+                  enum: [rdp, vnc, headless, x11vnc]
+                display:
+                  type: string
+                  description: Display number for X11/VNC (e.g., ':1')
+                geometry:
+                  type: string
+                  description: Screen resolution (e.g., '1920x1080')
+                depth:
+                  type: integer
+                  description: Color depth in bits
+                host:
+                  type: string
+                  description: Remote host for RDP
+                port:
+                  type: integer
+                  description: Port override
+                session_id:
+                  type: string
+                  description: Session identifier for operations
+                dry_run:
+                  type: boolean
+      responses:
+        '200':
+          description: Session operation result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: object
+                    properties:
+                      session_id:
+                        type: string
+                      session_type:
+                        type: string
+                      status:
+                        type: string
+                      display:
+                        type: string
+                      sessions:
+                        type: array
+                        items:
+                          type: object
+                  timestamp:
+                    type: integer
+
+  /flow:
+    post:
+      operationId: flowControl
+      summary: Flow control and state management
+      description: |
+        Provides wait conditions, retry logic, event-driven callbacks, and state management.
+        Supports complex automation workflows with conditional execution.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+              properties:
+                action:
+                  type: string
+                  enum: [wait_for, retry, on_event, set_state, get_state]
+                condition_type:
+                  type: string
+                  enum: [element_appears, element_disappears, window_opens, network_idle, time]
+                target:
+                  type: object
+                  description: Target specification for condition
+                timeout:
+                  type: integer
+                  description: Timeout in seconds
+                polling_interval:
+                  type: number
+                  description: Check interval in seconds
+                retry_count:
+                  type: integer
+                max_retries:
+                  type: integer
+                retry_delay:
+                  type: number
+                event_type:
+                  type: string
+                callback:
+                  type: object
+                state_key:
+                  type: string
+                state_value:
+                  type: object
+                dry_run:
+                  type: boolean
+      responses:
+        '200':
+          description: Flow control result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: object
+                    properties:
+                      success:
+                        type: boolean
+                      condition_met:
+                        type: boolean
+                      elapsed_time:
+                        type: number
+                      retry_count:
+                        type: integer
+                      state:
+                        type: object
+                  timestamp:
+                    type: integer
+
+  /clipboard:
+    post:
+      operationId: clipboardOperations
+      summary: Clipboard and data transfer operations
+      description: |
+        Provides text, image, and file clipboard operations with drag-drop support.
+        Supports multiple clipboard formats and cross-application data transfer.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+              properties:
+                action:
+                  type: string
+                  enum: [get, set, clear, transfer]
+                content_type:
+                  type: string
+                  enum: [text, image, file, html]
+                data:
+                  oneOf:
+                    - type: string
+                    - type: object
+                  description: Clipboard content
+                encoding:
+                  type: string
+                  description: Text encoding (e.g., 'utf-8')
+                transfer_type:
+                  type: string
+                  enum: [clipboard, drag_drop, file_share]
+                source:
+                  type: object
+                target:
+                  type: object
+                data_format:
+                  type: string
+                dry_run:
+                  type: boolean
+      responses:
+        '200':
+          description: Clipboard operation result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: object
+                    properties:
+                      content:
+                        type: string
+                      content_type:
+                        type: string
+                      success:
+                        type: boolean
+                  timestamp:
+                    type: integer
+
+  # ========================================
+  # Performance & Developer Tools
+  # ========================================
+
+  /batch_gui:
+    post:
+      operationId: batchGuiOperations
+      summary: Performance-optimized batch GUI operations
+      description: |
+        Provides action batching, region-scoped operations, and latency optimization for GUI automation.
+        Supports sequential, parallel, and optimized execution modes.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+                - operations
+              properties:
+                action:
+                  type: string
+                  enum: [execute, validate, optimize]
+                operations:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - endpoint
+                      - action
+                      - params
+                    properties:
+                      endpoint:
+                        type: string
+                      action:
+                        type: string
+                      params:
+                        type: object
+                      priority:
+                        type: integer
+                      timeout:
+                        type: number
+                execution_mode:
+                  type: string
+                  enum: [sequential, parallel, optimized]
+                max_parallel:
+                  type: integer
+                fail_fast:
+                  type: boolean
+      responses:
+        '200':
+          description: Batch execution result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                  total_latency_ms:
+                    type: integer
+                  operations_completed:
+                    type: integer
+                  operations_failed:
+                    type: integer
+                  timestamp:
+                    type: integer
+
+  /debug:
+    post:
+      operationId: debugUtilities
+      summary: Developer debugging and telemetry utilities
+      description: |
+        Provides debugging, telemetry, replay, and step-through capabilities for GUI automation.
+        Supports operation history, performance metrics, and error pattern analysis.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+              properties:
+                action:
+                  type: string
+                  enum: [start, stop, status, export, step_through, replay, query_telemetry]
+                debug_level:
+                  type: string
+                  enum: [debug, info, warning, error]
+                capture_screenshots:
+                  type: boolean
+                capture_performance:
+                  type: boolean
+                filter_endpoints:
+                  type: array
+                  items:
+                    type: string
+                session_id:
+                  type: string
+                operations:
+                  type: array
+                  items:
+                    type: object
+                query_type:
+                  type: string
+                  enum: [performance, errors, operations, safety]
+                time_range:
+                  type: object
+                  properties:
+                    start:
+                      type: integer
+                    end:
+                      type: integer
+                limit:
+                  type: integer
+      responses:
+        '200':
+          description: Debug operation result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: object
+                    properties:
+                      debug_active:
+                        type: boolean
+                      operations_captured:
+                        type: integer
+                      history:
+                        type: array
+                        items:
+                          type: object
+                      metrics:
+                        type: object
+                      errors:
+                        type: object
+                  timestamp:
+                    type: integer
+
+  /plugins:
+    post:
+      operationId: pluginManagement
+      summary: Plugin system for extensibility
+      description: |
+        Provides dynamic loading of new backends, toolkits, and capabilities.
+        Supports custom GUI automation plugins and extensions.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+                - plugin_name
+              properties:
+                action:
+                  type: string
+                  enum: [load, unload, reload, list, query, execute]
+                plugin_name:
+                  type: string
+                plugin_path:
+                  type: string
+                plugin_config:
+                  type: object
+                auto_enable:
+                  type: boolean
+                method_name:
+                  type: string
+                method_params:
+                  type: object
+      responses:
+        '200':
+          description: Plugin operation result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: object
+                    properties:
+                      success:
+                        type: boolean
+                      plugins:
+                        type: array
+                        items:
+                          type: object
+                      plugin_status:
+                        type: string
+                      capabilities:
+                        type: array
+                        items:
+                          type: string
+                  timestamp:
+                    type: integer
+
+  # ========================================
+  # State-of-the-Art Features
+  # ========================================
+
+  /orchestrator:
+    post:
+      operationId: liveOrchestration
+      summary: Live orchestration and bi-directional bridge
+      description: |
+        Provides real-time streaming, dynamic dashboards, and backend ↔ GUI integration.
+        Supports WebSocket connections for live metrics and task coordination.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+              properties:
+                action:
+                  type: string
+                  enum: [start, stop, pause, resume, configure, submit_task, query_status]
+                session_name:
+                  type: string
+                workflow_definition:
+                  type: object
+                task_definition:
+                  type: object
+                  properties:
+                    task_id:
+                      type: string
+                    priority:
+                      type: integer
+                    operations:
+                      type: array
+                      items:
+                        type: object
+                session_id:
+                  type: string
+      responses:
+        '200':
+          description: Orchestration result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: object
+                    properties:
+                      session_id:
+                        type: string
+                      status:
+                        type: string
+                      tasks_queued:
+                        type: integer
+                      tasks_completed:
+                        type: integer
+                      active_connections:
+                        type: integer
+                      metrics:
+                        type: object
+                  timestamp:
+                    type: integer
+
+  /universal_driver:
+    post:
+      operationId: universalGuiDriver
+      summary: Universal multi-platform GUI driver
+      description: |
+        Provides unified interface for Windows, Linux, macOS, Web, and Mobile automation.
+        Supports multiple element selector strategies and interaction contexts.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+              properties:
+                action:
+                  type: string
+                  enum: [find_element, interact, get_property, wait_for_element, list_elements]
+                platform:
+                  type: string
+                  enum: [windows, linux, macos, web, android, ios]
+                selector:
+                  type: object
+                  required:
+                    - strategy
+                    - value
+                  properties:
+                    strategy:
+                      type: string
+                      enum: [xpath, css, accessibility, image, text, coordinates]
+                    value:
+                      type: string
+                    context:
+                      type: object
+                    fallbacks:
+                      type: array
+                      items:
+                        type: object
+                interaction_type:
+                  type: string
+                  enum: [click, type, drag, swipe, tap]
+                interaction_data:
+                  type: object
+                property_name:
+                  type: string
+                timeout:
+                  type: integer
+      responses:
+        '200':
+          description: Universal driver result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: object
+                    properties:
+                      elements:
+                        type: array
+                        items:
+                          type: object
+                      element:
+                        type: object
+                      property_value:
+                        oneOf:
+                          - type: string
+                          - type: object
+                      success:
+                        type: boolean
+                  timestamp:
+                    type: integer
+
+  /ai_planner:
+    post:
+      operationId: aiTaskPlanning
+      summary: AI-driven task planning and autonomous automation
+      description: |
+        Provides intelligent workflow generation, context recall, and autonomous execution.
+        Supports supervised, semi-autonomous, and fully autonomous operation modes.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+              properties:
+                action:
+                  type: string
+                  enum: [plan_task, execute_plan, query_status, cancel_task, adjust_autonomy]
+                task_description:
+                  type: string
+                  description: Natural language task description
+                context:
+                  type: object
+                  description: Task context and constraints
+                autonomy_level:
+                  type: string
+                  enum: [supervised, semi_autonomous, autonomous]
+                  description: Level of AI autonomy
+                task_id:
+                  type: string
+                constraints:
+                  type: object
+                  properties:
+                    max_steps:
+                      type: integer
+                    timeout:
+                      type: integer
+                    safety_level:
+                      type: string
+                learning_enabled:
+                  type: boolean
+      responses:
+        '200':
+          description: AI planner result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: object
+                    properties:
+                      task_id:
+                        type: string
+                      plan:
+                        type: array
+                        items:
+                          type: object
+                      status:
+                        type: string
+                        enum: [planned, executing, completed, failed, retrying, cancelled]
+                      steps_completed:
+                        type: integer
+                      confidence:
+                        type: number
+                      estimated_duration:
+                        type: integer
+                  timestamp:
+                    type: integer
+
+  /workflow_editor:
+    post:
+      operationId: workflowEditor
+      summary: Visual workflow editor with declarative schemas
+      description: |
+        Provides drag-and-drop workflow building and YAML/JSON automation schemas.
+        Supports workflow validation, optimization, and export to multiple formats.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+              properties:
+                action:
+                  type: string
+                  enum: [create, update, delete, validate, execute, export, import, list]
+                workflow_id:
+                  type: string
+                workflow_definition:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    description:
+                      type: string
+                    nodes:
+                      type: array
+                      items:
+                        type: object
+                    connections:
+                      type: array
+                      items:
+                        type: object
+                    variables:
+                      type: object
+                format:
+                  type: string
+                  enum: [json, yaml, visual]
+                validate_only:
+                  type: boolean
+                optimization_level:
+                  type: string
+                  enum: [none, basic, aggressive]
+      responses:
+        '200':
+          description: Workflow editor result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: object
+                    properties:
+                      workflow_id:
+                        type: string
+                      workflow:
+                        type: object
+                      workflows:
+                        type: array
+                        items:
+                          type: object
+                      validation:
+                        type: object
+                        properties:
+                          valid:
+                            type: boolean
+                          errors:
+                            type: array
+                            items:
+                              type: string
+                          warnings:
+                            type: array
+                            items:
+                              type: string
+                      export_data:
+                        type: string
+                  timestamp:
+                    type: integer
+
+  /reliability:
+    post:
+      operationId: reliabilityFeatures
+      summary: Advanced reliability and resilience features
+      description: |
+        Provides retry strategies, circuit breakers, fallback mechanisms, and fault tolerance.
+        Supports chaos engineering and resilience testing for GUI automation.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+              properties:
+                action:
+                  type: string
+                  enum: [configure_retry, configure_circuit_breaker, execute_with_fallback, chaos_test, query_health]
+                retry_strategy:
+                  type: string
+                  enum: [linear, exponential, fibonacci, custom]
+                max_retries:
+                  type: integer
+                base_delay:
+                  type: number
+                circuit_name:
+                  type: string
+                circuit_config:
+                  type: object
+                  properties:
+                    failure_threshold:
+                      type: integer
+                    timeout:
+                      type: integer
+                    reset_timeout:
+                      type: integer
+                primary_operation:
+                  type: object
+                fallback_operation:
+                  type: object
+                chaos_config:
+                  type: object
+                  properties:
+                    fault_type:
+                      type: string
+                      enum: [latency, error, timeout, crash]
+                    probability:
+                      type: number
+                    duration:
+                      type: integer
+      responses:
+        '200':
+          description: Reliability operation result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: object
+                    properties:
+                      success:
+                        type: boolean
+                      retry_count:
+                        type: integer
+                      circuit_state:
+                        type: string
+                        enum: [closed, open, half_open]
+                      fallback_used:
+                        type: boolean
+                      health_status:
+                        type: object
+                      chaos_results:
+                        type: object
+                  timestamp:
+                    type: integer
+components:
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+          required: [code, message]
+        status:
+          type: integer
+        debug:
+          type: array
+          items:
+            type: string
+        trace:
+          type: string
+
