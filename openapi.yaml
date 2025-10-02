@@ -1,29 +1,24 @@
 openapi: 3.1.0
 info:
   title: GPT Super-Agent Universal Control API
-  description: |
-    Universal FastAPI-based control API for GPT agents to perform system operations (file, shell, code, package, git, apps, refactor, monitor, batch, etc.).
-    
-    **BREAKING CHANGES in v4.0.0:**
-    - `/batch` endpoint now includes `errors[]` array and `operation_index` fields for better error tracking
-    - `/code` endpoint returns structured error codes instead of plain strings  
-    - Enhanced security: All subprocess calls use input sanitization and allow-lists
-    - GUI automation endpoints added with Wayland/X11 hybrid support
-    
-    **Backward Compatibility:** 
-    - All existing field structures remain but additional fields have been added
-    - API consumers should ignore unknown fields for forward compatibility
-    
-    **Security Features:**
-    - Command sanitization with allow-lists prevents injection attacks
-    - Path validation prevents directory traversal
-    - Production mode sanitizes error traces
-  version: 4.0.0
+  description: "Universal FastAPI-based control API for GPT agents to perform system operations (file, shell, code, package,\
+    \ git, apps, refactor, monitor, batch, etc.).\n\n**BREAKING CHANGES in v4.0.0:**\n- `/batch` endpoint now includes `errors[]`\
+    \ array and `operation_index` fields for better error tracking\n- `/code` endpoint returns structured error codes instead\
+    \ of plain strings  \n- Enhanced security: All subprocess calls use input sanitization and allow-lists\n- GUI automation\
+    \ endpoints added with Wayland/X11 hybrid support\n\n**Backward Compatibility:** \n- All existing field structures remain\
+    \ but additional fields have been added\n- API consumers should ignore unknown fields for forward compatibility\n\n**Security\
+    \ Features:**\n- Command sanitization with allow-lists prevents injection attacks\n- Path validation prevents directory\
+    \ traversal\n- Production mode sanitizes error traces\n\n\n**BREAKING CHANGES in v5.0.0 (Operation Consolidation):**\n\
+    - GUI operations consolidated into single /gui endpoint (removed /gui/session, /gui/test, /apps_advanced/*, /input_enhanced/*,\
+    \ /input, /vision/*, /batch_gui)\n- Monitor operations consolidated into /system POST endpoint (removed /monitor)\n- Removed\
+    \ /manageFiles alias (use /files instead)\n- All consolidated operations use 'action' parameter to specify operation type\n\
+    - Full backward compatibility maintained via action parameter mapping"
+  version: 5.0.0
   contact:
     name: GPT-API Support
     url: https://github.com/Coding-Krakken/GPT-API
 servers:
-  - url: https://gpt-api.ngrok.app
+- url: https://gpt-api.ngrok.app
 paths:
   /shell:
     post:
@@ -36,7 +31,7 @@ paths:
             schema:
               type: object
               required:
-                - command
+              - command
               properties:
                 command:
                   type: string
@@ -69,13 +64,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-
   /files:
     post:
       operationId: manageFiles
       summary: Perform all file-level operations via unified interface (single or batch)
-      description: |
-        Supports both single file operation (action+path) and batch (operations[]). If 'operations' is provided, it must be a non-empty array of file operation objects. Returns clear 400 errors for missing/invalid fields. Error responses are standardized.
+      description: 'Supports both single file operation (action+path) and batch (operations[]). If ''operations'' is provided,
+        it must be a non-empty array of file operation objects. Returns clear 400 errors for missing/invalid fields. Error
+        responses are standardized.
+
+        '
       requestBody:
         required: true
         content:
@@ -86,7 +83,15 @@ paths:
               properties:
                 action:
                   type: string
-                  enum: [read, write, delete, copy, move, stat, exists, list]
+                  enum:
+                  - read
+                  - write
+                  - delete
+                  - copy
+                  - move
+                  - stat
+                  - exists
+                  - list
                   description: Required for single op. Ignored if 'operations' is present.
                 path:
                   type: string
@@ -95,7 +100,7 @@ paths:
                   type: string
                 content:
                   type: string
-                  maxLength: 1048576 # 1MB
+                  maxLength: 1048576
                 recursive:
                   type: boolean
                 operations:
@@ -104,19 +109,27 @@ paths:
                   items:
                     type: object
                     required:
-                      - action
-                      - path
+                    - action
+                    - path
                     properties:
                       action:
                         type: string
-                        enum: [read, write, delete, copy, move, stat, exists, list]
+                        enum:
+                        - read
+                        - write
+                        - delete
+                        - copy
+                        - move
+                        - stat
+                        - exists
+                        - list
                       path:
                         type: string
                       target_path:
                         type: string
                       content:
                         type: string
-                        maxLength: 1048576 # 1MB
+                        maxLength: 1048576
                       recursive:
                         type: boolean
       responses:
@@ -126,32 +139,33 @@ paths:
             application/json:
               schema:
                 oneOf:
-                  - type: object
-                    properties:
-                      result:
-                        type: string
-                  - type: object
-                    properties:
-                      results:
-                        type: array
-                        items:
-                          type: object
-                          properties:
-                            result:
-                              type: string
+                - type: object
+                  properties:
+                    result:
+                      type: string
+                - type: object
+                  properties:
+                    results:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          result:
+                            type: string
         '400':
           description: Invalid input (e.g., missing required fields, invalid batch, or schema misuse)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-
   /code:
     post:
       operationId: codeOps
       summary: Execute, test, lint, and manipulate code files in Python, JS, Bash, or Node.
-      description: |
-        Perform code actions (run, test, lint, fix, format, explain) on supported languages. All errors are structured. See docs for details. Required fields: action, language, and path or content. See externalDocs for full details.
+      description: 'Perform code actions (run, test, lint, fix, format, explain) on supported languages. All errors are structured.
+        See docs for details. Required fields: action, language, and path or content. See externalDocs for full details.
+
+        '
       requestBody:
         required: true
         content:
@@ -161,24 +175,42 @@ paths:
               properties:
                 action:
                   type: string
-                  enum: [run, test, lint, fix, format, explain]
-                  description: "Action to perform. Supported: run, test, lint, fix, format, explain."
+                  enum:
+                  - run
+                  - test
+                  - lint
+                  - fix
+                  - format
+                  - explain
+                  description: 'Action to perform. Supported: run, test, lint, fix, format, explain.'
                 path:
                   type: string
-                  description: "Path to the file. Required unless 'content' is provided. Unsafe or overlong paths are rejected."
+                  description: Path to the file. Required unless 'content' is provided. Unsafe or overlong paths are rejected.
                 language:
                   type: string
-                  description: |
-                    Programming language. **Required.** Must be one of: 'python', 'js', 'bash', 'node'. Requests with missing or unsupported languages are rejected with `unsupported_language` error.
-                  enum: [python, js, bash, node]
+                  description: 'Programming language. **Required.** Must be one of: ''python'', ''js'', ''bash'', ''node''.
+                    Requests with missing or unsupported languages are rejected with `unsupported_language` error.
+
+                    '
+                  enum:
+                  - python
+                  - js
+                  - bash
+                  - node
                 args:
                   type: string
-                  description: |
-                    Optional CLI arguments. Only safe, whitelisted arguments are allowed per language/action. Malformed or unsafe arguments are rejected with `invalid_args` error.
+                  description: 'Optional CLI arguments. Only safe, whitelisted arguments are allowed per language/action.
+                    Malformed or unsafe arguments are rejected with `invalid_args` error.
+
+                    '
                 content:
                   type: string
-                  description: |
-                    Optional code content. If provided, will be written to a temp file and executed. Only supported for actions: run, test, lint, fix, format. Not supported for explain. Content is validated for type, size (max 100,000 chars), and (for Python) syntax before execution. Invalid content returns `invalid_content` error.
+                  description: 'Optional code content. If provided, will be written to a temp file and executed. Only supported
+                    for actions: run, test, lint, fix, format. Not supported for explain. Content is validated for type, size
+                    (max 100,000 chars), and (for Python) syntax before execution. Invalid content returns `invalid_content`
+                    error.
+
+                    '
       responses:
         '200':
           description: Code action result
@@ -186,37 +218,37 @@ paths:
             application/json:
               schema:
                 oneOf:
-                  - type: object
-                    properties:
-                      stdout:
-                        type: string
-                      stderr:
-                        type: string
-                      exit_code:
-                        type: integer
-                      duration:
-                        type: number
-                        description: Operation duration in seconds
-                      content_hash:
-                        type: string
-                        description: SHA256 hash of content if content was provided
+                - type: object
+                  properties:
+                    stdout:
+                      type: string
+                    stderr:
+                      type: string
+                    exit_code:
+                      type: integer
+                    duration:
+                      type: number
+                      description: Operation duration in seconds
+                    content_hash:
+                      type: string
+                      description: SHA256 hash of content if content was provided
               examples:
                 success:
                   summary: Successful code action
                   value:
-                    stdout: "Test output"
-                    stderr: ""
+                    stdout: Test output
+                    stderr: ''
                     exit_code: 0
                     duration: 0.12
                 no_tests:
                   summary: No tests found (exit code 5)
                   value:
                     error:
-                      code: "no_tests_found"
-                      message: "No tests were found in the specified file."
+                      code: no_tests_found
+                      message: No tests were found in the specified file.
                     status: 200
-                    stdout: ""
-                    stderr: ""
+                    stdout: ''
+                    stderr: ''
                     exit_code: 5
                     duration: 0.05
         '400':
@@ -225,7 +257,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-
   /system:
     get:
       operationId: getSystemState
@@ -248,106 +279,56 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+    post:
+      operationId: systemOperations
+      summary: System operations including monitoring and health checks
+      description: 'Unified system endpoint supporting:
 
-  /monitor:
-    get:
-      operationId: monitorHealthCheck
-      summary: Health check for /monitor endpoint
+        - System information retrieval (GET /system)
+
+        - Live monitoring and health checks (POST with action: ''monitor'', ''health_check'')
+
+
+        **Replaces:** /monitor (GET and POST)'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - action
+              properties:
+                action:
+                  type: string
+                  enum:
+                  - monitor
+                  - health_check
+                  - metrics
+                  description: Type of system operation
+                interval:
+                  type: integer
+                  description: Monitoring interval in seconds
+                duration:
+                  type: integer
+                  description: Monitoring duration in seconds
+                metrics:
+                  type: array
+                  items:
+                    type: string
+                  description: Specific metrics to monitor
       responses:
         '200':
-          description: Health check result
+          description: System operation result
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   result:
-                    type: string
-    post:
-      operationId: liveMonitor
-      summary: Monitor metrics or subscribe to events
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                type:
-                  type: string
-                  enum: [cpu, memory, disk, network, logs, filesystem, performance, custom]
-                  description: |
-                    Type of system metric to monitor.
-                    - cpu: CPU usage percentage
-                    - memory: Memory usage statistics
-                    - disk: Disk usage statistics
-                    - network: Network I/O statistics
-                    - logs: Log stream monitoring (not yet implemented)
-                    - filesystem: Filesystem usage statistics
-                    - performance: Combined CPU, memory, disk performance metrics
-                    - custom: Custom monitoring (not yet implemented)
-                live:
-                  type: boolean
-                  description: |
-                    If true, enables live monitoring mode. Currently not implemented - returns a message suggesting WebSocket or polling alternatives.
-                    Supported values: false (default). true is not yet supported.
-      responses:
-        '200':
-          description: Live monitoring data or stream token
-          content:
-            application/json:
-              schema:
-                oneOf:
-                  - type: object
-                    properties:
-                      result:
-                        type: string
-                        description: 'For non-structured or stream token responses.'
-                  - type: object
-                    properties:
-                      result:
-                        type: string
-                        description: 'Response for unimplemented monitoring types.'
-                        example: "Log stream not yet implemented"
-                  - type: object
-                    properties:
-                      memory:
-                        type: object
-                        description: 'Memory usage details (for type=memory)'
-                        properties:
-                          total:
-                            type: integer
-                            description: 'Total system memory in bytes.'
-                          used:
-                            type: integer
-                            description: 'Used memory in bytes.'
-                          free:
-                            type: integer
-                            description: 'Free memory in bytes.'
-                          percent:
-                            type: number
-                            description: 'Percent of memory used.'
-                example:
-                  memory:
-                    total: 16777216
-                    used: 8388608
-                    free: 8388608
-                    percent: 50.0
-        '400':
-          description: Invalid monitor type
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              examples:
-                invalid_type:
-                  summary: Invalid or unimplemented monitor type
-                  value:
-                    error:
-                      code: "unknown_monitor_type"
-                      message: "Unknown monitor type: custom. Supported: cpu, memory, disk, network, logs, filesystem, performance, custom."
-                    status: 400
-
+                    type: object
+                  timestamp:
+                    type: integer
   /git:
     post:
       operationId: gitControl
@@ -359,8 +340,8 @@ paths:
             schema:
               type: object
               required:
-                - action
-                - path
+              - action
+              - path
               properties:
                 action:
                   type: string
@@ -386,7 +367,64 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-
+  /gui:
+    post:
+      operationId: guiControl
+      summary: Unified GUI automation operations (session, window management, input, vision)
+      description: "Consolidated GUI automation endpoint supporting all GUI operations including:\n- Session management (session_info,\
+        \ test_env)\n- Window management (list_windows, launch_app, focus, resize, move, screenshot, mock)\n- Input automation\
+        \ (type_text, send_key, mouse_action)\n- Vision operations (ocr, find_element)\n- Batch GUI operations\n\n**Replaces:**\
+        \ /gui/session (GET), /gui/test (GET), /apps_advanced/*, /input_enhanced/*, \n/input, /vision/*, /batch_gui\n\n**Action\
+        \ Parameter:** Use 'action' field to specify operation type."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - action
+              properties:
+                action:
+                  type: string
+                  enum:
+                  - session_info
+                  - test_env
+                  - list_windows
+                  - launch_app
+                  - focus_window
+                  - resize_window
+                  - move_window
+                  - screenshot
+                  - mock_window
+                  - type_text
+                  - send_key
+                  - mouse_action
+                  - input_automation
+                  - ocr
+                  - find_element
+                  - batch_operations
+                  description: Type of GUI operation to perform
+                params:
+                  type: object
+                  description: Operation-specific parameters (see original endpoints for details)
+                  additionalProperties: true
+      responses:
+        '200':
+          description: GUI operation result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: object
+                  action:
+                    type: string
+                  timestamp:
+                    type: integer
+                  latency_ms:
+                    type: integer
   /package:
     post:
       operationId: packageManager
@@ -402,7 +440,12 @@ paths:
                   type: string
                 action:
                   type: string
-                  enum: [install, remove, update, list, upgrade]
+                  enum:
+                  - install
+                  - remove
+                  - update
+                  - list
+                  - upgrade
                 package:
                   type: string
       responses:
@@ -423,7 +466,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-
   /apps:
     post:
       operationId: appControl
@@ -437,9 +479,20 @@ paths:
               properties:
                 action:
                   type: string
-                  enum: [launch, kill, list, list_windows, focus, minimize, maximize, move, resize]
-                  description: |
-                    Action to perform. 'list_windows' enumerates all open windows (platform-specific). 'focus', 'minimize', 'maximize', 'move', 'resize' are GUI actions.
+                  enum:
+                  - launch
+                  - kill
+                  - list
+                  - list_windows
+                  - focus
+                  - minimize
+                  - maximize
+                  - move
+                  - resize
+                  description: 'Action to perform. ''list_windows'' enumerates all open windows (platform-specific). ''focus'',
+                    ''minimize'', ''maximize'', ''move'', ''resize'' are GUI actions.
+
+                    '
                 app:
                   type: string
                   description: Application name (for launch/kill/focus, or as window match hint)
@@ -467,7 +520,6 @@ paths:
                 height:
                   type: integer
                   description: Height (for resize)
-                # Pagination/filtering for 'list' action
                 limit:
                   type: integer
                   minimum: 1
@@ -488,65 +540,65 @@ paths:
             application/json:
               schema:
                 oneOf:
-                  - type: object
-                    properties:
-                      result:
-                        type: string
-                  - type: object
-                    properties:
-                      windows:
-                        type: array
-                        description: List of open windows (platform-specific fields)
-                        items:
-                          type: object
-                          properties:
-                            window_id:
-                              type: string
-                              description: Linux/X11 window ID (hex)
-                            window_handle:
-                              type: string
-                              description: Windows window handle (decimal)
-                            pid:
-                              type: string
-                              description: Process ID
-                            process:
-                              type: string
-                              description: Process name
-                            title:
-                              type: string
-                              description: Window title
-                            desktop:
-                              type: string
-                              description: Linux/X11 desktop number
-                            host:
-                              type: string
-                              description: Linux/X11 host
-                            geometry:
-                              type: object
-                              properties:
-                                x:
-                                  type: integer
-                                y:
-                                  type: integer
-                                width:
-                                  type: integer
-                                height:
-                                  type: integer
-                              description: Window geometry (Linux/X11)
-                            state:
-                              type: string
-                              description: Window state (Linux/X11)
-                      count:
-                        type: integer
-                        description: Number of windows returned
-                      env:
+                - type: object
+                  properties:
+                    result:
+                      type: string
+                - type: object
+                  properties:
+                    windows:
+                      type: array
+                      description: List of open windows (platform-specific fields)
+                      items:
                         type: object
-                        description: Environment info (Linux/X11)
                         properties:
-                          DISPLAY:
+                          window_id:
                             type: string
-                          WAYLAND_DISPLAY:
+                            description: Linux/X11 window ID (hex)
+                          window_handle:
                             type: string
+                            description: Windows window handle (decimal)
+                          pid:
+                            type: string
+                            description: Process ID
+                          process:
+                            type: string
+                            description: Process name
+                          title:
+                            type: string
+                            description: Window title
+                          desktop:
+                            type: string
+                            description: Linux/X11 desktop number
+                          host:
+                            type: string
+                            description: Linux/X11 host
+                          geometry:
+                            type: object
+                            properties:
+                              x:
+                                type: integer
+                              y:
+                                type: integer
+                              width:
+                                type: integer
+                              height:
+                                type: integer
+                            description: Window geometry (Linux/X11)
+                          state:
+                            type: string
+                            description: Window state (Linux/X11)
+                    count:
+                      type: integer
+                      description: Number of windows returned
+                    env:
+                      type: object
+                      description: Environment info (Linux/X11)
+                      properties:
+                        DISPLAY:
+                          type: string
+                        WAYLAND_DISPLAY:
+                          type: string
         '400':
           description: Invalid input (e.g., empty command)
           content:
@@ -589,7 +641,6 @@ paths:
                       type: boolean
                   python_version:
                     type: string
-
   /refactor:
     post:
       operationId: refactorCode
@@ -620,28 +671,27 @@ paths:
             application/json:
               schema:
                 oneOf:
-                  - type: object
-                    properties:
-                      results:
-                        type: array
-                        items:
-                          type: object
-                  - type: object
-                    properties:
-                      result:
-                        type: string
+                - type: object
+                  properties:
+                    results:
+                      type: array
+                      items:
+                        type: object
+                - type: object
+                  properties:
+                    result:
+                      type: string
               examples:
                 dry_run_noop:
                   summary: Dry-run with no matches
                   value:
-                    result: "No matches found."
+                    result: No matches found.
         '400':
           description: Invalid input (e.g., empty command)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-
   /batch:
     post:
       operationId: bulkActions
@@ -653,14 +703,14 @@ paths:
             schema:
               type: object
               required:
-                - operations
+              - operations
               properties:
                 operations:
                   type: array
                   items:
                     type: object
                     required:
-                      - action
+                    - action
                     properties:
                       action:
                         type: string
@@ -685,533 +735,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  # Enhanced GUI Control Layer Endpoints
-  /gui/session:
-    get:
-      operationId: getGuiSession
-      summary: Get comprehensive GUI session information with Wayland/X11 detection
-      responses:
-        '200':
-          description: GUI session details
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  session_type:
-                    type: string
-                    enum: [wayland, x11]
-                  compositor:
-                    type: string
-                  display:
-                    type: string
-                  wayland_display:
-                    type: string
-                  tools:
-                    type: object
-                    additionalProperties:
-                      type: boolean
-                  capabilities:
-                    type: object
-                    properties:
-                      window_management:
-                        type: boolean
-                      wayland_introspection:
-                        type: boolean
-                      x11_fallback:
-                        type: boolean
-                      screenshot:
-                        type: boolean
-                      input_automation:
-                        type: boolean
-                      accessibility:
-                        type: boolean
-                  detection_methods:
-                    type: array
-                    items:
-                      type: string
-                  detection_latency_us:
-                    type: integer
-
-  /gui/test:
-    get:
-      operationId: testGuiEnvironment
-      summary: Test GUI detection across different environments
-      responses:
-        '200':
-          description: GUI environment test results
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  tests:
-                    type: object
-                    properties:
-                      session_detection:
-                        type: boolean
-                      window_enumeration:
-                        type: boolean
-                      tool_availability:
-                        type: boolean
-                      fallback_methods:
-                        type: boolean
-                  overall_status:
-                    type: string
-                    enum: [healthy, degraded]
-                  latency_us:
-                    type: integer
-
-  /apps_advanced/list_windows_detailed:
-    get:
-      operationId: listWindowsDetailed
-      summary: Get detailed window list with position, size, state, focus, z-index
-      responses:
-        '200':
-          description: Detailed window information
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  windows:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        window_id:
-                          type: string
-                        desktop:
-                          type: integer
-                        pid:
-                          type: integer
-                        geometry:
-                          type: object
-                          properties:
-                            x:
-                              type: integer
-                            y:
-                              type: integer
-                            width:
-                              type: integer
-                            height:
-                              type: integer
-                        title:
-                          type: string
-                        state:
-                          type: string
-                        focus:
-                          type: boolean
-                        z_index:
-                          type: integer
-                        method:
-                          type: string
-                  methods_tried:
-                    type: array
-                    items:
-                      type: string
-                  latency_us:
-                    type: integer
-
-  /apps_advanced/launch:
-    post:
-      operationId: launchAppWithTracking
-      summary: Launch app with PID tracking and GUI metadata attachment
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - app
-              properties:
-                app:
-                  type: string
-                args:
-                  type: string
-                workspace:
-                  type: integer
-                geometry:
-                  type: object
-                  properties:
-                    x:
-                      type: integer
-                    y:
-                      type: integer
-                    width:
-                      type: integer
-                    height:
-                      type: integer
-      responses:
-        '200':
-          description: App launch result with PID
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  result:
-                    type: object
-                    properties:
-                      status:
-                        type: string
-                      pid:
-                        type: integer
-                      app:
-                        type: string
-                      metadata:
-                        type: object
-                  latency_us:
-                    type: integer
-
-  /apps_advanced/focus:
-    post:
-      operationId: focusWindow
-      summary: Focus a specific window
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - action
-              properties:
-                action:
-                  type: string
-                  enum: [focus]
-                window_id:
-                  type: string
-                pid:
-                  type: integer
-                window_title:
-                  type: string
-      responses:
-        '200':
-          description: Window focus result
-        '404':
-          description: Window not found
-
-  /apps_advanced/resize:
-    post:
-      operationId: resizeWindow
-      summary: Resize a window
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - action
-                - x
-                - y
-                - width
-                - height
-              properties:
-                action:
-                  type: string
-                  enum: [resize]
-                window_id:
-                  type: string
-                x:
-                  type: integer
-                y:
-                  type: integer
-                width:
-                  type: integer
-                  minimum: 1
-                height:
-                  type: integer
-                  minimum: 1
-      responses:
-        '200':
-          description: Window resize result
-
-  /apps_advanced/move:
-    post:
-      operationId: moveWindow
-      summary: Move a window to new position
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - action
-                - x
-                - y
-              properties:
-                action:
-                  type: string
-                  enum: [move]
-                window_id:
-                  type: string
-                x:
-                  type: integer
-                y:
-                  type: integer
-      responses:
-        '200':
-          description: Window move result
-
-  /apps_advanced/screenshot:
-    post:
-      operationId: captureScreenshot
-      summary: Capture window or screen screenshot
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                window_id:
-                  type: string
-                format:
-                  type: string
-                  enum: [png, jpg]
-                  default: png
-      responses:
-        '200':
-          description: Screenshot capture result
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  result:
-                    type: object
-                    properties:
-                      screenshot_path:
-                        type: string
-                      format:
-                        type: string
-                      file_size:
-                        type: integer
-                      success:
-                        type: boolean
-                  latency_us:
-                    type: integer
-
-  /input_enhanced/type:
-    post:
-      operationId: typeText
-      summary: Type text via input automation
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - action
-                - text
-              properties:
-                action:
-                  type: string
-                  enum: [type]
-                text:
-                  type: string
-                window_id:
-                  type: string
-      responses:
-        '200':
-          description: Text input result
-
-  /input_enhanced/keyboard:
-    post:
-      operationId: sendKeypress
-      summary: Send keyboard input (key press)
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - action
-                - key
-              properties:
-                action:
-                  type: string
-                  enum: [key]
-                key:
-                  type: string
-                window_id:
-                  type: string
-      responses:
-        '200':
-          description: Keyboard input result
-
-  /input_enhanced/mouse:
-    post:
-      operationId: mouseAction
-      summary: Perform mouse actions (click, move)
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - action
-              properties:
-                action:
-                  type: string
-                  enum: [click, move]
-                x:
-                  type: integer
-                y:
-                  type: integer
-                button:
-                  type: string
-                  enum: [left, right, middle]
-                  default: left
-      responses:
-        '200':
-          description: Mouse action result
-
-  /vision/ocr:
-    post:
-      operationId: performOcr
-      summary: OCR text recognition from screenshot
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - screenshot_path
-              properties:
-                screenshot_path:
-                  type: string
-      responses:
-        '200':
-          description: OCR result
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  result:
-                    type: object
-                    properties:
-                      text:
-                        type: string
-                      confidence:
-                        type: number
-                      words:
-                        type: array
-                        items:
-                          type: object
-                      success:
-                        type: boolean
-                  latency_us:
-                    type: integer
-
-  /vision/find_element:
-    post:
-      operationId: findVisualElement
-      summary: Visual element recognition with OpenCV
-      responses:
-        '200':
-          description: Visual element recognition result
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  result:
-                    type: object
-                    properties:
-                      elements:
-                        type: array
-                        items:
-                          type: object
-                      method:
-                        type: string
-                      success:
-                        type: boolean
-                  latency_us:
-                    type: integer
-
-  /apps_advanced/mock_window:
-    post:
-      operationId: createMockWindow
-      summary: Create a mock window for testing (Xvfb or dummy window)
-      responses:
-        '200':
-          description: Mock window creation result
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  result:
-                    type: object
-                    properties:
-                      mock_pid:
-                        type: integer
-                      type:
-                        type: string
-                      success:
-                        type: boolean
-                  latency_us:
-                    type: integer
-
-  # ========================================
-  # Core Automation Endpoints (Previously Missing)
-  # ========================================
-
-  /manageFiles:
-    post:
-      operationId: manageFilesAlias
-      summary: File management operations (backward compatibility alias for /files)
-      description: |
-        Alias endpoint for /files to maintain backward compatibility with existing tools and scripts.
-        Supports all file operations: read, write, delete, copy, move, stat, exists, list.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                action:
-                  type: string
-                  enum: [read, write, delete, copy, move, stat, exists, list]
-                path:
-                  type: string
-                target_path:
-                  type: string
-                content:
-                  type: string
-                recursive:
-                  type: boolean
-      responses:
-        '200':
-          description: File operation result
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  result:
-                    type: object
-                  timestamp:
-                    type: integer
-
   /screen:
     post:
       operationId: screenCapture
       summary: Screen capture and visual perception operations
-      description: |
-        Provides screenshot capture, OCR, template matching, and accessibility querying.
+      description: 'Provides screenshot capture, OCR, template matching, and accessibility querying.
+
         Supports multi-monitor setups, region-based captures, and various image formats.
+
+        '
       requestBody:
         required: true
         content:
@@ -1219,11 +751,16 @@ paths:
             schema:
               type: object
               required:
-                - action
+              - action
               properties:
                 action:
                   type: string
-                  enum: [capture, ocr, template_match, accessibility_tree, find_element]
+                  enum:
+                  - capture
+                  - ocr
+                  - template_match
+                  - accessibility_tree
+                  - find_element
                   description: Type of screen operation to perform
                 region:
                   type: object
@@ -1242,7 +779,10 @@ paths:
                   description: Monitor index for multi-monitor setups
                 format:
                   type: string
-                  enum: [png, jpeg, base64]
+                  enum:
+                  - png
+                  - jpeg
+                  - base64
                   description: Output image format
                 quality:
                   type: integer
@@ -1282,81 +822,15 @@ paths:
                     type: integer
                   timestamp:
                     type: integer
-
-  /input:
-    post:
-      operationId: inputAutomation
-      summary: Basic input automation (mouse and keyboard)
-      description: |
-        Provides mouse movement, clicks, keyboard input, and drag-drop operations.
-        Supports various mouse buttons, key combinations, and gestures.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - action
-              properties:
-                action:
-                  type: string
-                  enum: [mouse_move, mouse_click, mouse_drag, keyboard_type, keyboard_press, keyboard_hotkey]
-                x:
-                  type: integer
-                y:
-                  type: integer
-                from_x:
-                  type: integer
-                from_y:
-                  type: integer
-                to_x:
-                  type: integer
-                to_y:
-                  type: integer
-                button:
-                  type: string
-                  enum: [left, right, middle]
-                text:
-                  type: string
-                key:
-                  type: string
-                keys:
-                  type: array
-                  items:
-                    type: string
-                duration:
-                  type: number
-                clicks:
-                  type: integer
-                interval:
-                  type: number
-                dry_run:
-                  type: boolean
-      responses:
-        '200':
-          description: Input operation result
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  action:
-                    type: string
-                  latency_ms:
-                    type: integer
-                  timestamp:
-                    type: integer
-
   /safety:
     post:
       operationId: safetyCheck
       summary: Safety checks and governance for GUI automation
-      description: |
-        Provides confirmation flows, audit logging, step-through modes, and comprehensive governance.
+      description: 'Provides confirmation flows, audit logging, step-through modes, and comprehensive governance.
+
         Ensures safe execution of potentially destructive or sensitive operations.
+
+        '
       requestBody:
         required: true
         content:
@@ -1364,9 +838,9 @@ paths:
             schema:
               type: object
               required:
-                - endpoint
-                - action
-                - params
+              - endpoint
+              - action
+              - params
               properties:
                 endpoint:
                   type: string
@@ -1401,7 +875,11 @@ paths:
                         type: boolean
                       level:
                         type: string
-                        enum: [safe, warning, destructive, critical]
+                        enum:
+                        - safe
+                        - warning
+                        - destructive
+                        - critical
                       requires_confirmation:
                         type: boolean
                       confirmation_token:
@@ -1422,14 +900,15 @@ paths:
                     type: integer
                   timestamp:
                     type: integer
-
   /session:
     post:
       operationId: sessionManagement
       summary: Remote session management (RDP, VNC, headless)
-      description: |
-        Provides RDP, VNC, and headless session support for distributed automation.
+      description: 'Provides RDP, VNC, and headless session support for distributed automation.
+
         Manages remote desktop connections and virtual display environments.
+
+        '
       requestBody:
         required: true
         content:
@@ -1437,14 +916,23 @@ paths:
             schema:
               type: object
               required:
-                - action
+              - action
               properties:
                 action:
                   type: string
-                  enum: [start, stop, list, configure, status]
+                  enum:
+                  - start
+                  - stop
+                  - list
+                  - configure
+                  - status
                 session_type:
                   type: string
-                  enum: [rdp, vnc, headless, x11vnc]
+                  enum:
+                  - rdp
+                  - vnc
+                  - headless
+                  - x11vnc
                 display:
                   type: string
                   description: Display number for X11/VNC (e.g., ':1')
@@ -1490,14 +978,15 @@ paths:
                           type: object
                   timestamp:
                     type: integer
-
   /flow:
     post:
       operationId: flowControl
       summary: Flow control and state management
-      description: |
-        Provides wait conditions, retry logic, event-driven callbacks, and state management.
+      description: 'Provides wait conditions, retry logic, event-driven callbacks, and state management.
+
         Supports complex automation workflows with conditional execution.
+
+        '
       requestBody:
         required: true
         content:
@@ -1505,14 +994,24 @@ paths:
             schema:
               type: object
               required:
-                - action
+              - action
               properties:
                 action:
                   type: string
-                  enum: [wait_for, retry, on_event, set_state, get_state]
+                  enum:
+                  - wait_for
+                  - retry
+                  - on_event
+                  - set_state
+                  - get_state
                 condition_type:
                   type: string
-                  enum: [element_appears, element_disappears, window_opens, network_idle, time]
+                  enum:
+                  - element_appears
+                  - element_disappears
+                  - window_opens
+                  - network_idle
+                  - time
                 target:
                   type: object
                   description: Target specification for condition
@@ -1561,14 +1060,15 @@ paths:
                         type: object
                   timestamp:
                     type: integer
-
   /clipboard:
     post:
       operationId: clipboardOperations
       summary: Clipboard and data transfer operations
-      description: |
-        Provides text, image, and file clipboard operations with drag-drop support.
+      description: 'Provides text, image, and file clipboard operations with drag-drop support.
+
         Supports multiple clipboard formats and cross-application data transfer.
+
+        '
       requestBody:
         required: true
         content:
@@ -1576,25 +1076,36 @@ paths:
             schema:
               type: object
               required:
-                - action
+              - action
               properties:
                 action:
                   type: string
-                  enum: [get, set, clear, transfer]
+                  enum:
+                  - get
+                  - set
+                  - clear
+                  - transfer
                 content_type:
                   type: string
-                  enum: [text, image, file, html]
+                  enum:
+                  - text
+                  - image
+                  - file
+                  - html
                 data:
                   oneOf:
-                    - type: string
-                    - type: object
+                  - type: string
+                  - type: object
                   description: Clipboard content
                 encoding:
                   type: string
                   description: Text encoding (e.g., 'utf-8')
                 transfer_type:
                   type: string
-                  enum: [clipboard, drag_drop, file_share]
+                  enum:
+                  - clipboard
+                  - drag_drop
+                  - file_share
                 source:
                   type: object
                 target:
@@ -1622,89 +1133,15 @@ paths:
                         type: boolean
                   timestamp:
                     type: integer
-
-  # ========================================
-  # Performance & Developer Tools
-  # ========================================
-
-  /batch_gui:
-    post:
-      operationId: batchGuiOperations
-      summary: Performance-optimized batch GUI operations
-      description: |
-        Provides action batching, region-scoped operations, and latency optimization for GUI automation.
-        Supports sequential, parallel, and optimized execution modes.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - action
-                - operations
-              properties:
-                action:
-                  type: string
-                  enum: [execute, validate, optimize]
-                operations:
-                  type: array
-                  items:
-                    type: object
-                    required:
-                      - endpoint
-                      - action
-                      - params
-                    properties:
-                      endpoint:
-                        type: string
-                      action:
-                        type: string
-                      params:
-                        type: object
-                      priority:
-                        type: integer
-                      timeout:
-                        type: number
-                execution_mode:
-                  type: string
-                  enum: [sequential, parallel, optimized]
-                max_parallel:
-                  type: integer
-                fail_fast:
-                  type: boolean
-      responses:
-        '200':
-          description: Batch execution result
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  results:
-                    type: array
-                    items:
-                      type: object
-                  errors:
-                    type: array
-                    items:
-                      type: object
-                  total_latency_ms:
-                    type: integer
-                  operations_completed:
-                    type: integer
-                  operations_failed:
-                    type: integer
-                  timestamp:
-                    type: integer
-
   /debug:
     post:
       operationId: debugUtilities
       summary: Developer debugging and telemetry utilities
-      description: |
-        Provides debugging, telemetry, replay, and step-through capabilities for GUI automation.
+      description: 'Provides debugging, telemetry, replay, and step-through capabilities for GUI automation.
+
         Supports operation history, performance metrics, and error pattern analysis.
+
+        '
       requestBody:
         required: true
         content:
@@ -1712,14 +1149,25 @@ paths:
             schema:
               type: object
               required:
-                - action
+              - action
               properties:
                 action:
                   type: string
-                  enum: [start, stop, status, export, step_through, replay, query_telemetry]
+                  enum:
+                  - start
+                  - stop
+                  - status
+                  - export
+                  - step_through
+                  - replay
+                  - query_telemetry
                 debug_level:
                   type: string
-                  enum: [debug, info, warning, error]
+                  enum:
+                  - debug
+                  - info
+                  - warning
+                  - error
                 capture_screenshots:
                   type: boolean
                 capture_performance:
@@ -1736,7 +1184,11 @@ paths:
                     type: object
                 query_type:
                   type: string
-                  enum: [performance, errors, operations, safety]
+                  enum:
+                  - performance
+                  - errors
+                  - operations
+                  - safety
                 time_range:
                   type: object
                   properties:
@@ -1771,14 +1223,15 @@ paths:
                         type: object
                   timestamp:
                     type: integer
-
   /plugins:
     post:
       operationId: pluginManagement
       summary: Plugin system for extensibility
-      description: |
-        Provides dynamic loading of new backends, toolkits, and capabilities.
+      description: 'Provides dynamic loading of new backends, toolkits, and capabilities.
+
         Supports custom GUI automation plugins and extensions.
+
+        '
       requestBody:
         required: true
         content:
@@ -1786,12 +1239,18 @@ paths:
             schema:
               type: object
               required:
-                - action
-                - plugin_name
+              - action
+              - plugin_name
               properties:
                 action:
                   type: string
-                  enum: [load, unload, reload, list, query, execute]
+                  enum:
+                  - load
+                  - unload
+                  - reload
+                  - list
+                  - query
+                  - execute
                 plugin_name:
                   type: string
                 plugin_path:
@@ -1829,18 +1288,15 @@ paths:
                           type: string
                   timestamp:
                     type: integer
-
-  # ========================================
-  # State-of-the-Art Features
-  # ========================================
-
   /orchestrator:
     post:
       operationId: liveOrchestration
       summary: Live orchestration and bi-directional bridge
-      description: |
-        Provides real-time streaming, dynamic dashboards, and backend ↔ GUI integration.
+      description: 'Provides real-time streaming, dynamic dashboards, and backend ↔ GUI integration.
+
         Supports WebSocket connections for live metrics and task coordination.
+
+        '
       requestBody:
         required: true
         content:
@@ -1848,11 +1304,18 @@ paths:
             schema:
               type: object
               required:
-                - action
+              - action
               properties:
                 action:
                   type: string
-                  enum: [start, stop, pause, resume, configure, submit_task, query_status]
+                  enum:
+                  - start
+                  - stop
+                  - pause
+                  - resume
+                  - configure
+                  - submit_task
+                  - query_status
                 session_name:
                   type: string
                 workflow_definition:
@@ -1895,14 +1358,15 @@ paths:
                         type: object
                   timestamp:
                     type: integer
-
   /universal_driver:
     post:
       operationId: universalGuiDriver
       summary: Universal multi-platform GUI driver
-      description: |
-        Provides unified interface for Windows, Linux, macOS, Web, and Mobile automation.
+      description: 'Provides unified interface for Windows, Linux, macOS, Web, and Mobile automation.
+
         Supports multiple element selector strategies and interaction contexts.
+
+        '
       requestBody:
         required: true
         content:
@@ -1910,23 +1374,40 @@ paths:
             schema:
               type: object
               required:
-                - action
+              - action
               properties:
                 action:
                   type: string
-                  enum: [find_element, interact, get_property, wait_for_element, list_elements]
+                  enum:
+                  - find_element
+                  - interact
+                  - get_property
+                  - wait_for_element
+                  - list_elements
                 platform:
                   type: string
-                  enum: [windows, linux, macos, web, android, ios]
+                  enum:
+                  - windows
+                  - linux
+                  - macos
+                  - web
+                  - android
+                  - ios
                 selector:
                   type: object
                   required:
-                    - strategy
-                    - value
+                  - strategy
+                  - value
                   properties:
                     strategy:
                       type: string
-                      enum: [xpath, css, accessibility, image, text, coordinates]
+                      enum:
+                      - xpath
+                      - css
+                      - accessibility
+                      - image
+                      - text
+                      - coordinates
                     value:
                       type: string
                     context:
@@ -1937,7 +1418,12 @@ paths:
                         type: object
                 interaction_type:
                   type: string
-                  enum: [click, type, drag, swipe, tap]
+                  enum:
+                  - click
+                  - type
+                  - drag
+                  - swipe
+                  - tap
                 interaction_data:
                   type: object
                 property_name:
@@ -1963,20 +1449,21 @@ paths:
                         type: object
                       property_value:
                         oneOf:
-                          - type: string
-                          - type: object
+                        - type: string
+                        - type: object
                       success:
                         type: boolean
                   timestamp:
                     type: integer
-
   /ai_planner:
     post:
       operationId: aiTaskPlanning
       summary: AI-driven task planning and autonomous automation
-      description: |
-        Provides intelligent workflow generation, context recall, and autonomous execution.
+      description: 'Provides intelligent workflow generation, context recall, and autonomous execution.
+
         Supports supervised, semi-autonomous, and fully autonomous operation modes.
+
+        '
       requestBody:
         required: true
         content:
@@ -1984,11 +1471,16 @@ paths:
             schema:
               type: object
               required:
-                - action
+              - action
               properties:
                 action:
                   type: string
-                  enum: [plan_task, execute_plan, query_status, cancel_task, adjust_autonomy]
+                  enum:
+                  - plan_task
+                  - execute_plan
+                  - query_status
+                  - cancel_task
+                  - adjust_autonomy
                 task_description:
                   type: string
                   description: Natural language task description
@@ -1997,7 +1489,10 @@ paths:
                   description: Task context and constraints
                 autonomy_level:
                   type: string
-                  enum: [supervised, semi_autonomous, autonomous]
+                  enum:
+                  - supervised
+                  - semi_autonomous
+                  - autonomous
                   description: Level of AI autonomy
                 task_id:
                   type: string
@@ -2031,7 +1526,13 @@ paths:
                           type: object
                       status:
                         type: string
-                        enum: [planned, executing, completed, failed, retrying, cancelled]
+                        enum:
+                        - planned
+                        - executing
+                        - completed
+                        - failed
+                        - retrying
+                        - cancelled
                       steps_completed:
                         type: integer
                       confidence:
@@ -2040,14 +1541,15 @@ paths:
                         type: integer
                   timestamp:
                     type: integer
-
   /workflow_editor:
     post:
       operationId: workflowEditor
       summary: Visual workflow editor with declarative schemas
-      description: |
-        Provides drag-and-drop workflow building and YAML/JSON automation schemas.
+      description: 'Provides drag-and-drop workflow building and YAML/JSON automation schemas.
+
         Supports workflow validation, optimization, and export to multiple formats.
+
+        '
       requestBody:
         required: true
         content:
@@ -2055,11 +1557,19 @@ paths:
             schema:
               type: object
               required:
-                - action
+              - action
               properties:
                 action:
                   type: string
-                  enum: [create, update, delete, validate, execute, export, import, list]
+                  enum:
+                  - create
+                  - update
+                  - delete
+                  - validate
+                  - execute
+                  - export
+                  - import
+                  - list
                 workflow_id:
                   type: string
                 workflow_definition:
@@ -2081,12 +1591,18 @@ paths:
                       type: object
                 format:
                   type: string
-                  enum: [json, yaml, visual]
+                  enum:
+                  - json
+                  - yaml
+                  - visual
                 validate_only:
                   type: boolean
                 optimization_level:
                   type: string
-                  enum: [none, basic, aggressive]
+                  enum:
+                  - none
+                  - basic
+                  - aggressive
       responses:
         '200':
           description: Workflow editor result
@@ -2123,14 +1639,15 @@ paths:
                         type: string
                   timestamp:
                     type: integer
-
   /reliability:
     post:
       operationId: reliabilityFeatures
       summary: Advanced reliability and resilience features
-      description: |
-        Provides retry strategies, circuit breakers, fallback mechanisms, and fault tolerance.
+      description: 'Provides retry strategies, circuit breakers, fallback mechanisms, and fault tolerance.
+
         Supports chaos engineering and resilience testing for GUI automation.
+
+        '
       requestBody:
         required: true
         content:
@@ -2138,14 +1655,23 @@ paths:
             schema:
               type: object
               required:
-                - action
+              - action
               properties:
                 action:
                   type: string
-                  enum: [configure_retry, configure_circuit_breaker, execute_with_fallback, chaos_test, query_health]
+                  enum:
+                  - configure_retry
+                  - configure_circuit_breaker
+                  - execute_with_fallback
+                  - chaos_test
+                  - query_health
                 retry_strategy:
                   type: string
-                  enum: [linear, exponential, fibonacci, custom]
+                  enum:
+                  - linear
+                  - exponential
+                  - fibonacci
+                  - custom
                 max_retries:
                   type: integer
                 base_delay:
@@ -2170,7 +1696,11 @@ paths:
                   properties:
                     fault_type:
                       type: string
-                      enum: [latency, error, timeout, crash]
+                      enum:
+                      - latency
+                      - error
+                      - timeout
+                      - crash
                     probability:
                       type: number
                     duration:
@@ -2192,7 +1722,10 @@ paths:
                         type: integer
                       circuit_state:
                         type: string
-                        enum: [closed, open, half_open]
+                        enum:
+                        - closed
+                        - open
+                        - half_open
                       fallback_used:
                         type: boolean
                       health_status:
@@ -2213,7 +1746,9 @@ components:
               type: string
             message:
               type: string
-          required: [code, message]
+          required:
+          - code
+          - message
         status:
           type: integer
         debug:
@@ -2222,4 +1757,3 @@ components:
             type: string
         trace:
           type: string
-
