@@ -155,3 +155,45 @@ docs/CODING_GPT_EVAL_PLAN.md
 docs/CODING_GPT_SCORECARDS.md
 evals/README.md
 ```
+
+
+## Phase 2 status
+
+Phase 2 is complete when these files exist and pass validation:
+
+```text
+evals/scoring.py
+evals/report.py
+manual_phase2_report_test.py
+```
+
+Phase 2 converts Phase 1 JSONL telemetry into deterministic scorecards and human-readable reports.
+
+Implemented outputs:
+
+```text
+/tmp/gpt-api-evals/reports/<report_id>.json
+/tmp/gpt-api-evals/reports/<report_id>.md
+```
+
+Implemented capabilities:
+
+```text
+agent score
+backend score
+agent/backend subscores
+endpoint reliability stats
+latency p50/p95/max
+failure classification
+ranked recommendations
+event type counts
+JSON and Markdown report generation
+```
+
+Manual validation:
+
+```text
+python manual_phase2_report_test.py
+```
+
+Expected result: a JSON summary showing nonzero event count, agent/backend scores, and report paths.
