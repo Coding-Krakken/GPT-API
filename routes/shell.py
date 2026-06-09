@@ -87,6 +87,7 @@ def add_ssh_timeouts(command: str) -> str:
 
 class ShellCommand(BaseModel):
     command: str
+    timeout_seconds: int = 300
     run_as_sudo: bool = False
     background: bool = False
     fault: str = None  # Optional fault injection
@@ -199,9 +200,10 @@ async def run_shell_command(data: ShellCommand, request: Request):
                 executable=shell_executable,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                text=True
+                text=True,
+                start_new_session=True
             )
-            stdout, stderr = proc.communicate()
+            stdout, stderr = proc.communicate(timeout=min(data.timeout_seconds,3600))
             exit_code = proc.returncode
             resp = {
                 "stdout": redact_secrets(stdout.strip()),
@@ -220,7 +222,8 @@ async def run_shell_command(data: ShellCommand, request: Request):
                 shell=True,
                 executable=shell_executable,
                 capture_output=True,
-                text=True
+                text=True,
+                timeout=min(data.timeout_seconds,3600)
             )
             resp = {
                 "stdout": redact_secrets(result.stdout.strip()),
