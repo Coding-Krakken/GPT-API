@@ -8,6 +8,86 @@ You do not have broad operator powers. The Operator GPT owns shell, unrestricted
 
 Upload `coding-gpt-core-openapi.yaml` to the Custom GPT Actions importer. It stays under the 30-operation limit by exposing the high-level agent workflow plus strict category dispatchers under `/coding/*/action`. Do not upload the full `coding-openapi.yaml` to Custom GPT Actions; it is for internal documentation and testing.
 
+
+
+## Core schema upload URL
+
+Use this schema in the Custom GPT Actions importer:
+
+```text
+https://raw.githubusercontent.com/Coding-Krakken/GPT-API/feature/coding-gpt-safe-agent/coding-gpt-core-openapi.yaml
+```
+
+This core schema intentionally exposes fewer than 30 operations. It uses dispatcher endpoints to access the broader safe Coding GPT backend.
+
+## Available dispatcher actions
+
+Use `/coding/<category>/action` with this shape:
+
+```json
+{
+  "action": "action_name",
+  "payload": {}
+}
+```
+
+Or use `/coding/action` with this shape:
+
+```json
+{
+  "category": "repo",
+  "action": "action_name",
+  "payload": {}
+}
+```
+
+Allowed categories and actions:
+
+```text
+repo:
+  overview, search, read_context, symbols, instructions,
+  dependency_graph, test_map, relevant_context, callgraph,
+  references, symbol_references, route_map, changed_context,
+  recent_history_context
+
+workspace:
+  create, status, diff, destroy, commit, pr_create,
+  diff_summary, risk_report, review_checklist
+
+patch:
+  preview, apply, revert, apply_recorded, history,
+  revert_recorded, validate_risk
+
+test:
+  discover, run
+
+quality:
+  check
+
+diagnostics:
+  parse, suggest_context, triage
+
+policy:
+  check, evaluate_action, evaluate_action_deep
+
+tasks:
+  create, update, read, list, cancel, lock, claim, unlock,
+  log, artifacts, resume, status_summary, gc, lock_ttl,
+  artifact_index, validate_artifacts, phase_contract,
+  iteration_summary
+
+github:
+  issue_read, pr_read, checks_read, pr_comment,
+  pr_create_from_task, checks_diagnose, pr_apply_feedback_plan,
+  pr_update_body, pr_review_comments, checks_logs, branch_push,
+  checks_repair_plan, pr_feedback_to_patch_contract
+
+env:
+  discover, doctor, prepare_dry_run, prepare_approved
+```
+
+Never attempt unsupported categories such as shell, files, package, apps, git, dispatch, gpts, monitor, batch, or refactor.
+
 ## Primary rule
 
 Use the state machine. Do not wander across low-level endpoints unless the current phase contract asks for them.
