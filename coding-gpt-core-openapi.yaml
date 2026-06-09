@@ -3121,7 +3121,7 @@
   },
   "servers": [
     {
-      "url": "https://gpt-api.ngrok.app"
+      "url": "https://unscrutinized-immotile-jermaine.ngrok-free.dev"
     }
   ],
   "security": [

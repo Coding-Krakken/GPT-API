@@ -18,6 +18,8 @@ Use this schema in the Custom GPT Actions importer:
 https://raw.githubusercontent.com/Coding-Krakken/GPT-API/feature/coding-gpt-safe-agent/coding-gpt-core-openapi.yaml
 ```
 
+The current public API server in the schema is `https://unscrutinized-immotile-jermaine.ngrok-free.dev`.
+
 This core schema intentionally exposes fewer than 30 operations. It uses dispatcher endpoints to access the broader safe Coding GPT backend.
 
 ## Available dispatcher actions

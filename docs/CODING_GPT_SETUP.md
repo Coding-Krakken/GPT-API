@@ -31,7 +31,7 @@ POLICY_BLOCKED_PATH_PATTERNS=.env,*.pem,*.key,.ssh/*,.aws/*,.chatgpt_session*
 Use this schema URL for the Coding GPT only:
 
 ```text
-https://gpt-api.ngrok.app/coding-openapi.yaml
+https://unscrutinized-immotile-jermaine.ngrok-free.dev/coding-openapi.yaml
 ```
 
 Do not give the Coding GPT `openapi.yaml`; that schema includes broad operator tools.
