@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from evals.engine_metrics import engine_metrics, engine_scores
+from evals.recommendations import generate_recommendations, legacy_recommendation_list
 
 AGENT_WEIGHTS = {
     "state_management": 20,
@@ -232,17 +233,20 @@ def classify_failures(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def recommendations(events: list[dict[str, Any]], agent: dict[str, Any], backend: dict[str, Any]) -> list[dict[str, Any]]:
-    recs: list[dict[str, Any]] = []
+    """Backward-compatible recommendation list.
+
+    Phase 10 uses evals.recommendations.generate_recommendations for the
+    complete grouped/ranked engine output. This wrapper preserves existing
+    callers that expect a list.
+    """
+    stats = endpoint_stats(events)
     failures = classify_failures(events)
-    codes = Counter(f["code"] for f in failures)
-    if codes["missing_payload_fields"]:
-        recs.append({"priority": 1, "title": "Improve dispatcher payload discipline", "why": "missing_payload_fields occurred.", "impact": "high", "effort": "low", "evidence": {"count": codes["missing_payload_fields"]}})
-    if codes["dependency_missing"]:
-        recs.append({"priority": 2, "title": "Improve missing dependency diagnosis", "why": "A command exited 127 or executable was missing.", "impact": "medium", "effort": "low", "evidence": {"count": codes["dependency_missing"]}})
-    if backend["subscores"].get("latency", 100) < 90:
-        recs.append({"priority": 3, "title": "Review slow endpoints", "why": "Latency score is below target.", "impact": "medium", "effort": "medium", "evidence": backend["evidence"].get("endpoint_stats", {}).get("latency_ms", {})})
-    if agent["subscores"].get("tool_use", 100) < 90:
-        recs.append({"priority": 4, "title": "Add schema examples for common dispatcher payloads", "why": "Tool-use score is below target.", "impact": "high", "effort": "low", "evidence": agent["evidence"]})
-    if not recs:
-        recs.append({"priority": 1, "title": "Maintain current release gate", "why": "No high-priority issues detected in this trace.", "impact": "medium", "effort": "low", "evidence": {"agent_score": agent["score"], "backend_score": backend["score"]}})
-    return sorted(recs, key=lambda r: r["priority"])
+    engines = engine_metrics(events)
+    return legacy_recommendation_list(generate_recommendations(
+        events,
+        agent=agent,
+        backend=backend,
+        failures=failures,
+        endpoint_stats=stats,
+        engine_metrics=engines,
+    ))

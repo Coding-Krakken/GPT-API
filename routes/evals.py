@@ -65,6 +65,14 @@ class EvalCompareRequest(BaseModel):
     baseline_report_id: str | None = None
 
 
+class EvalRecommendationsRequest(BaseModel):
+    report_id: str | None = None
+    task_id: str | None = None
+    run_id: str | None = None
+    events_path: str | None = None
+    top_n: int = 10
+
+
 class RegressionCreateRequest(BaseModel):
     id: str
     title: str
@@ -124,7 +132,9 @@ def _summarize_report(report: dict[str, Any]) -> dict[str, Any]:
         "agent_score": report.get("scores", {}).get("agent", {}).get("score"),
         "backend_score": report.get("scores", {}).get("backend", {}).get("score"),
         "failures": len(report.get("failures", [])),
+        "recommendation_summary": (report.get("recommendation_engine") or {}).get("summary", {}),
         "recommendations": report.get("recommendations", [])[:5],
+        "recommendations_grouped": {k: v[:3] for k, v in (report.get("recommendations_grouped") or {}).items()},
         "report_json": summary.get("report_json"),
         "report_md": summary.get("report_md"),
     }
@@ -215,6 +225,29 @@ def generate_or_read_report(req: EvalReportRequest):
         return {"status": 200, "report": _summarize_report(report), "full_report": report}
     report = eval_report.generate_report(req.events_path, task_id=req.task_id, run_id=req.run_id, report_id=req.report_id)
     return {"status": 200, "report": _summarize_report(report), "full_report": report}
+
+
+@router.post("/recommendations")
+def generate_recommendations_endpoint(req: EvalRecommendationsRequest):
+    if req.report_id and not (req.task_id or req.run_id or req.events_path):
+        try:
+            report = _load_report_by_id(req.report_id)
+        except FileNotFoundError as exc:
+            return {"status": 404, "error": {"code": "report_not_found", "message": str(exc)}}
+    else:
+        report = eval_report.generate_report(req.events_path, task_id=req.task_id, run_id=req.run_id, report_id=req.report_id)
+    rec_engine = report.get("recommendation_engine") or {}
+    ranked = (rec_engine.get("ranked") or report.get("recommendations") or [])[: max(1, min(req.top_n, 50))]
+    grouped = rec_engine.get("grouped") or report.get("recommendations_grouped") or {}
+    return {
+        "status": 200,
+        "report_id": report.get("summary", {}).get("report_id"),
+        "summary": rec_engine.get("summary", {}),
+        "top_recommendations": ranked,
+        "grouped": grouped,
+        "report_json": report.get("summary", {}).get("report_json"),
+        "report_md": report.get("summary", {}).get("report_md"),
+    }
 
 
 @router.post("/compare")

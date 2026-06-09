@@ -10,7 +10,8 @@ from typing import Any
 
 from utils import eval_telemetry
 from evals.engine_metrics import engine_metrics, engine_scores
-from evals.scoring import classify_failures, endpoint_stats, recommendations, score_agent, score_backend
+from evals.scoring import classify_failures, endpoint_stats, score_agent, score_backend
+from evals.recommendations import generate_recommendations
 
 
 def load_events(path: str | Path | None = None, *, task_id: str | None = None, run_id: str | None = None) -> list[dict[str, Any]]:
@@ -50,7 +51,6 @@ def build_report(events: list[dict[str, Any]], *, report_id: str | None = None, 
     agent = score_agent(events)
     backend = score_backend(events)
     failures = classify_failures(events)
-    recs = recommendations(events, agent, backend)
     counts = Counter(str(e.get("event_type")) for e in events)
     endpoints = endpoint_stats(events)
     summary = {
@@ -65,6 +65,7 @@ def build_report(events: list[dict[str, Any]], *, report_id: str | None = None, 
         **_time_bounds(events),
     }
     engines = engine_metrics(events)
+    recommendation_engine = generate_recommendations(events, agent=agent, backend=backend, failures=failures, endpoint_stats=endpoints, engine_metrics=engines)
     report = {
         "summary": summary,
         "scores": {"agent": agent, "backend": backend, "engines": engine_scores(engines)},
@@ -72,7 +73,9 @@ def build_report(events: list[dict[str, Any]], *, report_id: str | None = None, 
         "event_type_counts": dict(sorted(counts.items())),
         "endpoint_stats": endpoints,
         "failures": failures,
-        "recommendations": recs,
+        "recommendation_engine": recommendation_engine,
+        "recommendations": recommendation_engine.get("ranked", []),
+        "recommendations_grouped": recommendation_engine.get("grouped", {}),
         "events_sample": events[:20],
     }
     return report
@@ -172,9 +175,22 @@ def markdown_report(report: dict[str, Any]) -> str:
     lines.append("")
     lines.append("## Recommendations")
     lines.append("")
+    rec_engine = report.get("recommendation_engine", {})
+    if rec_engine.get("summary"):
+        lines.append(_table([[k, v] for k, v in rec_engine.get("summary", {}).items()], ["Metric", "Value"]))
+        lines.append("")
     recs = report.get("recommendations", [])
-    lines.append(_table([[r.get("priority"), r.get("title"), r.get("impact"), r.get("effort"), r.get("why")] for r in recs], ["Priority", "Title", "Impact", "Effort", "Why"]))
+    lines.append(_table([[r.get("priority"), r.get("roi_score"), r.get("layer"), r.get("title"), r.get("impact"), r.get("effort"), r.get("why")] for r in recs], ["Priority", "ROI", "Layer", "Title", "Impact", "Effort", "Why"]))
     lines.append("")
+    grouped = report.get("recommendations_grouped", {})
+    if grouped:
+        lines.append("### Recommendations by owner layer")
+        lines.append("")
+        for layer, layer_recs in grouped.items():
+            lines.append(f"#### {layer}")
+            lines.append("")
+            lines.append(_table([[r.get("priority"), r.get("title"), "; ".join(r.get("affected_metrics", [])), "; ".join(r.get("action_items", [])[:2])] for r in layer_recs], ["Priority", "Title", "Metrics", "First actions"]))
+            lines.append("")
     lines.append("## Event type counts")
     lines.append("")
     lines.append(_table([[k, v] for k, v in report.get("event_type_counts", {}).items()], ["Event type", "Count"]))
