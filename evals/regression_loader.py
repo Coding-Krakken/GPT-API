@@ -173,6 +173,34 @@ def _run_phase3_regression_create(regression: dict[str, Any], repo_path: str) ->
     return {"checks": checks}
 
 
+def _run_phase8_debug_ingestion(regression: dict[str, Any], repo_path: str) -> dict[str, Any]:
+    from evals import debug_ingest
+    sample = """
+[debug] Calling HTTP endpoint
+{"domain":"unscrutinized-immotile-jermaine.ngrok-free.dev","method":"post","path":"/coding/repo/action","operation":"repo_action_coding_repo_action_post","params":{"action":"instructions"}}
+[debug] Response received
+{"response_data":{"status":400,"error":{"code":"missing_payload_fields","message":"Missing required payload fields: repo_path","example_payload":{"repo_path":"/home/obsidian/Elevate_test"}}},"status_code":200}
+[debug] Calling HTTP endpoint
+{"domain":"unscrutinized-immotile-jermaine.ngrok-free.dev","method":"post","path":"/agent/coding-task","params":{"repo_path":"/home/obsidian/Elevate_test","task":"test"}}
+[debug] Response received
+{"http_status":403,"detail":"No Api Key or Invalid Key"}
+"""
+    parsed = debug_ingest.classify_debug_log(sample)
+    paths = debug_ingest.write_ingest_report(parsed, run_id=f"regression_{regression.get('id')}")
+    events = debug_ingest.debug_log_to_events(sample, run_id=f"regression_{regression.get('id')}")
+    codes = parsed.get("failure_codes") or {}
+    layers = parsed.get("failure_layers") or {}
+    checks = [
+        _ok("debug_calls_parsed", parsed.get("call_count", 0) >= 2, {"call_count": parsed.get("call_count")}),
+        _ok("missing_payload_classified", codes.get("missing_payload_fields", 0) >= 1, {"failure_codes": codes}),
+        _ok("auth_failure_classified", codes.get("missing_api_key", 0) >= 1, {"failure_codes": codes}),
+        _ok("failure_layers_present", "custom_gpt_behavior" in layers and "authentication" in layers, {"failure_layers": layers}),
+        _ok("debug_events_generated", len(events) >= 3, {"event_count": len(events)}),
+        _ok("ingest_reports_written", Path(paths.get("json", "")).exists() and Path(paths.get("md", "")).exists(), paths),
+    ]
+    return {"checks": checks, "parsed": {"call_count": parsed.get("call_count"), "failure_codes": codes, "failure_layers": layers, "agent_behavior_score": parsed.get("agent_behavior_score")}, "reports": paths}
+
+
 RUNNERS = {
     "missing_dispatcher_payload": _run_missing_dispatcher_payload,
     "wrong_ngrok_domain": _run_wrong_ngrok_domain,
@@ -181,6 +209,7 @@ RUNNERS = {
     "schema_security_list": _run_schema_security_list,
     "operation_limit": _run_operation_limit,
     "phase3_regression_create": _run_phase3_regression_create,
+    "phase8_debug_ingestion": _run_phase8_debug_ingestion,
 }
 
 

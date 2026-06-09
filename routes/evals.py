@@ -37,6 +37,13 @@ _BUILTIN_CASES = [
 ]
 
 
+
+
+class EvalReleaseGateRequest(BaseModel):
+    repo_path: str = Field(..., description="Repository path to evaluate, e.g. /home/obsidian/Elevate_test.")
+    run_id: str | None = None
+    require_clean_git: bool = True
+
 class EvalRunRequest(BaseModel):
     suite: str = Field("core_smoke", description="Evaluation suite to run. Supported: core_smoke, payload_recovery, release_gate, regressions, phase6_regressions.")
     repo_path: str = Field(..., description="Repository path to evaluate, e.g. /home/obsidian/Elevate_test.")
@@ -275,6 +282,28 @@ def create_regression(req: RegressionCreateRequest):
     path.write_text(text, encoding="utf-8")
     eval_telemetry.log_event("regression_created", regression_id=req.id, failure_layer=req.failure_layer, path=str(path))
     return {"status": 200, "regression": {"id": req.id, "path": str(path), "relative_path": str(path.relative_to(_REPO_ROOT))}}
+
+
+
+
+@router.post("/release-gate")
+def run_release_gate_endpoint(req: EvalReleaseGateRequest):
+    from evals.run_release_gate import run_release_gate
+
+    result = run_release_gate(req.repo_path, run_id=req.run_id, require_clean_git=req.require_clean_git)
+    return {
+        "status": result.get("status"),
+        "run_id": result.get("run_id"),
+        "total": result.get("total"),
+        "passed": result.get("passed"),
+        "failed": result.get("failed"),
+        "failed_blockers": result.get("failed_blockers"),
+        "agent_score": (result.get("eval_report") or {}).get("agent_score"),
+        "backend_score": (result.get("eval_report") or {}).get("backend_score"),
+        "release_gate_json": result.get("release_gate_json"),
+        "release_gate_md": result.get("release_gate_md"),
+        "eval_report": result.get("eval_report"),
+    }
 
 
 class DebugLogIngestRequest(BaseModel):
