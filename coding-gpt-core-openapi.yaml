@@ -1952,6 +1952,7 @@ components:
       type: "apiKey"
       in: "header"
       name: "x-api-key"
+      description: "Required. Configure this Custom GPT Action with API Key authentication using custom header x-api-key."
 servers:
   - url: "https://unscrutinized-immotile-jermaine.ngrok-free.dev"
 security:

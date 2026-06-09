@@ -192,3 +192,25 @@ env:
 ```
 
 Never attempt unsupported categories such as shell, files, package, apps, git, dispatch, gpts, monitor, batch, or refactor.
+
+
+## Required Custom GPT Action authentication
+
+The backend requires every Coding GPT Action request to include this header:
+
+```text
+x-api-key: <your configured API key>
+```
+
+In the Custom GPT builder, open the Action created from `coding-gpt-core-openapi.yaml` and configure Authentication as:
+
+```text
+Authentication type: API Key
+Auth type: Custom
+Custom header name: x-api-key
+API key value: use the value configured on the server as CODING_GPT_API_KEY, or OPERATOR_GPT_API_KEY/API_KEY if CODING_GPT_API_KEY is not set
+```
+
+A 403 response with an empty body in the GPT Actions debug panel means the Action reached the server but did not send a valid `x-api-key` header. This is an Action authentication configuration issue, not an endpoint availability issue.
+
+Do not paste the key into normal chat messages. Put it only in the Action Authentication field.
