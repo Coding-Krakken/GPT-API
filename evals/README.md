@@ -197,3 +197,49 @@ python manual_phase2_report_test.py
 ```
 
 Expected result: a JSON summary showing nonzero event count, agent/backend scores, and report paths.
+
+## Phase 4 status
+
+Phase 4 adds declarative benchmark case files and a dependency-free case loader/runner.
+
+Implemented files:
+
+```text
+evals/case_loader.py
+evals/cases/core_smoke.yaml
+evals/cases/payload_recovery.yaml
+evals/cases/elevate_quality_missing_dependency.yaml
+evals/cases/policy_block_secret.yaml
+evals/cases/final_answer_contract.yaml
+evals/cases/simple_bugfix.yaml
+docs/CODING_GPT_PHASE4_BENCHMARK_CASES.md
+manual_phase4_case_test.py
+```
+
+Implemented behavior:
+
+```text
+GET /evals/cases lists declarative cases and suites
+POST /evals/run can execute a declarative case by id
+POST /evals/run can execute a declarative suite by suite name
+core_smoke, payload_recovery, repo_environment, policy_safety, and final_answer_contract are executable
+simple_bugfix is a planned fixture-format case for later coding-quality suites
+```
+
+Manual validation:
+
+```text
+python manual_phase4_case_test.py
+```
+
+Expected result:
+
+```text
+case_count: 6
+executable_count: 5
+local_passed: 5
+local_failed: 0
+api_passed: 5
+api_failed: 0
+listed_declarative_count: 6
+```

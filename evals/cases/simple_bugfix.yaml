@@ -1,0 +1,23 @@
+{
+  "id": "simple_bugfix",
+  "suite": "coding_task_quality",
+  "type": "fixture_planned",
+  "title": "Simple one-file bugfix benchmark fixture",
+  "safe_only": true,
+  "runner": "fixture_planned",
+  "repo_path_default": "evals/fixtures/simple_bugfix",
+  "description": "Declarative benchmark specification for a future fixture repo with one failing test and one expected minimal source fix. Phase 4 defines the case format; fixture execution is implemented in later coding-quality suites.",
+  "expected": {
+    "minimal_patch": true,
+    "changed_files_max": 1,
+    "tests_pass": true,
+    "quality_passes_or_honest_blocker": true,
+    "final_answer_complete": true
+  },
+  "score": {
+    "context_selection": 20,
+    "minimal_patch": 30,
+    "tests_pass": 25,
+    "final_answer_contract": 25
+  }
+}

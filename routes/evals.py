@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from evals import report as eval_report
+from evals import case_loader
 from utils import eval_telemetry
 from utils.auth import verify_key
 
@@ -150,6 +151,9 @@ def _run_payload_recovery(repo_path: str) -> dict[str, Any]:
 
 
 def _run_suite(suite: str, repo_path: str, *, run_id: str | None = None) -> dict[str, Any]:
+    declarative = case_loader.cases_for_suite(suite)
+    if declarative:
+        return case_loader.run_suite(suite, repo_path=repo_path, run_id=run_id)
     if suite == "core_smoke":
         return _run_core_smoke(repo_path, run_id=run_id)
     if suite == "payload_recovery":
@@ -160,7 +164,8 @@ def _run_suite(suite: str, repo_path: str, *, run_id: str | None = None) -> dict
         core_failed = ((core.get("smoke_test") or {}).get("failed") or 0) if isinstance(core, dict) else 1
         passed = core.get("status") == 200 and core_failed == 0 and payload.get("passed") is True
         return {"status": 200 if passed else 400, "passed": passed, "core_smoke": core, "payload_recovery": payload}
-    return {"status": 400, "error": {"code": "unsupported_suite", "message": "Supported suites: core_smoke, payload_recovery, release_gate."}}
+    available = sorted({c.get("suite") for c in case_loader.list_cases() if c.get("suite")} | {c.get("id") for c in case_loader.list_cases() if c.get("id")} | {"core_smoke", "payload_recovery", "release_gate"})
+    return {"status": 400, "error": {"code": "unsupported_suite", "message": f"Supported suites/cases: {', '.join(available)}"}}
 
 
 @router.get("/cases")
@@ -168,7 +173,9 @@ def list_eval_cases():
     regression_files = []
     if _REGRESSION_ROOT.exists():
         regression_files = [str(p.relative_to(_REPO_ROOT)) for p in sorted(_REGRESSION_ROOT.glob("*.yaml"))]
-    return {"status": 200, "builtin_cases": _BUILTIN_CASES, "regressions": regression_files}
+    declarative_cases = case_loader.list_cases()
+    suites = sorted({c.get("suite") for c in declarative_cases if c.get("suite")})
+    return {"status": 200, "builtin_cases": _BUILTIN_CASES, "declarative_cases": declarative_cases, "suites": suites, "regressions": regression_files}
 
 
 @router.post("/run")
