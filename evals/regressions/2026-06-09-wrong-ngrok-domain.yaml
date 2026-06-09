@@ -1,0 +1,15 @@
+id: "wrong_ngrok_domain_20260609"
+title: "Schema pointed Custom GPT at offline ngrok domain"
+source: "real_custom_gpt_run"
+type: "regression"
+failure_layer: "schema"
+runner: "wrong_ngrok_domain"
+symptom: "Custom GPT called https://gpt-api.ngrok.app and received ERR_NGROK_3200 offline HTML."
+expected_behavior: "Core schema server URL is https://unscrutinized-immotile-jermaine.ngrok-free.dev and old domain is absent."
+fixed_by: "Regenerated core/full schemas with explicit YAML server block."
+created_at: 1781017195000
+details_json: |
+  {
+    "bad_domain": "https://gpt-api.ngrok.app",
+    "expected_domain": "https://unscrutinized-immotile-jermaine.ngrok-free.dev"
+  }

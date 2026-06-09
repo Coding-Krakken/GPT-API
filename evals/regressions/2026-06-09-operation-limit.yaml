@@ -1,0 +1,15 @@
+id: "operation_limit_20260609"
+title: "Custom GPT schema exceeded 30 operation limit"
+source: "custom_gpt_schema_importer"
+type: "regression"
+failure_layer: "schema"
+runner: "operation_limit"
+symptom: "Full Coding GPT OpenAPI schema exceeded Custom GPT's 30 operation limit."
+expected_behavior: "Uploadable core schema stays under or equal to 30 operations and includes the smoke-test endpoint."
+fixed_by: "Core schema exposes state machine endpoints and strict dispatchers instead of all low-level routes."
+created_at: 1781017195000
+details_json: |
+  {
+    "operation_limit": 30,
+    "schema_file": "coding-gpt-core-openapi.yaml"
+  }

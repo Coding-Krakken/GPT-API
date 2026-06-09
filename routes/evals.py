@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 
 from evals import report as eval_report
 from evals import case_loader
+from evals import regression_loader
 from utils import eval_telemetry
 from utils.auth import verify_key
 
@@ -37,7 +38,7 @@ _BUILTIN_CASES = [
 
 
 class EvalRunRequest(BaseModel):
-    suite: str = Field("core_smoke", description="Evaluation suite to run. Supported: core_smoke, payload_recovery, release_gate.")
+    suite: str = Field("core_smoke", description="Evaluation suite to run. Supported: core_smoke, payload_recovery, release_gate, regressions, phase6_regressions.")
     repo_path: str = Field(..., description="Repository path to evaluate, e.g. /home/obsidian/Elevate_test.")
     safe_only: bool = True
     report_id: str | None = None
@@ -151,6 +152,8 @@ def _run_payload_recovery(repo_path: str) -> dict[str, Any]:
 
 
 def _run_suite(suite: str, repo_path: str, *, run_id: str | None = None) -> dict[str, Any]:
+    if suite in {"regressions", "phase6_regressions"}:
+        return regression_loader.run_all(repo_path=repo_path, run_id=run_id)
     declarative = case_loader.cases_for_suite(suite)
     if declarative:
         return case_loader.run_suite(suite, repo_path=repo_path, run_id=run_id)
@@ -172,7 +175,7 @@ def _run_suite(suite: str, repo_path: str, *, run_id: str | None = None) -> dict
 def list_eval_cases():
     regression_files = []
     if _REGRESSION_ROOT.exists():
-        regression_files = [str(p.relative_to(_REPO_ROOT)) for p in sorted(_REGRESSION_ROOT.glob("*.yaml"))]
+        regression_files = regression_loader.list_regressions()
     declarative_cases = case_loader.list_cases()
     suite_names = set()
     for c in declarative_cases:
@@ -181,6 +184,7 @@ def list_eval_cases():
         for name in c.get("suites") or []:
             suite_names.add(name)
     suites = sorted(suite_names)
+    suites = sorted(set(suites) | {"regressions", "phase6_regressions"})
     return {"status": 200, "builtin_cases": _BUILTIN_CASES, "declarative_cases": declarative_cases, "suites": suites, "regressions": regression_files}
 
 
@@ -237,10 +241,7 @@ def compare_reports(req: EvalCompareRequest):
 
 @router.get("/regressions")
 def list_regressions():
-    _REGRESSION_ROOT.mkdir(parents=True, exist_ok=True)
-    items = []
-    for path in sorted(_REGRESSION_ROOT.glob("*.yaml")):
-        items.append({"file": str(path.relative_to(_REPO_ROOT)), "name": path.name, "size_bytes": path.stat().st_size})
+    items = regression_loader.list_regressions()
     return {"status": 200, "regressions": items, "count": len(items)}
 
 

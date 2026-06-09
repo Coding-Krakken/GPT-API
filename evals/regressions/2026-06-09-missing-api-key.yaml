@@ -1,0 +1,15 @@
+id: "missing_api_key_20260609"
+title: "Custom GPT Action reached server without x-api-key"
+source: "real_custom_gpt_run"
+type: "regression"
+failure_layer: "authentication"
+runner: "missing_api_key"
+symptom: "Custom GPT Action returned 403 because the Action auth did not send x-api-key."
+expected_behavior: "Unauthenticated requests are rejected with 403, and schema declares ApiKeyAuth as header x-api-key."
+fixed_by: "Documented Action auth and added schema security scheme description."
+created_at: 1781017195000
+details_json: |
+  {
+    "required_header": "x-api-key",
+    "expected_http_status_without_key": 403
+  }

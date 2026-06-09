@@ -243,3 +243,28 @@ api_passed: 5
 api_failed: 0
 listed_declarative_count: 6
 ```
+
+
+## Phase 6 regression capture
+
+Phase 6 adds permanent, executable regression fixtures under `evals/regressions/`.
+
+Run all regressions:
+
+```bash
+python evals/run_regressions.py --repo-path /home/obsidian/Elevate_test
+```
+
+Run through the API:
+
+```json
+{
+  "suite": "phase6_regressions",
+  "repo_path": "/home/obsidian/Elevate_test",
+  "safe_only": true
+}
+```
+
+Current regressions cover real incidents: missing dispatcher payload, wrong ngrok domain, missing API key, instructions over 8000 characters, OpenAPI security list formatting, Custom GPT operation limit, and regression fixture creation.
+
+Every real failure should be added as an executable regression with a `failure_layer` and `runner`.

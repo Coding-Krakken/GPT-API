@@ -1,0 +1,15 @@
+id: "missing_dispatcher_payload_20260609"
+title: "Custom GPT omitted dispatcher payload"
+source: "real_custom_gpt_run"
+type: "regression"
+failure_layer: "custom_gpt_behavior"
+runner: "missing_dispatcher_payload"
+symptom: "GPT called /coding/repo/action with only {action: instructions} and concluded the wrapper could not pass payload."
+expected_behavior: "Backend returns missing_payload_fields with example_payload; GPT retries once with repo_path inside payload."
+fixed_by: "Required dispatcher payload, example_payload errors, shortened instructions, dispatcher knowledge file."
+created_at: 1781017195000
+details_json: |
+  {
+    "bad_call": {"endpoint":"/coding/repo/action","body":{"action":"instructions"}},
+    "expected_retry": {"endpoint":"/coding/repo/action","body":{"action":"instructions","payload":{"repo_path":"/home/obsidian/Elevate_test"}}}
+  }
