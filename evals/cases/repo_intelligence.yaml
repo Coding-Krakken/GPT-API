@@ -1,0 +1,13 @@
+{
+  "id": "repo_intelligence",
+  "suite": "repo_intelligence",
+  "suites": ["repo_intelligence", "phase5_full", "release_gate"],
+  "type": "repo_intel",
+  "title": "Repository intelligence safe-read benchmark",
+  "safe_only": true,
+  "runner": "repo_intelligence",
+  "repo_path_default": "/home/obsidian/Elevate_test",
+  "description": "Validates overview, instructions, relevant_context, test_map, and route_map on the target repo.",
+  "expected": {"repo_detected": true, "language_detected": true, "context_tools_respond": true},
+  "score": {"overview": 25, "instructions": 15, "relevant_context": 25, "test_map": 15, "route_map": 20}
+}

@@ -31,6 +31,7 @@ def list_cases() -> list[dict[str, Any]]:
             cases.append({
                 "id": case.get("id"),
                 "suite": case.get("suite"),
+                "suites": case.get("suites", [case.get("suite")] if case.get("suite") else []),
                 "type": case.get("type"),
                 "title": case.get("title"),
                 "safe_only": case.get("safe_only", True),
@@ -43,7 +44,16 @@ def list_cases() -> list[dict[str, Any]]:
 
 
 def cases_for_suite(suite: str) -> list[dict[str, Any]]:
-    return [load_case(CASE_ROOT / c["source_file"].split("evals/cases/", 1)[-1]) for c in list_cases() if not c.get("load_error") and (c.get("suite") == suite or c.get("id") == suite)]
+    selected = []
+    for c in list_cases():
+        if c.get("load_error"):
+            continue
+        suites = set(c.get("suites") or [])
+        if c.get("suite"):
+            suites.add(c.get("suite"))
+        if c.get("id") == suite or suite in suites:
+            selected.append(load_case(CASE_ROOT / c["source_file"].split("evals/cases/", 1)[-1]))
+    return selected
 
 
 def _ok(name: str, passed: bool, details: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -126,6 +136,69 @@ def _run_final_answer_contract(case: dict[str, Any], repo_path: str, run_id: str
     return {"status": 200 if all(c["passed"] for c in checks) else 400, "checks": checks, "contract_report": report}
 
 
+
+
+def _run_repo_intelligence(case: dict[str, Any], repo_path: str, run_id: str) -> dict[str, Any]:
+    from routes import coding_dispatch
+    overview = coding_dispatch.repo_action(coding_dispatch.CategoryActionRequest(action="overview", payload={"repo_path": repo_path, "max_depth": 2}))
+    instructions = coding_dispatch.repo_action(coding_dispatch.CategoryActionRequest(action="instructions", payload={"repo_path": repo_path}))
+    relevant = coding_dispatch.repo_action(coding_dispatch.CategoryActionRequest(action="relevant_context", payload={"repo_path": repo_path, "task": "Evaluate repo intelligence for a TypeScript app", "max_files": 8}))
+    test_map = coding_dispatch.repo_action(coding_dispatch.CategoryActionRequest(action="test_map", payload={"repo_path": repo_path}))
+    route_map = coding_dispatch.repo_action(coding_dispatch.CategoryActionRequest(action="route_map", payload={"repo_path": repo_path}))
+    checks = [
+        _ok("overview_responded", overview.get("status") == 200, {"status": overview.get("status")}),
+        _ok("repo_detected", overview.get("is_git_repo") is True, {"is_git_repo": overview.get("is_git_repo")}),
+        _ok("language_detected", bool(overview.get("languages")), {"languages": overview.get("languages")}),
+        _ok("instructions_responded", instructions.get("status") == 200 or isinstance(instructions.get("status"), str), {"status": instructions.get("status")}),
+        _ok("relevant_context_responded", relevant.get("status") == 200, {"status": relevant.get("status")}),
+        _ok("test_map_responded", test_map.get("status") == 200, {"status": test_map.get("status")}),
+        _ok("route_map_responded", route_map.get("status") == 200, {"status": route_map.get("status")}),
+    ]
+    return {"status": 200 if all(c["passed"] for c in checks) else 400, "checks": checks, "overview": overview}
+
+
+def _fixture_repo(root: Path) -> None:
+    import subprocess
+    root.mkdir(parents=True, exist_ok=True)
+    (root / "mathlib.py").write_text("def add(a, b):\n    return a - b\n", encoding="utf-8")
+    (root / "pyproject.toml").write_text("[tool.pytest.ini_options]\ntestpaths = ['tests']\n", encoding="utf-8")
+    (root / "tests").mkdir(exist_ok=True)
+    (root / "tests" / "test_mathlib.py").write_text("from mathlib import add\n\ndef test_add():\n    assert add(2, 3) == 5\n", encoding="utf-8")
+    subprocess.run(["git", "init"], cwd=root, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    subprocess.run(["git", "config", "user.email", "eval@example.invalid"], cwd=root, check=True)
+    subprocess.run(["git", "config", "user.name", "Eval Runner"], cwd=root, check=True)
+    subprocess.run(["git", "add", "."], cwd=root, check=True)
+    subprocess.run(["git", "commit", "-m", "fixture"], cwd=root, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def _run_simple_bugfix(case: dict[str, Any], repo_path: str, run_id: str) -> dict[str, Any]:
+    import shutil
+    from pathlib import Path
+    from routes.coding_agent import CodingTaskRequest, coding_task
+    from routes import coding_dispatch
+    base = Path("/tmp/gpt-api-evals/fixtures") / f"simple_bugfix_{run_id}".replace("/", "_")
+    if base.exists():
+        shutil.rmtree(base)
+    _fixture_repo(base)
+    init = coding_task(CodingTaskRequest(repo_path=str(base), task="Fix add() so the known unit test passes", max_iterations=1, create_pr=False))
+    task_id = init.get("task", {}).get("task_id") if isinstance(init, dict) else None
+    workspace = init.get("workspace", {}).get("workspace_path") if isinstance(init, dict) else None
+    patch = "diff --git a/mathlib.py b/mathlib.py\n--- a/mathlib.py\n+++ b/mathlib.py\n@@ -1,2 +1,2 @@\n def add(a, b):\n-    return a - b\n+    return a + b\n"
+    preview = coding_dispatch.patch_action(coding_dispatch.CategoryActionRequest(action="preview", payload={"workspace_path": workspace, "patch": patch})) if workspace else {"status": 500}
+    applied = coding_dispatch.patch_action(coding_dispatch.CategoryActionRequest(action="apply_recorded", payload={"workspace_path": workspace, "patch": patch, "task_id": task_id, "label": "simple_bugfix_eval"})) if workspace else {"status": 500}
+    quality = coding_dispatch.quality_action(coding_dispatch.CategoryActionRequest(action="check", payload={"workspace_path": workspace, "timeout_seconds": 60})) if workspace else {"status": 500}
+    diff_summary = coding_dispatch.workspace_action(coding_dispatch.CategoryActionRequest(action="diff_summary", payload={"workspace_path": workspace})) if workspace else {"status": 500}
+    changed_files = [f.get("file") for f in diff_summary.get("files", []) if isinstance(f, dict)]
+    checks = [
+        _ok("fixture_workspace_created", bool(workspace), {"task_id": task_id, "workspace": workspace}),
+        _ok("patch_preview_applies", preview.get("applies") is True or preview.get("status") == 200, {"status": preview.get("status"), "applies": preview.get("applies")}),
+        _ok("patch_applied", applied.get("applied") is True or applied.get("status") == 200, {"status": applied.get("status"), "applied": applied.get("applied")}),
+        _ok("minimal_one_file_change", changed_files == ["mathlib.py"] or len(changed_files) <= 1, {"changed_files": changed_files}),
+        _ok("quality_endpoint_responded", quality.get("status") == 200, {"status": quality.get("status"), "passed": quality.get("passed")}),
+    ]
+    return {"status": 200 if all(c["passed"] for c in checks) else 400, "checks": checks, "task_id": task_id, "workspace_path": workspace, "changed_files": changed_files, "quality": quality}
+
+
 def run_case(case: dict[str, Any], *, repo_path: str, run_id: str | None = None) -> dict[str, Any]:
     run_id = run_id or f"case_{case.get('id')}_{int(time.time() * 1000)}"
     runner = case.get("runner")
@@ -141,6 +214,10 @@ def run_case(case: dict[str, Any], *, repo_path: str, run_id: str | None = None)
             result = _run_policy_block_secret(case, repo_path, run_id)
         elif runner == "final_answer_contract":
             result = _run_final_answer_contract(case, repo_path, run_id)
+        elif runner == "repo_intelligence":
+            result = _run_repo_intelligence(case, repo_path, run_id)
+        elif runner in {"simple_bugfix", "fixture_planned"}:
+            result = _run_simple_bugfix(case, repo_path, run_id)
         else:
             result = {"status": 400, "error": {"code": "unsupported_case_runner", "message": f"Unsupported runner: {runner}"}, "checks": []}
     except Exception as exc:

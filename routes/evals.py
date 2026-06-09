@@ -174,7 +174,13 @@ def list_eval_cases():
     if _REGRESSION_ROOT.exists():
         regression_files = [str(p.relative_to(_REPO_ROOT)) for p in sorted(_REGRESSION_ROOT.glob("*.yaml"))]
     declarative_cases = case_loader.list_cases()
-    suites = sorted({c.get("suite") for c in declarative_cases if c.get("suite")})
+    suite_names = set()
+    for c in declarative_cases:
+        if c.get("suite"):
+            suite_names.add(c.get("suite"))
+        for name in c.get("suites") or []:
+            suite_names.add(name)
+    suites = sorted(suite_names)
     return {"status": 200, "builtin_cases": _BUILTIN_CASES, "declarative_cases": declarative_cases, "suites": suites, "regressions": regression_files}
 
 
