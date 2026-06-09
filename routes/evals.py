@@ -41,6 +41,14 @@ _BUILTIN_CASES = [
 
 
 
+
+
+class EvalContinuousLearningRequest(BaseModel):
+    repo_path: str = Field(..., description="Repository path to evaluate, e.g. /home/obsidian/Elevate_test.")
+    run_id: str | None = None
+    baseline_report_id: str | None = None
+    require_clean_git: bool = True
+
 class EvalReleaseGateRequest(BaseModel):
     repo_path: str = Field(..., description="Repository path to evaluate, e.g. /home/obsidian/Elevate_test.")
     run_id: str | None = None
@@ -367,6 +375,35 @@ def create_regression(req: RegressionCreateRequest):
     return {"status": 200, "regression": {"id": req.id, "path": str(path), "relative_path": str(path.relative_to(_REPO_ROOT))}}
 
 
+
+
+
+
+@router.post("/continuous-learning")
+def run_continuous_learning_endpoint(req: EvalContinuousLearningRequest):
+    from evals.continuous_learning import run_continuous_learning_cycle
+
+    result = run_continuous_learning_cycle(
+        req.repo_path,
+        run_id=req.run_id,
+        baseline_report_id=req.baseline_report_id,
+        require_clean_git=req.require_clean_git,
+    )
+    return {
+        "status": result.get("status"),
+        "run_id": result.get("run_id"),
+        "ship_ready": (result.get("ship_decision") or {}).get("ship_ready"),
+        "blockers": (result.get("ship_decision") or {}).get("blockers"),
+        "warnings": (result.get("ship_decision") or {}).get("warnings"),
+        "current_report_id": result.get("current_report_id"),
+        "baseline_report_id": result.get("baseline_report_id"),
+        "release_gate_status": (result.get("release_gate") or {}).get("status"),
+        "agent_score": ((result.get("release_gate") or {}).get("eval_report") or {}).get("agent_score"),
+        "backend_score": ((result.get("release_gate") or {}).get("eval_report") or {}).get("backend_score"),
+        "regression_coverage": result.get("regression_coverage"),
+        "continuous_learning_json": result.get("continuous_learning_json"),
+        "continuous_learning_md": result.get("continuous_learning_md"),
+    }
 
 
 @router.post("/release-gate")

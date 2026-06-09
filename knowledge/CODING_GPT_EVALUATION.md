@@ -1,30 +1,30 @@
-# Coding GPT Knowledge: Evaluation and Debug Ingestion
+# Coding GPT Knowledge: Evaluation System
 
-Use `/evals/ingest-debug-log` when a real Custom GPT Actions run fails and the debug transcript is available.
+The backend includes an evaluation system for reviewing and improving the Coding GPT and backend engines.
 
-## Ingest a debug log
+## Key endpoints
+
+- `/evals/run` runs a suite or case.
+- `/evals/release-gate` runs schema, instruction, regression, and smoke checks.
+- `/evals/continuous-learning` runs the Phase 12 improvement loop and returns a ship/no-ship decision.
+- `/evals/dashboard` shows recent reports.
+- `/evals/ingest-debug-log` parses Custom GPT Actions debug transcripts.
+
+## Phase 12 continuous learning loop
+
+Use `/evals/continuous-learning` before shipping improvements. It runs the release gate, checks known regression coverage, compares against a baseline/latest report, checks git cleanliness/pushed state when requested, and writes JSON/Markdown reports.
+
+Example:
 
 ```json
 {
-  "log_text": "<paste Custom GPT debug transcript>",
-  "write_events": true,
-  "create_regression": true
+  "repo_path": "/home/obsidian/Elevate_test",
+  "require_clean_git": true
 }
 ```
 
-The backend will parse endpoint calls, classify failure layers, write an evaluation report, and optionally create a regression fixture.
+A result is ship-ready only when the release gate passes, known failures have regressions, git is clean/pushed when required, and the baseline comparison does not show unacceptable regressions.
 
-## Common failure layers
+## Rule
 
-- `authentication`: missing/invalid `x-api-key`
-- `user_approval`: action needs approval
-- `public_tunnel`: wrong/offline ngrok domain
-- `schema`: schema shape or operation-limit issue
-- `instructions`: GPT instruction-size or behavior issue
-- `custom_gpt_behavior`: payload/tool-use/recovery mistake
-- `backend_route`: route-level failure
-- `repo_environment`: missing dependencies or repo setup issue
-
-## What to do with results
-
-Use the report recommendations to decide whether to update instructions, knowledge, schema, backend code, repo environment, or tunnel/auth setup. If a regression is created, keep it in `evals/regressions/` and run it before shipping future changes.
+Every real failure should become a regression case. Every claimed improvement should have before/after evaluation evidence.
