@@ -127,7 +127,7 @@ def handle_git_command(req: GitRequest):
         def check_git_identity(repo_path):
             def get_config(key):
                 try:
-                    result = subprocess.run(["git", "-C", repo_path, "config", "--get", key], capture_output=True, text=True)
+                    result = subprocess.run(["git", "-C", repo_path, "config", "--get", key], capture_output=True, text=True, timeout=30)
                     return result.stdout.strip()
                 except Exception:
                     return None
@@ -155,15 +155,15 @@ def handle_git_command(req: GitRequest):
             cmd = f"git {req.action} {req.args} \"{repo_path}\""
         if req.debug:
             debug_info.append(f"Running command: {cmd}")
-        result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=300)
         # If dubious ownership error, add safe.directory and retry once
         if "dubious ownership" in result.stderr:
             safe_cmd = f"git config --global --add safe.directory '{repo_path}'"
             if req.debug:
                 debug_info.append(f"Dubious ownership detected, running: {safe_cmd}")
-            subprocess.run(safe_cmd, shell=True)
+            subprocess.run(safe_cmd, shell=True, timeout=30)
             # Retry the original command
-            result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+            result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=300)
         # User-friendly error for common git errors
         if result.returncode != 0:
             latency = round((time.time() - start) * 1000, 2)

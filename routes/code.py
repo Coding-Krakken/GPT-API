@@ -365,10 +365,10 @@ def handle_code_action(req: CodeAction):
         elif req.action == "lint":
             if req.language == "python":
                 check_cmd = "flake8 --version"
-                check_result = subprocess.run(check_cmd, shell=True, capture_output=True, text=True)
+                check_result = subprocess.run(check_cmd, shell=True, capture_output=True, text=True, timeout=30)
                 if check_result.returncode != 0:
                     install_cmd = "pip install flake8"
-                    subprocess.run(install_cmd, shell=True)
+                    subprocess.run(install_cmd, shell=True, timeout=300)
                 cmd = f"flake8 \"{abs_path}\""
             elif req.language == "js":
                 cmd = f"eslint \"{abs_path}\""
@@ -438,7 +438,7 @@ def handle_code_action(req: CodeAction):
         try:
             # On Windows, ensure encoding is handled and shell is True
             # Also, on Windows, avoid file lock issues by not opening temp file in exclusive mode
-            result = subprocess.run(cmd, shell=True, capture_output=True, text=True, encoding="utf-8" if not is_windows() else "cp1252")
+            result = subprocess.run(cmd, shell=True, capture_output=True, text=True, encoding="utf-8" if not is_windows() else "cp1252", timeout=300)
         except Exception as e:
             duration = time.time() - start_time
             return {

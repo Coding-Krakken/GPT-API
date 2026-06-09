@@ -75,7 +75,7 @@ def handle_package_action(req: PackageRequest, start_time):
         else:
             cmd = f"{base_cmd} {args}"
 
-        result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=600)
         # Cap output length for very large responses
         max_len = 8000
         stdout = result.stdout

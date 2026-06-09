@@ -61,7 +61,7 @@ async def run_batch(request: Request):
                     results.append({"action": action, "error": {"code": "missing_command", "message": "Missing 'command' for shell action"}, "status": 400})
                     continue
                 try:
-                    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+                    result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=300)
                     results.append({
                         "action": action,
                         "stdout": result.stdout.strip(),
