@@ -222,3 +222,38 @@ coding-openapi.yaml
   coding paths: 81
   operator routes excluded
 ```
+
+## Custom GPT 30-operation schema support
+
+Implemented a compact uploadable schema for Custom GPT Actions:
+
+- `coding-gpt-core-openapi.yaml`
+- Exposes strict agent workflow endpoints and allowlisted dispatchers under `/coding/*/action`.
+- Keeps the full `coding-openapi.yaml` for internal testing/reference.
+- Core schema remains under the 30-operation upload limit.
+
+Dispatcher endpoints:
+
+```text
+/coding/action
+/coding/repo/action
+/coding/workspace/action
+/coding/patch/action
+/coding/test/action
+/coding/quality/action
+/coding/diagnostics/action
+/coding/policy/action
+/coding/tasks/action
+/coding/github/action
+/coding/env/action
+```
+
+Validation:
+
+```text
+manual_core_dispatch_sandbox.py
+  report: /tmp/gpt-api-core-dispatch-report.json
+  total: 19
+  passed: 19
+  failed: 0
+```

@@ -2,7 +2,7 @@ openapi: "3.1.0"
 info:
   title: "GPT-API Coding Agent API"
   version: "1.0.0"
-  description: "Narrow Custom GPT Coding Agent API with strict state-machine contracts."
+  description: "Full internal/testing Coding Agent API. This may exceed the Custom GPT 30-operation upload limit; use coding-gpt-core-openapi.yaml for GPT Actions."
 paths:
   /repo/overview:
     post:
@@ -2179,6 +2179,303 @@ paths:
         -
           ApiKeyAuth:
 
+  /coding/action:
+    post:
+      summary: "Coding Action"
+      operationId: "coding_action_coding_action_post"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CodingActionRequest"
+        required: true
+      responses:
+        200:
+          description: "Successful Response"
+          content:
+            application/json:
+              schema:
+
+        422:
+          description: "Validation Error"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+      security:
+        -
+          ApiKeyAuth:
+
+  /coding/repo/action:
+    post:
+      summary: "Repo Action"
+      operationId: "repo_action_coding_repo_action_post"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryActionRequest"
+        required: true
+      responses:
+        200:
+          description: "Successful Response"
+          content:
+            application/json:
+              schema:
+
+        422:
+          description: "Validation Error"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+      security:
+        -
+          ApiKeyAuth:
+
+  /coding/workspace/action:
+    post:
+      summary: "Workspace Action"
+      operationId: "workspace_action_coding_workspace_action_post"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryActionRequest"
+        required: true
+      responses:
+        200:
+          description: "Successful Response"
+          content:
+            application/json:
+              schema:
+
+        422:
+          description: "Validation Error"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+      security:
+        -
+          ApiKeyAuth:
+
+  /coding/patch/action:
+    post:
+      summary: "Patch Action"
+      operationId: "patch_action_coding_patch_action_post"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryActionRequest"
+        required: true
+      responses:
+        200:
+          description: "Successful Response"
+          content:
+            application/json:
+              schema:
+
+        422:
+          description: "Validation Error"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+      security:
+        -
+          ApiKeyAuth:
+
+  /coding/test/action:
+    post:
+      summary: "Test Action"
+      operationId: "test_action_coding_test_action_post"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryActionRequest"
+        required: true
+      responses:
+        200:
+          description: "Successful Response"
+          content:
+            application/json:
+              schema:
+
+        422:
+          description: "Validation Error"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+      security:
+        -
+          ApiKeyAuth:
+
+  /coding/quality/action:
+    post:
+      summary: "Quality Action"
+      operationId: "quality_action_coding_quality_action_post"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryActionRequest"
+        required: true
+      responses:
+        200:
+          description: "Successful Response"
+          content:
+            application/json:
+              schema:
+
+        422:
+          description: "Validation Error"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+      security:
+        -
+          ApiKeyAuth:
+
+  /coding/diagnostics/action:
+    post:
+      summary: "Diagnostics Action"
+      operationId: "diagnostics_action_coding_diagnostics_action_post"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryActionRequest"
+        required: true
+      responses:
+        200:
+          description: "Successful Response"
+          content:
+            application/json:
+              schema:
+
+        422:
+          description: "Validation Error"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+      security:
+        -
+          ApiKeyAuth:
+
+  /coding/policy/action:
+    post:
+      summary: "Policy Action"
+      operationId: "policy_action_coding_policy_action_post"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryActionRequest"
+        required: true
+      responses:
+        200:
+          description: "Successful Response"
+          content:
+            application/json:
+              schema:
+
+        422:
+          description: "Validation Error"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+      security:
+        -
+          ApiKeyAuth:
+
+  /coding/tasks/action:
+    post:
+      summary: "Tasks Action"
+      operationId: "tasks_action_coding_tasks_action_post"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryActionRequest"
+        required: true
+      responses:
+        200:
+          description: "Successful Response"
+          content:
+            application/json:
+              schema:
+
+        422:
+          description: "Validation Error"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+      security:
+        -
+          ApiKeyAuth:
+
+  /coding/github/action:
+    post:
+      summary: "Github Action"
+      operationId: "github_action_coding_github_action_post"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryActionRequest"
+        required: true
+      responses:
+        200:
+          description: "Successful Response"
+          content:
+            application/json:
+              schema:
+
+        422:
+          description: "Validation Error"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+      security:
+        -
+          ApiKeyAuth:
+
+  /coding/env/action:
+    post:
+      summary: "Env Action"
+      operationId: "env_action_coding_env_action_post"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryActionRequest"
+        required: true
+      responses:
+        200:
+          description: "Successful Response"
+          content:
+            application/json:
+              schema:
+
+        422:
+          description: "Validation Error"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+      security:
+        -
+          ApiKeyAuth:
+
 components:
   schemas:
     AppRequest:
@@ -2276,6 +2573,21 @@ components:
           default: 0
       type: "object"
       title: "AppRequest"
+    CategoryActionRequest:
+      properties:
+        action:
+          type: "string"
+          title: "Action"
+          description: "Allowlisted action name for this category."
+        payload:
+          additionalProperties: true
+          type: "object"
+          title: "Payload"
+          description: "Action-specific payload."
+      type: "object"
+      required:
+        - "action"
+      title: "CategoryActionRequest"
     CodeAction:
       properties:
         action:
@@ -2327,6 +2639,26 @@ components:
         - "language"
       title: "CodeAction"
       description: "action: required unless actions is provided, one of [run, test, lint, fix, format, explain]\npath: required unless content is provided\ncontent: optional, if provided will be written to a temp file and executed\nlanguage: required, must be one of ['python', 'js', 'bash', 'node']\nargs: optional, string of CLI args (validated per language/action)\nactions: optional, list of actions for chaining\nNote: If language is omitted, request will be rejected."
+    CodingActionRequest:
+      properties:
+        action:
+          type: "string"
+          title: "Action"
+          description: "Allowlisted action name for this category."
+        payload:
+          additionalProperties: true
+          type: "object"
+          title: "Payload"
+          description: "Action-specific payload."
+        category:
+          type: "string"
+          title: "Category"
+          description: "Allowlisted category: repo, workspace, patch, test, quality, diagnostics, policy, tasks, github, env."
+      type: "object"
+      required:
+        - "action"
+        - "category"
+      title: "CodingActionRequest"
     CodingTaskContractReportRequest:
       properties:
         task_id:

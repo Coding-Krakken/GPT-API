@@ -45,7 +45,7 @@ def _request_key(request: Request) -> str:
 def _roles_for_path(path: str) -> set[str]:
     coding_prefixes = (
         "/repo", "/workspace", "/patch", "/test", "/quality",
-        "/policy", "/agent/coding-task", "/tasks", "/github", "/diagnostics", "/env",
+        "/policy", "/agent/coding-task", "/tasks", "/github", "/diagnostics", "/env", "/coding",
     )
     operator_prefixes = (
         "/shell", "/files", "/manageFiles", "/code", "/system", "/monitor",

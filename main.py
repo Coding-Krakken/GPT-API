@@ -7,7 +7,7 @@ import pathlib
 from routes import (
     shell, files, code, system, monitor, git, package, apps, refactor, batch,
     repo, workspace, patch, test_runner, quality, policy, coding_agent, tasks,
-    github, diagnostics, env,
+    github, diagnostics, env, coding_dispatch,
 )
 
 load_dotenv()
@@ -60,6 +60,7 @@ app.include_router(tasks.router, prefix="/tasks")
 app.include_router(github.router, prefix="/github")
 app.include_router(diagnostics.router, prefix="/diagnostics")
 app.include_router(env.router, prefix="/env")
+app.include_router(coding_dispatch.router, prefix="/coding")
 
 
 @app.get("/debug/routes")
@@ -82,4 +83,10 @@ def serve_cos_openapi_yaml():
 @app.get("/coding-openapi.yaml", response_class=PlainTextResponse, include_in_schema=False)
 def serve_coding_openapi_yaml():
     yaml_path = _REPO_ROOT / "coding-openapi.yaml"
+    return PlainTextResponse(yaml_path.read_text(encoding="utf-8"), media_type="text/yaml")
+
+
+@app.get("/coding-gpt-core-openapi.yaml", response_class=PlainTextResponse, include_in_schema=False)
+def serve_coding_core_openapi_yaml():
+    yaml_path = _REPO_ROOT / "coding-gpt-core-openapi.yaml"
     return PlainTextResponse(yaml_path.read_text(encoding="utf-8"), media_type="text/yaml")

@@ -79,3 +79,37 @@ The server also enforces route-family authorization so a coding key cannot call 
 ## Network-writing safeguards
 
 `/workspace/pr-create` and `/github/pr/comment` default to `dry_run=true`. Set `dry_run=false` only after explicit user approval and after tests/quality checks have run or the blocker is documented.
+
+
+## Custom GPT schema upload limit
+
+OpenAI Custom GPT Actions currently reject schemas with more than 30 operations. Use:
+
+```text
+coding-gpt-core-openapi.yaml
+```
+
+This uploadable schema exposes the strict state-machine endpoints plus allowlisted category dispatchers:
+
+```text
+/agent/coding-task*
+/coding/action
+/coding/repo/action
+/coding/workspace/action
+/coding/patch/action
+/coding/test/action
+/coding/quality/action
+/coding/diagnostics/action
+/coding/policy/action
+/coding/tasks/action
+/coding/github/action
+/coding/env/action
+```
+
+The full schema remains available as `coding-openapi.yaml` for internal testing and reference, but it intentionally exceeds the Custom GPT operation limit.
+
+Raw upload URL:
+
+```text
+https://raw.githubusercontent.com/Coding-Krakken/GPT-API/feature/coding-gpt-safe-agent/coding-gpt-core-openapi.yaml
+```
