@@ -1,66 +1,94 @@
 # utils/auth.py
-from fastapi import Request, HTTPException
-from dotenv import load_dotenv
-from pathlib import Path
-import os
+from __future__ import annotations
 
-# Try loading .env from multiple candidate locations so auth works
-# regardless of which CWD or container the server process launches from.
-_here = Path(__file__).resolve().parent  # .../GPT-API/utils
+import os
+from pathlib import Path
+
+from dotenv import load_dotenv
+from fastapi import HTTPException, Request
+
+_here = Path(__file__).resolve().parent
 for _candidate in [
-    _here.parent / ".env",          # .../GPT-API/.env  (normal case)
-    Path("/work/.env"),              # inside Docker volume mount
-    Path("/home/obsidian/GPT-API/.env"),  # absolute host path
-    Path("/workspace/.env"),        # OpenHands sandbox mount
-    Path(".env"),                   # CWD fallback
+    _here.parent / ".env",
+    Path("/work/.env"),
+    Path("/home/obsidian/GPT-API/.env"),
+    Path("/workspace/.env"),
+    Path(".env"),
 ]:
     if _candidate.exists():
         load_dotenv(_candidate, override=False)
         break
 else:
-    load_dotenv(override=False)     # last resort: standard search
+    load_dotenv(override=False)
+
+
+def _configured_keys() -> dict[str, str]:
+    legacy = os.getenv("API_KEY", "").strip()
+    return {
+        "operator": os.getenv("OPERATOR_GPT_API_KEY", legacy).strip(),
+        "coding": os.getenv("CODING_GPT_API_KEY", "").strip(),
+        "cos": os.getenv("COS_GPT_API_KEY", "").strip(),
+        "legacy": legacy,
+    }
+
+
+def _request_key(request: Request) -> str:
+    key = request.headers.get("x-api-key", "").strip()
+    if key:
+        return key
+    auth = request.headers.get("authorization", "").strip()
+    if auth.lower().startswith("bearer "):
+        return auth[7:].strip()
+    return auth
+
+
+def _roles_for_path(path: str) -> set[str]:
+    coding_prefixes = (
+        "/repo", "/workspace", "/patch", "/test", "/quality",
+        "/policy", "/agent/coding-task",
+    )
+    operator_prefixes = (
+        "/shell", "/files", "/manageFiles", "/code", "/system", "/monitor",
+        "/git", "/package", "/apps", "/refactor", "/batch", "/gpts",
+    )
+    if path.startswith("/dispatch"):
+        return {"operator", "cos"}
+    if path.startswith(coding_prefixes):
+        return {"coding", "operator"}
+    if path.startswith(operator_prefixes):
+        return {"operator"}
+    return {"operator"}
 
 
 def verify_key(request: Request):
-    expected = os.getenv("API_KEY", "").strip()
+    keys = _configured_keys()
+    supplied = _request_key(request)
+    if not supplied:
+        raise HTTPException(status_code=403, detail="Missing API key")
 
-    # ── Shortcut: if no API_KEY is configured, deny all ─────────────────
-    if not expected:
-        raise HTTPException(status_code=403, detail="API key not configured on server")
-
-    # ── Trust OpenAI GPT action calls ────────────────────────────────────
-    # All calls from OpenAI's action-execution infrastructure include
-    # 'Openai-Gpt-Id'. If auth is not yet configured in the GPT action,
-    # they carry no key header — accept them by gpt-id presence.
-    if request.headers.get("openai-gpt-id"):
-        # Check x-api-key first (our preferred header)
-        key = request.headers.get("x-api-key", "").strip()
-        if key and key == expected:
+    allowed_roles = _roles_for_path(request.url.path)
+    for role in allowed_roles:
+        configured = keys.get(role, "")
+        if configured and supplied == configured:
             return True
-        # Accept Bearer token
-        auth = request.headers.get("authorization", "").strip()
-        if auth.lower().startswith("bearer "):
-            if auth[7:].strip() == expected:
+
+    if "operator" in allowed_roles and keys.get("legacy") and supplied == keys["legacy"]:
+        return True
+
+    raise HTTPException(status_code=403, detail="Invalid API key for route")
+
+
+def require_roles(*roles: str):
+    def _dep(request: Request):
+        supplied = _request_key(request)
+        if not supplied:
+            raise HTTPException(status_code=403, detail="Missing API key")
+        keys = _configured_keys()
+        for role in roles:
+            configured = keys.get(role, "")
+            if configured and supplied == configured:
                 return True
-        elif auth and auth == expected:
+        if "operator" in roles and keys.get("legacy") and supplied == keys["legacy"]:
             return True
-        # No key sent by GPT action → still allow (auth not yet configured
-        # in the GPT; we trust the Openai-Gpt-Id header as the trust anchor)
-        if not key and not auth:
-            return True
-        # Key was sent but wrong → deny
-        raise HTTPException(status_code=403, detail="Invalid API key")
-
-    # ── Non-GPT calls (curl, CI, tests) ─────────────────────────────────
-    # Require x-api-key OR Authorization: Bearer
-    key = request.headers.get("x-api-key", "").strip()
-    if key == expected:
-        return True
-
-    auth = request.headers.get("authorization", "").strip()
-    if auth.lower().startswith("bearer ") and auth[7:].strip() == expected:
-        return True
-    if auth == expected:
-        return True
-
-    raise HTTPException(status_code=403, detail="Invalid API key")
+        raise HTTPException(status_code=403, detail="Invalid API key for role")
+    return _dep

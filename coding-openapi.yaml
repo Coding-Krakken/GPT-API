@@ -1,0 +1,294 @@
+openapi: 3.1.0
+info:
+  title: GPT-API Coding Agent API
+  description: Narrow repository-scoped API for Coding GPT worktree, patch, test, quality, and diff workflows.
+  version: 1.0.0
+servers:
+  - url: https://gpt-api.ngrok.app
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code: {type: string}
+            message: {type: string}
+        status: {type: integer}
+security:
+  - ApiKeyAuth: []
+paths:
+  /repo/overview:
+    post:
+      operationId: repoOverview
+      summary: Inspect repository structure, languages, frameworks, git status, and likely test commands.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [repo_path]
+              properties:
+                repo_path: {type: string}
+                max_depth: {type: integer, default: 4}
+      responses:
+        '200': {description: Repository overview}
+  /repo/search:
+    post:
+      operationId: repoSearch
+      summary: Search non-secret repository files for text.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [repo_path, query]
+              properties:
+                repo_path: {type: string}
+                query: {type: string}
+                globs: {type: array, items: {type: string}}
+                max_results: {type: integer, default: 50}
+      responses:
+        '200': {description: Search results}
+  /repo/read-context:
+    post:
+      operationId: repoReadContext
+      summary: Read selected non-secret files within a repository.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [repo_path, files]
+              properties:
+                repo_path: {type: string}
+                files: {type: array, items: {type: string}}
+                max_bytes_per_file: {type: integer, default: 50000}
+      responses:
+        '200': {description: File context}
+  /repo/symbols:
+    post:
+      operationId: repoSymbols
+      summary: Extract Python symbols from repository files.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [repo_path]
+              properties:
+                repo_path: {type: string}
+                files: {type: array, items: {type: string}}
+      responses:
+        '200': {description: Symbol list}
+  /workspace/create:
+    post:
+      operationId: workspaceCreate
+      summary: Create an isolated git worktree for a coding task.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [repo_path, task_id]
+              properties:
+                repo_path: {type: string}
+                task_id: {type: string}
+                strategy: {type: string, default: git_worktree}
+                base_branch: {type: string}
+      responses:
+        '200': {description: Workspace details}
+  /workspace/status:
+    post:
+      operationId: workspaceStatus
+      summary: Get worktree branch and dirty state.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [workspace_path]
+              properties:
+                workspace_path: {type: string}
+      responses:
+        '200': {description: Workspace status}
+  /workspace/diff:
+    post:
+      operationId: workspaceDiff
+      summary: Get git diff for an isolated workspace.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [workspace_path]
+              properties:
+                workspace_path: {type: string}
+      responses:
+        '200': {description: Workspace diff}
+  /workspace/destroy:
+    post:
+      operationId: workspaceDestroy
+      summary: Remove an isolated workspace, refusing dirty workspaces unless forced.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [workspace_path]
+              properties:
+                workspace_path: {type: string}
+                force: {type: boolean, default: false}
+                keep_branch: {type: boolean, default: true}
+      responses:
+        '200': {description: Removal result}
+  /patch/preview:
+    post:
+      operationId: patchPreview
+      summary: Validate and preview a unified diff patch against an isolated workspace.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [workspace_path, patch]
+              properties:
+                workspace_path: {type: string}
+                patch: {type: string}
+                strict: {type: boolean, default: true}
+      responses:
+        '200': {description: Patch preview}
+  /patch/apply:
+    post:
+      operationId: patchApply
+      summary: Apply a policy-checked unified diff patch to an isolated workspace.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [workspace_path, patch]
+              properties:
+                workspace_path: {type: string}
+                patch: {type: string}
+                require_preview: {type: boolean, default: true}
+      responses:
+        '200': {description: Patch apply result}
+  /patch/revert:
+    post:
+      operationId: patchRevert
+      summary: Revert a previously supplied patch from an isolated workspace.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [workspace_path, patch]
+              properties:
+                workspace_path: {type: string}
+                patch: {type: string}
+      responses:
+        '200': {description: Revert result}
+  /test/discover:
+    post:
+      operationId: testDiscover
+      summary: Discover safe test commands for a workspace.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [workspace_path]
+              properties:
+                workspace_path: {type: string}
+      responses:
+        '200': {description: Discovered commands}
+  /test/run:
+    post:
+      operationId: testRun
+      summary: Run a previously discovered test command by name.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [workspace_path, command_name]
+              properties:
+                workspace_path: {type: string}
+                command_name: {type: string}
+                timeout_seconds: {type: integer, default: 120}
+      responses:
+        '200': {description: Test result}
+  /quality/check:
+    post:
+      operationId: qualityCheck
+      summary: Run safe discovered quality checks for a workspace.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [workspace_path]
+              properties:
+                workspace_path: {type: string}
+                timeout_seconds: {type: integer, default: 120}
+      responses:
+        '200': {description: Quality check result}
+  /policy/check:
+    post:
+      operationId: policyCheck
+      summary: Check whether a path is allowed by Coding GPT policy.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [path]
+              properties:
+                path: {type: string}
+                repo_root: {type: string}
+      responses:
+        '200': {description: Policy result}
+  /agent/coding-task:
+    post:
+      operationId: codingTask
+      summary: Initialize a safe coding task by creating a worktree and returning plan/context commands.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [repo_path, task]
+              properties:
+                repo_path: {type: string}
+                task: {type: string}
+                mode: {type: string, default: plan_apply_verify}
+                workspace_strategy: {type: string, default: git_worktree}
+                max_iterations: {type: integer, default: 5}
+                approval_policy: {type: string, default: safe_auto}
+                create_pr: {type: boolean, default: false}
+                base_branch: {type: string}
+      responses:
+        '200': {description: Coding task initialization result}
