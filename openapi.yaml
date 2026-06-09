@@ -51,6 +51,70 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /dispatch:
+    post:
+      operationId: dispatchToAgent
+      summary: Dispatch a task to a named agent via the Playwright container
+      description: |
+        Sends a prompt to the target agent's ChatGPT GPT using the Playwright
+        browser container. Use this to hand off work between agents.
+        Returns the conversation URL and dispatch status.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - to
+                - prompt
+              properties:
+                to:
+                  type: string
+                  description: Target agent ID (e.g. "tech-lead", "product-owner", "qa-test-engineer")
+                  example: "tech-lead"
+                prompt:
+                  type: string
+                  description: Full prompt to send to the target agent
+                issue:
+                  type: integer
+                  description: GitHub issue number for task-state tracking
+                from_agent:
+                  type: string
+                  description: Dispatching agent ID — marks it as completed in task state
+                  example: "00-chief-of-staff"
+                dry_run:
+                  type: boolean
+                  default: false
+                  description: If true, returns the docker exec command without running it
+                max_wait_seconds:
+                  type: integer
+                  default: 420
+      responses:
+        '200':
+          description: Dispatch result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  dispatched_to:
+                    type: string
+                  conversation_url:
+                    type: string
+                  dispatch_depth:
+                    type: integer
+                  latency_ms:
+                    type: number
+        '400':
+          description: Missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /files:
     post:
       operationId: manageFiles
@@ -67,8 +131,8 @@ paths:
               properties:
                 action:
                   type: string
-                  enum: [read, write, delete, copy, move, stat, exists, list]
-                  description: Required for single op. Ignored if 'operations' is present.
+                  enum: [read, write, delete, copy, move, stat, exists, list, mkdir]
+                  description: Required for single op. Ignored if 'operations' is present. Use 'mkdir' to create a directory (with parents, like mkdir -p).
                 path:
                   type: string
                   description: Required for single op. Ignored if 'operations' is present.
@@ -90,7 +154,7 @@ paths:
                     properties:
                       action:
                         type: string
-                        enum: [read, write, delete, copy, move, stat, exists, list]
+                        enum: [read, write, delete, copy, move, stat, exists, list, mkdir]
                       path:
                         type: string
                       target_path:
@@ -662,6 +726,120 @@ paths:
                       type: object
         '400':
           description: Invalid batch request (malformed operations)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /gpts:
+    post:
+      operationId: manageGPTs
+      summary: Duplicate and configure a custom ChatGPT GPT via browser automation
+      description: >
+        Uses Playwright to open a GPT editor page, duplicate the GPT, switch to
+        the Configure tab, update Name / Description / Instructions, configure
+        API-key authentication for the Action entry, and optionally click Create.
+        Session credentials can be passed in the request body or via environment
+        variables (CHATGPT_SESSION_TOKEN, CHATGPT_SESSION_TOKEN_1, CHATGPT_PROFILE_DIR).
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - description
+                - instructions
+              properties:
+                action:
+                  type: string
+                  enum: [duplicate_and_configure]
+                  default: duplicate_and_configure
+                source_editor_url:
+                  type: string
+                  description: GPT editor URL to duplicate
+                  default: "https://chatgpt.com/gpts/editor/g-6808e46f824481918e21feb6be82a4ab"
+                name:
+                  type: string
+                  description: Name for the duplicated GPT
+                description:
+                  type: string
+                  description: Short description for the duplicated GPT
+                instructions:
+                  type: string
+                  description: Full system instructions for the duplicated GPT
+                action_name:
+                  type: string
+                  description: Label of the Action entry to configure in the Actions section
+                  default: "unscrutinized-immotile-jermaine.ngrok-free.dev"
+                action_api_key:
+                  type: string
+                  description: API key to set for the Action's authentication (falls back to ACTION_API_KEY env var)
+                action_api_auth_type:
+                  type: string
+                  enum: [basic, bearer, custom]
+                  default: bearer
+                user_data_dir:
+                  type: string
+                  description: Path to a persistent Chromium profile directory for session reuse
+                session_token:
+                  type: string
+                  description: ChatGPT session cookie value (__Secure-next-auth.session-token or .0 part)
+                session_token_1:
+                  type: string
+                  description: ChatGPT session cookie .1 part (when token is split)
+                headless:
+                  type: boolean
+                  default: true
+                  description: Run Chromium in headless mode
+                create:
+                  type: boolean
+                  default: true
+                  description: Click the Create button to publish the GPT (false = leave as draft)
+                max_wait_seconds:
+                  type: integer
+                  default: 180
+                  description: Maximum seconds to wait for page operations
+      responses:
+        '200':
+          description: GPT duplication and configuration result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: object
+                    properties:
+                      ok:
+                        type: boolean
+                      stage:
+                        type: string
+                      source_editor_url:
+                        type: string
+                      duplicated_editor_url:
+                        type: string
+                      duplicated_gpt_id:
+                        type: string
+                      final_url:
+                        type: string
+                      created:
+                        type: boolean
+                  latency_ms:
+                    type: number
+                  timestamp:
+                    type: integer
+        '400':
+          description: Invalid request or missing credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Browser automation failure
           content:
             application/json:
               schema:

@@ -85,8 +85,11 @@ def _do_file_op(op: FileOp):
             if not os.path.isdir(path):
                 return {"error": {"code": "not_a_directory", "message": "Path is not a directory."}, "status": 400}
             return {"items": os.listdir(path), "status": 200}
+        elif op.action in ("mkdir", "create"):
+            os.makedirs(path, exist_ok=True)
+            return {"status": 200, "message": f"Directory created: {path}"}
         else:
-            return {"error": {"code": "unsupported_action", "message": f"Unsupported action: {op.action}"}, "status": 400}
+            return {"error": {"code": "unsupported_action", "message": f"Unsupported action: {op.action}. Supported: read, write, delete, copy, move, stat, exists, list, mkdir"}, "status": 400}
     except Exception as e:
         return {"error": {"code": "internal_error", "message": str(e)}, "status": 500}
 
