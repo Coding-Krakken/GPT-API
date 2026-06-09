@@ -285,3 +285,22 @@ python evals/run_eval_suite.py --suite backend_engine_metrics --repo-path /home/
 ```
 
 Reports now include `scores.engines` and `engine_metrics` for repo intelligence, workspace, patch engine, test/quality engine, and policy engine. See `docs/CODING_GPT_PHASE7_ENGINE_METRICS.md`.
+
+## Phase 8: real Custom GPT debug-log ingestion
+
+Use `/evals/ingest-debug-log` to evaluate actual Custom GPT Actions debug transcripts. It parses endpoint calls, classifies failure layers, writes JSON/Markdown ingest reports, emits normalized telemetry events, and can create reusable regression fixtures.
+
+Use `/evals/debug-log/regression` when you only want to turn a pasted debug transcript into a regression case.
+
+Primary validation script:
+
+```bash
+python manual_phase8_debug_ingest_test.py
+```
+
+Reports are written to:
+
+```text
+/tmp/gpt-api-evals/debug_ingests/<run_id>.json
+/tmp/gpt-api-evals/debug_ingests/<run_id>.md
+```

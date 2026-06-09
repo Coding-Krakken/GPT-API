@@ -275,3 +275,58 @@ def create_regression(req: RegressionCreateRequest):
     path.write_text(text, encoding="utf-8")
     eval_telemetry.log_event("regression_created", regression_id=req.id, failure_layer=req.failure_layer, path=str(path))
     return {"status": 200, "regression": {"id": req.id, "path": str(path), "relative_path": str(path.relative_to(_REPO_ROOT))}}
+
+
+class DebugLogIngestRequest(BaseModel):
+    log_text: str = Field(..., description="Pasted Custom GPT Actions debug transcript.")
+    source: str = "custom_gpt_debug"
+    run_id: str | None = None
+    write_events: bool = True
+    create_regression: bool = False
+    regression_title: str | None = None
+
+
+@router.post("/ingest-debug-log")
+def ingest_debug_log(req: DebugLogIngestRequest):
+    from evals import debug_ingest
+
+    run_id = req.run_id or _now_id("debug_ingest")
+    parsed = debug_ingest.classify_debug_log(req.log_text)
+    paths = debug_ingest.write_ingest_report(parsed, run_id=run_id)
+    events_written = 0
+    if req.write_events:
+        for event in debug_ingest.debug_log_to_events(req.log_text, run_id=run_id, source=req.source):
+            eval_telemetry.log_event(**event)
+            events_written += 1
+    regression = None
+    if req.create_regression:
+        payload = debug_ingest.regression_from_debug(parsed, title=req.regression_title, source=req.source)
+        create_req = RegressionCreateRequest(**payload)
+        regression = create_regression(create_req).get("regression")
+    return {
+        "status": 200,
+        "run_id": run_id,
+        "parsed": {
+            "call_count": parsed.get("call_count"),
+            "successful_calls": parsed.get("successful_calls"),
+            "failed_calls": parsed.get("failed_calls"),
+            "agent_behavior_score": parsed.get("agent_behavior_score"),
+            "failure_codes": parsed.get("failure_codes"),
+            "failure_layers": parsed.get("failure_layers"),
+            "warnings": parsed.get("warnings"),
+        },
+        "calls": parsed.get("calls"),
+        "events_written": events_written,
+        "reports": paths,
+        "regression": regression,
+    }
+
+
+@router.post("/debug-log/regression")
+def create_regression_from_debug_log(req: DebugLogIngestRequest):
+    from evals import debug_ingest
+
+    parsed = debug_ingest.classify_debug_log(req.log_text)
+    payload = debug_ingest.regression_from_debug(parsed, title=req.regression_title, source=req.source)
+    result = create_regression(RegressionCreateRequest(**payload))
+    return {"status": 200, "regression": result.get("regression"), "source_summary": {"failure_codes": parsed.get("failure_codes"), "failure_layers": parsed.get("failure_layers"), "call_count": parsed.get("call_count")}}
