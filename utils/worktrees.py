@@ -65,3 +65,83 @@ def destroy(workspace_path: str, force: bool = False, keep_branch: bool = True) 
     if result["exit_code"] != 0 and workspace.exists() and force:
         shutil.rmtree(workspace)
     return {"removed": not workspace.exists(), "kept_branch": keep_branch, "workspace_path": str(workspace)}
+
+
+def commit(workspace_path: str, message: str, files: list[str] | None = None) -> dict:
+    workspace = ensure_under_allowed_root(workspace_path)
+    if not message or len(message.strip()) < 3:
+        raise PolicyError("invalid_commit_message", "Commit message must be at least 3 characters.")
+    if files:
+        for rel in files:
+            if rel.startswith("/") or ".." in Path(rel).parts:
+                raise PolicyError("invalid_commit_path", f"Invalid commit path: {rel}")
+            add = run_checked(["git", "add", "--", rel], workspace, timeout=30)
+            if add["exit_code"] != 0:
+                raise PolicyError("git_add_failed", add["stderr"] or add["stdout"])
+    else:
+        add = run_checked(["git", "add", "--all"], workspace, timeout=30)
+        if add["exit_code"] != 0:
+            raise PolicyError("git_add_failed", add["stderr"] or add["stdout"])
+        # Internal task/patch metadata is for the agent ledger and must not be committed.
+        run_checked(["git", "reset", "--", ".gpt-api"], workspace, timeout=30)
+    result = run_checked(["git", "commit", "-m", message.strip()], workspace, timeout=60)
+    if result["exit_code"] != 0:
+        raise PolicyError("git_commit_failed", result["stderr"] or result["stdout"])
+    rev = run_checked(["git", "rev-parse", "--short", "HEAD"], workspace, timeout=10)
+    return {"committed": True, "commit": rev["stdout"].strip(), "stdout": result["stdout"], "stderr": result["stderr"]}
+
+
+def pr_create(workspace_path: str, title: str, body: str, dry_run: bool = True) -> dict:
+    workspace = ensure_under_allowed_root(workspace_path)
+    if not title or len(title.strip()) < 3:
+        raise PolicyError("invalid_pr_title", "PR title must be at least 3 characters.")
+    argv = ["gh", "pr", "create", "--title", title.strip(), "--body", body or ""]
+    if dry_run:
+        return {"dry_run": True, "argv": argv, "workspace_path": str(workspace)}
+    result = run_checked(argv, workspace, timeout=120)
+    if result["exit_code"] != 0:
+        raise PolicyError("pr_create_failed", result["stderr"] or result["stdout"])
+    return {"created": True, "url": result["stdout"].strip(), "stderr": result["stderr"]}
+
+
+def diff_summary(workspace_path: str) -> dict:
+    workspace = ensure_under_allowed_root(workspace_path)
+    raw = run_checked(["git", "diff", "--stat"], workspace, timeout=30)
+    names = run_checked(["git", "diff", "--name-status"], workspace, timeout=30)
+    full = run_checked(["git", "diff", "--numstat"], workspace, timeout=30)
+    files = []
+    for line in names["stdout"].splitlines():
+        parts = line.split("\t")
+        if len(parts) >= 2:
+            files.append({"status": parts[0], "file": parts[-1]})
+    return {"workspace_path": str(workspace), "stat": raw["stdout"], "files": files, "numstat": full["stdout"]}
+
+
+def risk_report(workspace_path: str) -> dict:
+    summary = diff_summary(workspace_path)
+    risks = []
+    sensitive_terms = ["auth", "security", "token", "secret", "password", "permission", "policy", "admin", "sudo"]
+    for item in summary.get("files", []):
+        path = item["file"].lower()
+        if any(term in path for term in sensitive_terms):
+            risks.append({"file": item["file"], "risk": "security_sensitive_path", "severity": "high"})
+        if path.endswith(("requirements.txt", "package-lock.json", "poetry.lock", "pnpm-lock.yaml", "yarn.lock", "cargo.lock")):
+            risks.append({"file": item["file"], "risk": "dependency_or_lockfile_change", "severity": "medium"})
+        if item.get("status", "").startswith("D"):
+            risks.append({"file": item["file"], "risk": "file_deleted", "severity": "medium"})
+    return {"workspace_path": summary["workspace_path"], "risks": risks, "risk_count": len(risks)}
+
+
+def review_checklist(workspace_path: str) -> dict:
+    summary = diff_summary(workspace_path)
+    risk = risk_report(workspace_path)
+    checklist = [
+        {"item": "Changes are isolated to a worktree", "status": "pass"},
+        {"item": "Review raw diff before commit", "status": "required"},
+        {"item": "Run focused tests", "status": "required"},
+        {"item": "Run quality checks when available", "status": "required"},
+        {"item": "Document residual risks", "status": "required"},
+    ]
+    if risk["risk_count"]:
+        checklist.append({"item": "Security/dependency-sensitive changes need explicit review", "status": "required"})
+    return {"workspace_path": summary["workspace_path"], "changed_files": summary["files"], "risks": risk["risks"], "checklist": checklist}

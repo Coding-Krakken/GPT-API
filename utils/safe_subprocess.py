@@ -31,3 +31,11 @@ def run_checked(argv: list[str], cwd: str | Path, timeout: int = 120) -> dict:
             "passed": False,
             "timeout": True,
         }
+    except FileNotFoundError as exc:
+        return {
+            "stdout": "",
+            "stderr": str(exc),
+            "exit_code": 127,
+            "passed": False,
+            "not_found": True,
+        }

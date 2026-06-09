@@ -30,6 +30,19 @@ class WorkspaceDestroyRequest(BaseModel):
     keep_branch: bool = True
 
 
+class WorkspaceCommitRequest(BaseModel):
+    workspace_path: str
+    message: str
+    files: Optional[list[str]] = None
+
+
+class WorkspacePrCreateRequest(BaseModel):
+    workspace_path: str
+    title: str
+    body: str = ""
+    dry_run: bool = True
+
+
 def _wrap(fn, *args, **kwargs):
     start = time.time()
     try:
@@ -62,3 +75,28 @@ def workspace_diff(req: WorkspacePathRequest):
 @router.post("/destroy")
 def workspace_destroy(req: WorkspaceDestroyRequest):
     return _wrap(worktrees.destroy, req.workspace_path, req.force, req.keep_branch)
+
+
+@router.post("/commit")
+def workspace_commit(req: WorkspaceCommitRequest):
+    return _wrap(worktrees.commit, req.workspace_path, req.message, req.files)
+
+
+@router.post("/pr-create")
+def workspace_pr_create(req: WorkspacePrCreateRequest):
+    return _wrap(worktrees.pr_create, req.workspace_path, req.title, req.body, req.dry_run)
+
+
+@router.post("/diff-summary")
+def workspace_diff_summary(req: WorkspacePathRequest):
+    return _wrap(worktrees.diff_summary, req.workspace_path)
+
+
+@router.post("/risk-report")
+def workspace_risk_report(req: WorkspacePathRequest):
+    return _wrap(worktrees.risk_report, req.workspace_path)
+
+
+@router.post("/review-checklist")
+def workspace_review_checklist(req: WorkspacePathRequest):
+    return _wrap(worktrees.review_checklist, req.workspace_path)

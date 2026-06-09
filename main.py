@@ -6,7 +6,8 @@ import importlib
 import pathlib
 from routes import (
     shell, files, code, system, monitor, git, package, apps, refactor, batch,
-    repo, workspace, patch, test_runner, quality, policy, coding_agent,
+    repo, workspace, patch, test_runner, quality, policy, coding_agent, tasks,
+    github, diagnostics, env,
 )
 
 load_dotenv()
@@ -55,6 +56,10 @@ app.include_router(test_runner.router, prefix="/test")
 app.include_router(quality.router, prefix="/quality")
 app.include_router(policy.router, prefix="/policy")
 app.include_router(coding_agent.router, prefix="/agent")
+app.include_router(tasks.router, prefix="/tasks")
+app.include_router(github.router, prefix="/github")
+app.include_router(diagnostics.router, prefix="/diagnostics")
+app.include_router(env.router, prefix="/env")
 
 
 @app.get("/debug/routes")

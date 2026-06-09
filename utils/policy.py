@@ -114,3 +114,87 @@ def policy_result_for_path(path: str, repo_root: str | None = None) -> dict:
         return {"allowed": True, "path": str(resolved), "risk": "readonly"}
     except PolicyError as exc:
         return {"allowed": False, "error": {"code": exc.code, "message": exc.message}}
+
+
+def evaluate_action(action: str, workspace_path: str | None = None, changed_files: list[str] | None = None, tests_passed: bool | None = None, quality_passed: bool | None = None, user_approved_network_write: bool = False) -> dict:
+    action = (action or "").strip().lower()
+    changed_files = changed_files or []
+    reasons = []
+    allowed = True
+    risk = "low"
+
+    if action in {"create_pr", "push_branch", "comment_pr", "network_write"} and not user_approved_network_write:
+        allowed = False
+        reasons.append("Network-writing action requires explicit user approval.")
+        risk = "high"
+    if action in {"commit", "create_pr", "push_branch"}:
+        if tests_passed is False:
+            allowed = False
+            reasons.append("Tests failed or were not marked as passed.")
+        if quality_passed is False:
+            reasons.append("Quality checks failed or were not marked as passed.")
+            risk = "medium"
+    for file in changed_files:
+        rel = str(file)
+        if is_blocked_relative(rel):
+            allowed = False
+            reasons.append(f"Blocked or secret-like path changed: {rel}")
+            risk = "high"
+        lower = rel.lower()
+        if any(term in lower for term in ["auth", "security", "token", "secret", "password", "permission", "policy"]):
+            reasons.append(f"Security-sensitive path requires review: {rel}")
+            risk = "high"
+        if lower.endswith(("requirements.txt", "package-lock.json", "poetry.lock", "pnpm-lock.yaml", "yarn.lock", "cargo.lock")):
+            reasons.append(f"Dependency/lockfile change requires review: {rel}")
+            if risk != "high":
+                risk = "medium"
+    if not reasons:
+        reasons.append("No policy blockers detected.")
+    return {"allowed": allowed, "risk": risk, "reasons": reasons, "action": action}
+
+
+def evaluate_action_deep(
+    action: str,
+    workspace_path: str | None = None,
+    changed_files: list[str] | None = None,
+    tests_passed: bool | None = None,
+    quality_passed: bool | None = None,
+    user_approved_network_write: bool = False,
+    user_approved_sensitive: bool = False,
+    user_approved_large_diff: bool = False,
+    user_approved_deletions: bool = False,
+    diff_line_count: int = 0,
+) -> dict:
+    result = evaluate_action(action, workspace_path, changed_files, tests_passed, quality_passed, user_approved_network_write)
+    allowed = bool(result.get("allowed"))
+    risk = result.get("risk", "low")
+    reasons = list(result.get("reasons", []))
+    changed_files = changed_files or []
+    lockfiles = ("package-lock.json", "pnpm-lock.yaml", "yarn.lock", "bun.lockb", "bun.lock", "poetry.lock", "pdm.lock", "uv.lock", "Cargo.lock", "go.sum")
+    generated_dirs = ("dist/", "build/", "coverage/", ".next/", "target/", "vendor/")
+    binary_ext = (".png", ".jpg", ".jpeg", ".gif", ".pdf", ".zip", ".gz", ".tar", ".sqlite", ".db", ".wasm")
+    sensitive = False
+    deletions = False
+    for f in changed_files:
+        rel = str(f)
+        marker = rel[:2]
+        path = rel[2:].strip() if marker in {"D ", "M ", "A ", "R "} else rel
+        lower = path.lower()
+        if marker == "D ":
+            deletions = True
+        if lower.endswith(tuple(x.lower() for x in lockfiles)):
+            sensitive = True; reasons.append(f"Lockfile/dependency change requires approval: {path}")
+        if any(lower.startswith(d) or f"/{d}" in lower for d in generated_dirs):
+            reasons.append(f"Generated/build artifact change detected: {path}")
+            sensitive = True
+        if lower.endswith(binary_ext):
+            allowed = False; risk = "high"; reasons.append(f"Binary/database artifact changes are blocked: {path}")
+        if "migration" in lower or lower.startswith("migrations/"):
+            sensitive = True; reasons.append(f"Migration change requires approval: {path}")
+    if diff_line_count and diff_line_count > 2000 and not user_approved_large_diff:
+        allowed = False; risk = "high"; reasons.append("Large diff requires explicit approval.")
+    if deletions and not user_approved_deletions:
+        allowed = False; risk = "high"; reasons.append("File deletions require explicit approval.")
+    if sensitive and not user_approved_sensitive:
+        allowed = False; risk = "high"; reasons.append("Sensitive/dependency/generated changes require explicit approval.")
+    return {"allowed": allowed, "risk": risk, "reasons": list(dict.fromkeys(reasons)), "action": (action or "").strip().lower()}

@@ -8,7 +8,7 @@ from pydantic import BaseModel
 
 from utils.auth import verify_key
 from utils.policy import PolicyError
-from utils import repo_intel, worktrees, test_discovery
+from utils import repo_intel, worktrees, test_discovery, task_ledger
 
 router = APIRouter(dependencies=[Depends(verify_key)])
 
@@ -22,6 +22,7 @@ class CodingTaskRequest(BaseModel):
     approval_policy: str = "safe_auto"
     create_pr: bool = False
     base_branch: str | None = None
+    task_id: str | None = None
 
 
 def _slug(text: str) -> str:
@@ -36,8 +37,17 @@ def coding_task(req: CodingTaskRequest):
             return {"error": {"code": "unsupported_mode", "message": "Only plan_apply_verify is supported."}, "status": 400}
         if req.workspace_strategy != "git_worktree":
             return {"error": {"code": "unsupported_workspace_strategy", "message": "Only git_worktree is supported."}, "status": 400}
+        if req.approval_policy not in {"safe_auto", "manual_network_writes", "dry_run_only"}:
+            return {"error": {"code": "unsupported_approval_policy", "message": "Supported policies: safe_auto, manual_network_writes, dry_run_only."}, "status": 400}
+
         overview = repo_intel.overview(req.repo_path, 4)
+        ledger = task_ledger.read(req.task_id) if req.task_id else task_ledger.create(
+            task=req.task,
+            repo_path=req.repo_path,
+            metadata={"mode": req.mode, "approval_policy": req.approval_policy, "create_pr": req.create_pr},
+        )
         workspace = worktrees.create_worktree(req.repo_path, _slug(req.task), req.base_branch)
+        ledger = task_ledger.update(ledger["task_id"], status="workspace_ready", workspace_path=workspace["workspace_path"])
         tests = test_discovery.discover(workspace["workspace_path"])
         plan = [
             "Inspect repository overview and current git state.",
@@ -45,17 +55,21 @@ def coding_task(req: CodingTaskRequest):
             "Search and read focused context relevant to the task.",
             "Apply only policy-checked patches via /patch/preview and /patch/apply.",
             "Run discovered focused tests, then broader quality checks when available.",
+            "Store diff/test/quality artifacts in the task ledger.",
             "Return final diff, tests run, risks, and next steps.",
         ]
+        task_ledger.log_event(ledger["task_id"], "plan_created", {"plan": plan})
         return {
             "status": "workspace_ready",
-            "message": "Coding task initialized safely. Continue with /repo/search, /repo/read-context, /patch/preview, /patch/apply, /test/run, /quality/check, and /workspace/diff.",
+            "message": "Coding task initialized safely. Continue with /repo/search, /repo/read-context, /patch/preview, /patch/apply, /test/run, /quality/check, /tasks/artifacts, and /workspace/diff.",
+            "task": task_ledger.read(ledger["task_id"]),
             "workspace": workspace,
             "overview": overview,
             "test_discovery": tests,
             "plan": plan,
             "max_iterations": min(max(req.max_iterations, 1), 10),
             "create_pr": req.create_pr,
+            "approval_policy": req.approval_policy,
             "latency_ms": round((time.time() - start) * 1000, 2),
             "timestamp": int(time.time() * 1000),
         }
@@ -63,3 +77,255 @@ def coding_task(req: CodingTaskRequest):
         return {"error": {"code": exc.code, "message": exc.message}, "status": 400}
     except Exception as exc:
         return {"error": {"code": "internal_error", "message": str(exc)}, "status": 500}
+
+
+class CodingTaskNextRequest(BaseModel):
+    task_id: str
+
+
+@router.post("/coding-task/next")
+def coding_task_next(req: CodingTaskNextRequest):
+    start = time.time()
+    try:
+        task = task_ledger.read(req.task_id)
+        status = task.get("status")
+        workspace_path = task.get("workspace_path")
+        artifacts = task.get("artifacts", {})
+        if not workspace_path:
+            phase = "need_workspace"
+            required_action = {"endpoint": "/workspace/create", "then": "/tasks/update"}
+        elif "relevant_context" not in artifacts:
+            phase = "need_context"
+            required_action = {"endpoint": "/repo/relevant-context", "then": "/tasks/artifacts"}
+        elif "patch_preview" not in artifacts:
+            phase = "need_patch"
+            required_action = {"format": "unified_diff", "endpoint": "/patch/preview", "then": "/patch/apply"}
+        elif "test_result" not in artifacts:
+            phase = "need_tests"
+            required_action = {"endpoint": "/test/discover then /test/run", "then": "/tasks/artifacts"}
+        elif "quality_result" not in artifacts:
+            phase = "need_quality"
+            required_action = {"endpoint": "/quality/check", "then": "/tasks/artifacts"}
+        elif "diff_summary" not in artifacts:
+            phase = "need_review"
+            required_action = {"endpoint": "/workspace/diff-summary and /workspace/review-checklist", "then": "/tasks/artifacts"}
+        else:
+            phase = "ready_to_finalize"
+            required_action = {"endpoint": "/policy/evaluate-action", "next": "commit or PR dry-run if policy allows"}
+        contract = task_ledger.phase_contract(req.task_id)
+        task_ledger.log_event(req.task_id, "next_phase", {"phase": contract.get("phase")})
+        return {"status": 200, "phase": contract.get("phase"), "required_action": required_action, "contract": contract.get("contract"), "validation": contract.get("validation"), "task": task_ledger.read(req.task_id), "latency_ms": round((time.time() - start) * 1000, 2), "timestamp": int(time.time() * 1000)}
+    except PolicyError as exc:
+        return {"status": 400, "error": {"code": exc.code, "message": exc.message}}
+    except Exception as exc:
+        return {"status": 500, "error": {"code": "internal_error", "message": str(exc)}}
+
+
+class CodingTaskSubmitRequest(BaseModel):
+    task_id: str
+    artifact_name: str | None = None
+    artifact: dict | None = None
+    patch: str | None = None
+    run_tests: bool = False
+    run_quality: bool = False
+
+class CodingTaskFinalizeRequest(BaseModel):
+    task_id: str
+    commit: bool = False
+    commit_message: str | None = None
+    create_pr: bool = False
+    pr_title: str | None = None
+    pr_body: str = ""
+    user_approved_network_write: bool = False
+    enforce_contract: bool = True
+
+
+@router.post("/coding-task/submit")
+def coding_task_submit(req: CodingTaskSubmitRequest):
+    start = time.time()
+    try:
+        from utils import patching
+        from utils import diagnostics as diagnostics_util
+        from utils import policy as policy_util
+        task = task_ledger.read(req.task_id)
+        workspace = task.get("workspace_path")
+        if not workspace:
+            raise PolicyError("workspace_missing", "Task has no workspace path.")
+        results = {}
+        if req.artifact_name and req.artifact is not None:
+            task_ledger.add_artifact(req.task_id, req.artifact_name, req.artifact)
+            results[req.artifact_name] = req.artifact
+        if req.patch:
+            risk = patching.validate_risk(workspace, req.patch)
+            task_ledger.add_artifact(req.task_id, "patch_risk", risk)
+            if not risk.get("allowed"):
+                task_ledger.update(req.task_id, status="blocked_patch_risk")
+                return {"status": 400, "error": {"code": "patch_risk_blocked", "message": "Patch failed risk validation."}, "risk": risk}
+            preview = patching.preview(workspace, req.patch)
+            task_ledger.add_artifact(req.task_id, "patch_preview", preview)
+            if not preview.get("applies"):
+                task_ledger.update(req.task_id, status="patch_preview_failed")
+                return {"status": 400, "error": {"code": "patch_preview_failed", "message": preview.get("stderr") or preview.get("preview")}, "preview": preview}
+            applied = patching.apply_recorded(workspace, req.patch, req.task_id, "agent_submit")
+            task_ledger.add_artifact(req.task_id, "patch_recorded", applied)
+            task_ledger.update(req.task_id, status="patch_applied")
+            results["patch"] = {"patch_id": applied.get("patch_id"), "applied": applied.get("applied"), "files_touched": applied.get("files_touched")}
+        if req.run_tests:
+            tests = test_discovery.discover(workspace)
+            task_ledger.add_artifact(req.task_id, "test_discovery", tests)
+            command = (tests.get("commands") or [{}])[0].get("name") if tests.get("commands") else None
+            if command:
+                test_result = test_discovery.run_discovered(workspace, command)
+            else:
+                test_result = {"passed": False, "error": {"code": "no_test_command", "message": "No discovered test command."}}
+            task_ledger.add_artifact(req.task_id, "test_result", test_result)
+            results["tests"] = test_result
+            if not test_result.get("passed"):
+                parsed = diagnostics_util.parse("pytest", test_result.get("stdout_tail", ""), test_result.get("stderr_tail", ""))
+                task_ledger.add_artifact(req.task_id, "diagnostics", parsed)
+                task_ledger.update(req.task_id, status="tests_failed")
+        if req.run_quality:
+            from utils import test_discovery as td
+            quality_results = []
+            for cmd in td.quality_commands(workspace):
+                from utils.safe_subprocess import run_checked
+                result = run_checked(cmd["argv"], workspace, timeout=120)
+                quality_results.append({"command": cmd.get("name"), "argv": cmd["argv"], **result})
+            quality_result = {"passed": all(r.get("passed") for r in quality_results), "results": quality_results}
+            task_ledger.add_artifact(req.task_id, "quality_result", quality_result)
+            results["quality"] = quality_result
+            if not quality_result.get("passed"):
+                task_ledger.update(req.task_id, status="quality_failed")
+        return {"status": 200, "results": results, "task": task_ledger.read(req.task_id), "latency_ms": round((time.time()-start)*1000,2), "timestamp": int(time.time()*1000)}
+    except PolicyError as exc:
+        return {"status": 400, "error": {"code": exc.code, "message": exc.message}}
+    except Exception as exc:
+        return {"status": 500, "error": {"code": "internal_error", "message": str(exc)}}
+
+
+@router.post("/coding-task/finalize")
+def coding_task_finalize(req: CodingTaskFinalizeRequest):
+    start = time.time()
+    try:
+        from utils import policy as policy_util
+        task = task_ledger.read(req.task_id)
+        workspace = task.get("workspace_path")
+        if not workspace:
+            raise PolicyError("workspace_missing", "Task has no workspace path.")
+        diff_summary = worktrees.diff_summary(workspace)
+        risk_report = worktrees.risk_report(workspace)
+        review = worktrees.review_checklist(workspace)
+        task_ledger.add_artifact(req.task_id, "diff_summary", diff_summary)
+        task_ledger.add_artifact(req.task_id, "risk_report", risk_report)
+        task_ledger.add_artifact(req.task_id, "review_checklist", review)
+        tests = task.get("artifacts", {}).get("test_result", {}).get("data", {})
+        quality = task.get("artifacts", {}).get("quality_result", {}).get("data", {})
+        changed = [f.get("file") for f in diff_summary.get("files", []) if f.get("file")]
+        validation_before_policy = task_ledger.validate_required_artifacts(req.task_id, ["relevant_context", "patch_recorded", "test_result", "quality_result"])
+        if req.enforce_contract and (req.commit or req.create_pr) and not validation_before_policy.get("valid"):
+            return {"status": 400, "error": {"code": "contract_incomplete", "message": "Required task artifacts are missing before commit/PR finalization."}, "validation": validation_before_policy}
+        diff_lines = sum(int(x.split("	")[0]) + int(x.split("	")[1]) for x in diff_summary.get("numstat", "").splitlines() if len(x.split("	")) >= 3 and x.split("	")[0].isdigit() and x.split("	")[1].isdigit())
+        policy_result = policy_util.evaluate_action_deep(
+            "create_pr" if (req.create_pr and req.user_approved_network_write) else "commit" if req.commit else "finalize",
+            workspace,
+            changed,
+            tests.get("passed") if tests else None,
+            quality.get("passed") if quality else None,
+            req.user_approved_network_write,
+            False,
+            False,
+            False,
+            diff_lines,
+        )
+        task_ledger.add_artifact(req.task_id, "policy_result", policy_result)
+        result = {"diff_summary": diff_summary, "risk_report": risk_report, "review_checklist": review, "policy_result": policy_result, "contract_validation": validation_before_policy}
+        if req.commit:
+            if not policy_result.get("allowed"):
+                return {"status": 400, "error": {"code": "policy_blocked", "message": "Policy blocked commit/finalize."}, **result}
+            commit_result = worktrees.commit(workspace, req.commit_message or f"Complete task {req.task_id}")
+            task_ledger.add_artifact(req.task_id, "commit", commit_result)
+            result["commit"] = commit_result
+        if req.create_pr:
+            pr_result = worktrees.pr_create(workspace, req.pr_title or task.get("task") or req.task_id, req.pr_body, dry_run=not req.user_approved_network_write)
+            task_ledger.add_artifact(req.task_id, "pr", pr_result)
+            result["pr"] = pr_result
+        report = task_ledger.final_report(req.task_id)
+        task_ledger.add_artifact(req.task_id, "final_report", report)
+        task_ledger.update(req.task_id, status="finalized")
+        return {"status": 200, "result": result, "final_report": report, "latency_ms": round((time.time()-start)*1000,2), "timestamp": int(time.time()*1000)}
+    except PolicyError as exc:
+        return {"status": 400, "error": {"code": exc.code, "message": exc.message}}
+    except Exception as exc:
+        return {"status": 500, "error": {"code": "internal_error", "message": str(exc)}}
+
+
+class CodingTaskRepairPlanRequest(BaseModel):
+    task_id: str
+    max_files: int = 12
+
+class CodingTaskContractReportRequest(BaseModel):
+    task_id: str
+
+@router.post("/coding-task/repair-plan")
+def coding_task_repair_plan(req: CodingTaskRepairPlanRequest):
+    start = time.time()
+    try:
+        from utils import diagnostics as diagnostics_util
+        task = task_ledger.read(req.task_id)
+        artifacts = task.get("artifacts", {})
+        diagnostics_payload = artifacts.get("diagnostics", {}).get("data", {})
+        diagnostics_list = diagnostics_payload.get("diagnostics", []) if isinstance(diagnostics_payload, dict) else []
+        if not diagnostics_list:
+            test_result = artifacts.get("test_result", {}).get("data", {})
+            quality_result = artifacts.get("quality_result", {}).get("data", {})
+            text = (test_result.get("stdout_tail", "") + "\n" + test_result.get("stderr_tail", "")) if isinstance(test_result, dict) else ""
+            if not text and isinstance(quality_result, dict):
+                text = "\n".join((r.get("stdout", "") + "\n" + r.get("stderr", "")) for r in quality_result.get("results", []) if isinstance(r, dict))
+            parsed = diagnostics_util.parse("quality" if quality_result else "pytest", text, "")
+            diagnostics_list = parsed.get("diagnostics", [])
+            task_ledger.add_artifact(req.task_id, "diagnostics", parsed)
+        triage = diagnostics_util.triage(diagnostics_list, task.get("task"), req.max_files)
+        plan = {
+            "task_id": req.task_id,
+            "phase": task_ledger.phase_contract(req.task_id).get("phase"),
+            "triage": triage,
+            "required_gpt_behavior": [
+                "Read only the next_context files before patching.",
+                "Generate a minimal unified diff only.",
+                "Do not broaden scope or touch unrelated files.",
+                "Submit the repair patch through /agent/coding-task/submit with run_tests=true and run_quality=true when appropriate.",
+            ],
+            "recommended_context_files": triage.get("next_context", [])[:req.max_files],
+            "repair_strategy": triage.get("repair_strategy"),
+        }
+        task_ledger.add_artifact(req.task_id, "repair_plan", plan)
+        task_ledger.log_event(req.task_id, "repair_plan_created", {"phase": plan["phase"]})
+        return {"status": 200, "repair_plan": plan, "latency_ms": round((time.time()-start)*1000,2), "timestamp": int(time.time()*1000)}
+    except PolicyError as exc:
+        return {"status": 400, "error": {"code": exc.code, "message": exc.message}}
+    except Exception as exc:
+        return {"status": 500, "error": {"code": "internal_error", "message": str(exc)}}
+
+@router.post("/coding-task/iteration-summary")
+def coding_task_iteration_summary(req: CodingTaskContractReportRequest):
+    start = time.time()
+    try:
+        summary = task_ledger.iteration_summary(req.task_id)
+        return {"status": 200, "summary": summary, "latency_ms": round((time.time()-start)*1000,2), "timestamp": int(time.time()*1000)}
+    except PolicyError as exc:
+        return {"status": 400, "error": {"code": exc.code, "message": exc.message}}
+    except Exception as exc:
+        return {"status": 500, "error": {"code": "internal_error", "message": str(exc)}}
+
+@router.post("/coding-task/contract-report")
+def coding_task_contract_report(req: CodingTaskContractReportRequest):
+    start = time.time()
+    try:
+        contract = task_ledger.phase_contract(req.task_id)
+        summary = task_ledger.iteration_summary(req.task_id)
+        validation = task_ledger.validate_required_artifacts(req.task_id)
+        return {"status": 200, "contract": contract, "summary": summary, "validation": validation, "latency_ms": round((time.time()-start)*1000,2), "timestamp": int(time.time()*1000)}
+    except PolicyError as exc:
+        return {"status": 400, "error": {"code": exc.code, "message": exc.message}}
+    except Exception as exc:
+        return {"status": 500, "error": {"code": "internal_error", "message": str(exc)}}

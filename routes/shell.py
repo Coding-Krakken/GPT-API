@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends, Response, Request
 from pydantic import BaseModel
 import subprocess
+import shlex
 import shutil
 import re
 import os
@@ -22,6 +23,67 @@ def redact_secrets(text: str) -> str:
     for pat in patterns:
         text = re.sub(pat, r"\1[REDACTED]", text)
     return text
+
+
+SSH_TIMEOUT_OPTIONS = [
+    ("ConnectTimeout", "10"),
+    ("ServerAliveInterval", "15"),
+    ("ServerAliveCountMax", "2"),
+    ("BatchMode", "yes"),
+]
+
+SHELL_META_CHARS = set('|&;<>()$`\\\n')
+
+def add_ssh_timeouts(command: str) -> str:
+    """Inject conservative OpenSSH timeout options into simple ssh commands.
+
+    This intentionally only rewrites plain commands whose executable is ssh
+    (optionally prefixed by sudo). Commands using shell metacharacters are left
+    untouched to avoid changing complex shell semantics.
+    """
+    if not command or any(ch in command for ch in SHELL_META_CHARS):
+        return command
+
+    try:
+        parts = shlex.split(command)
+    except ValueError:
+        return command
+
+    if not parts:
+        return command
+
+    insert_at = None
+    if parts[0] == "ssh":
+        insert_at = 1
+    elif parts[0] == "sudo" and len(parts) > 1 and parts[1] == "ssh":
+        insert_at = 2
+    else:
+        return command
+
+    existing_options = set()
+    idx = insert_at
+    while idx < len(parts):
+        token = parts[idx]
+        if token == "--":
+            break
+        if token == "-o" and idx + 1 < len(parts):
+            existing_options.add(parts[idx + 1].split("=", 1)[0])
+            idx += 2
+            continue
+        if token.startswith("-o") and len(token) > 2:
+            existing_options.add(token[2:].split("=", 1)[0])
+        idx += 1
+
+    additions = []
+    for key, value in SSH_TIMEOUT_OPTIONS:
+        if key not in existing_options:
+            additions.extend(["-o", f"{key}={value}"])
+
+    if not additions:
+        return command
+
+    parts[insert_at:insert_at] = additions
+    return shlex.join(parts)
 
 class ShellCommand(BaseModel):
     command: str
@@ -125,6 +187,8 @@ async def run_shell_command(data: ShellCommand, request: Request):
             # Sudo is not supported on Windows
         elif data.run_as_sudo:
             full_command = f"sudo {full_command}"
+
+        full_command = add_ssh_timeouts(full_command)
 
         latency = round((time.time() - start) * 1000, 2)
         headers = {"X-Payload-Size": str(payload_size), "X-Latency-ms": str(latency)}
