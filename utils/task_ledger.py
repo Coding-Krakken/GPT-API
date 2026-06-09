@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from utils.policy import PolicyError, ensure_under_allowed_root, worktree_root
+from utils import eval_telemetry
 
 
 LEDGER_DIRNAME = ".gpt-api-tasks"
@@ -49,6 +50,7 @@ def create(task: str, repo_path: str, workspace_path: str | None = None, metadat
         "updated_at": _now(),
     }
     _task_path(task_id).write_text(json.dumps(record, indent=2, sort_keys=True), encoding="utf-8")
+    eval_telemetry.log_event("task_started", task_id=task_id, repo_path=repo_path, workspace_path=workspace_path, metadata_keys=eval_telemetry.payload_keys(metadata or {}))
     return record
 
 
@@ -69,6 +71,7 @@ def update(task_id: str, status: str | None = None, workspace_path: str | None =
         record.setdefault("metadata", {}).update(metadata)
     record["updated_at"] = _now()
     _task_path(task_id).write_text(json.dumps(record, indent=2, sort_keys=True), encoding="utf-8")
+    eval_telemetry.log_event("task_updated", task_id=task_id, status=record.get("status"), workspace_path=record.get("workspace_path"), metadata_keys=eval_telemetry.payload_keys(metadata or {}))
     return record
 
 
@@ -79,6 +82,7 @@ def log_event(task_id: str, event_type: str, data: dict[str, Any] | None = None)
     record.setdefault("events", []).append({"type": event_type.strip(), "data": data or {}, "timestamp": _now()})
     record["updated_at"] = _now()
     _task_path(task_id).write_text(json.dumps(record, indent=2, sort_keys=True), encoding="utf-8")
+    eval_telemetry.log_event("task_ledger_event", task_id=task_id, ledger_event_type=event_type.strip(), data_keys=eval_telemetry.payload_keys(data or {}))
     return record
 
 
@@ -121,6 +125,7 @@ def add_artifact(task_id: str, name: str, artifact: dict[str, Any]) -> dict:
     record.setdefault("artifacts", {})[name.strip()] = {"data": cleaned, "timestamp": _now(), "approx_size_bytes": _artifact_size(cleaned)}
     record["updated_at"] = _now()
     _task_path(task_id).write_text(json.dumps(record, indent=2, sort_keys=True), encoding="utf-8")
+    eval_telemetry.log_event("artifact_recorded", task_id=task_id, artifact_name=name.strip(), approx_size_bytes=_artifact_size(cleaned), artifact_keys=eval_telemetry.payload_keys(cleaned if isinstance(cleaned, dict) else {}))
     return record
 
 

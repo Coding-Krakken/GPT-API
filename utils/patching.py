@@ -6,6 +6,7 @@ from pathlib import Path
 
 from utils.policy import PolicyError, ensure_relative_safe, ensure_under_allowed_root, is_blocked_relative
 from utils.safe_subprocess import run_checked
+from utils import eval_telemetry
 
 _FILE_RE = re.compile(r"^(?:diff --git a/(.*?) b/(.*?)|--- a/(.*)|\+\+\+ b/(.*))$")
 
@@ -39,7 +40,9 @@ def preview(workspace_path: str, patch: str) -> dict:
     try:
         check = run_checked(["git", "apply", "--check", patch_file], workspace, timeout=30)
         stat = run_checked(["git", "apply", "--stat", patch_file], workspace, timeout=30)
-        return {"applies": check["exit_code"] == 0, "files_touched": files, "risk": "safe_write", "preview": stat["stdout"] or check["stderr"], "stderr": check["stderr"]}
+        out = {"applies": check["exit_code"] == 0, "files_touched": files, "risk": "safe_write", "preview": stat["stdout"] or check["stderr"], "stderr": check["stderr"]}
+        eval_telemetry.log_event("patch_previewed", workspace_path=str(workspace), applies=out["applies"], files_touched=files, exit_code=check["exit_code"])
+        return out
     finally:
         Path(patch_file).unlink(missing_ok=True)
 
@@ -52,7 +55,9 @@ def apply_patch(workspace_path: str, patch: str) -> dict:
     patch_file = _write_patch_file(patch)
     try:
         result = run_checked(["git", "apply", patch_file], workspace, timeout=30)
-        return {"applied": result["exit_code"] == 0, "files_touched": prev["files_touched"], "stdout": result["stdout"], "stderr": result["stderr"], "exit_code": result["exit_code"]}
+        out = {"applied": result["exit_code"] == 0, "files_touched": prev["files_touched"], "stdout": result["stdout"], "stderr": result["stderr"], "exit_code": result["exit_code"]}
+        eval_telemetry.log_event("patch_applied", workspace_path=str(workspace), applied=out["applied"], files_touched=out["files_touched"], exit_code=result["exit_code"])
+        return out
     finally:
         Path(patch_file).unlink(missing_ok=True)
 
@@ -62,7 +67,9 @@ def revert_patch(workspace_path: str, patch: str) -> dict:
     patch_file = _write_patch_file(patch)
     try:
         result = run_checked(["git", "apply", "-R", patch_file], workspace, timeout=30)
-        return {"reverted": result["exit_code"] == 0, "stdout": result["stdout"], "stderr": result["stderr"], "exit_code": result["exit_code"]}
+        out = {"reverted": result["exit_code"] == 0, "stdout": result["stdout"], "stderr": result["stderr"], "exit_code": result["exit_code"]}
+        eval_telemetry.log_event("patch_reverted", workspace_path=str(workspace), reverted=out["reverted"], exit_code=result["exit_code"])
+        return out
     finally:
         Path(patch_file).unlink(missing_ok=True)
 
@@ -161,4 +168,6 @@ def validate_risk(workspace_path: str, patch: str, max_files: int = 25, max_line
             risks.append({"risk": "binary_or_blocked_artifact", "file": f})
         if any(term in lower for term in ["auth", "security", "token", "secret", "password", "policy"]):
             risks.append({"risk": "security_sensitive_file", "file": f})
-    return {"workspace_path": str(workspace), "allowed": allowed, "files_touched": files, "line_count": line_count, "risks": risks}
+    out = {"workspace_path": str(workspace), "allowed": allowed, "files_touched": files, "line_count": line_count, "risks": risks}
+    eval_telemetry.log_event("patch_risk_validated", workspace_path=str(workspace), allowed=allowed, files_touched=files, line_count=line_count, risk_count=len(risks))
+    return out

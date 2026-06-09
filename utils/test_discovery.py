@@ -6,6 +6,7 @@ from pathlib import Path
 
 from utils.policy import ensure_under_allowed_root
 from utils.safe_subprocess import run_checked
+from utils import eval_telemetry
 
 
 def discover(workspace_path: str) -> dict:
@@ -33,7 +34,9 @@ def discover(workspace_path: str) -> dict:
         frameworks.add("go"); commands.append({"name": "go test", "argv": ["go", "test", "./..."], "scope": "all"})
     if (root / "Cargo.toml").exists():
         frameworks.add("rust"); commands.append({"name": "cargo test", "argv": ["cargo", "test"], "scope": "all"})
-    return {"frameworks": sorted(frameworks), "commands": commands, "focused_commands": [c for c in commands if c.get("scope") == "focused"]}
+    out = {"frameworks": sorted(frameworks), "commands": commands, "focused_commands": [c for c in commands if c.get("scope") == "focused"]}
+    eval_telemetry.log_event("tests_discovered", workspace_path=str(root), frameworks=out["frameworks"], command_count=len(commands), focused_count=len(out["focused_commands"]))
+    return out
 
 
 def command_by_name(workspace_path: str, name: str) -> dict | None:
@@ -58,6 +61,7 @@ def run_discovered(workspace_path: str, command_name: str, timeout_seconds: int 
     if not cmd:
         return {"error": {"code": "command_not_discovered", "message": "Only discovered commands may be executed."}, "status": 400}
     result = run_checked(cmd["argv"], workspace_path, timeout=timeout_seconds)
+    eval_telemetry.log_event("tests_run", workspace_path=workspace_path, command_name=command_name, argv=cmd["argv"], passed=result["passed"], exit_code=result["exit_code"], timeout=result.get("timeout", False))
     return {
         "command_name": command_name,
         "argv": cmd["argv"],

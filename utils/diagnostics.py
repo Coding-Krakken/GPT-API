@@ -5,6 +5,8 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
+from utils import eval_telemetry
+
 
 PYTEST_FAILED_RE = re.compile(r"FAILED\s+([^\s:]+)(?:::([^\s]+))?")
 TRACE_RE = re.compile(r'File "([^"]+)", line (\d+)')
@@ -58,7 +60,9 @@ def parse(tool: str, stdout: str = "", stderr: str = "") -> dict[str, Any]:
             elif m.group(1):
                 diagnostics.append({"tool": "cargo", "file": m.group(1), "line": int(m.group(2)), "column": int(m.group(3)), "severity": "error", "message": last_error or "rust compiler error"})
 
-    return {"tool": tool, "diagnostics": diagnostics[:200], "count": len(diagnostics)}
+    out = {"tool": tool, "diagnostics": diagnostics[:200], "count": len(diagnostics)}
+    eval_telemetry.log_event("diagnostics_parsed", tool=tool, diagnostic_count=len(diagnostics))
+    return out
 
 
 def suggest_context(diagnostics: list[dict[str, Any]], max_files: int = 20) -> dict[str, Any]:
@@ -111,7 +115,7 @@ def triage(diagnostics: list[dict[str, Any]], task: str | None = None, max_files
     category = categories.most_common(1)[0][0] if categories else "unknown_failure"
     ranked_files = [f for f, _ in files.most_common(max_files)]
     ranked_symbols = [s for s, _ in symbols.most_common(20)]
-    return {
+    out = {
         "failure_category": category,
         "source_files": [f for f in ranked_files if not (f.startswith("tests/") or "/tests/" in f)][:max_files],
         "test_files": list(dict.fromkeys(tests))[:max_files],
@@ -120,6 +124,8 @@ def triage(diagnostics: list[dict[str, Any]], task: str | None = None, max_files
         "repair_strategy": _repair_strategy(category),
         "diagnostic_count": len(diagnostics or []),
     }
+    eval_telemetry.log_event("diagnostics_triaged", failure_category=category, diagnostic_count=len(diagnostics or []), next_context=ranked_files[:max_files])
+    return out
 
 
 def _repair_strategy(category: str) -> str:

@@ -13,6 +13,7 @@ from utils import (
     github_safe, diagnostics, env_tools,
 )
 from utils.safe_subprocess import run_checked
+from utils import eval_telemetry
 
 router = APIRouter(dependencies=[Depends(verify_key)])
 
@@ -89,17 +90,29 @@ def _required(payload: dict[str, Any], *names: str) -> list[Any]:
     return [payload[n] for n in names]
 
 
-def _dispatch(action_map: dict[str, Callable[[dict[str, Any]], Any]], req: CategoryActionRequest) -> dict[str, Any]:
+def _dispatch(action_map: dict[str, Callable[[dict[str, Any]], Any]], req: CategoryActionRequest, *, category: str = "unknown", endpoint: str = "/coding/action") -> dict[str, Any]:
     start = time.time()
+    action = (req.action or "").strip().replace("-", "_")
+    payload = req.payload or {}
+    eval_telemetry.log_event("dispatcher_called", category=category, action=action, endpoint=endpoint, payload_keys=eval_telemetry.payload_keys(payload))
     try:
-        action = (req.action or "").strip().replace("-", "_")
         fn = action_map.get(action)
         if not fn:
-            return _err("unsupported_action", f"Unsupported action: {req.action}. Allowed actions: {', '.join(sorted(action_map))}")
-        return _ok(fn(req.payload or {}), start)
+            result = _err("unsupported_action", f"Unsupported action: {req.action}. Allowed actions: {', '.join(sorted(action_map))}")
+            eval_telemetry.log_event("action_failed", category=category, action=action, endpoint=endpoint, status=400, error_code="unsupported_action", latency_ms=round((time.time() - start) * 1000, 2))
+            return result
+        result = _ok(fn(payload), start)
+        eval_telemetry.log_event("action_completed", category=category, action=action, endpoint=endpoint, status=result.get("status"), latency_ms=result.get("latency_ms"))
+        return result
     except PolicyError as exc:
-        return _err(exc.code, exc.message, **getattr(exc, "details", {}))
+        details = getattr(exc, "details", {})
+        event_type = "dispatcher_missing_payload" if exc.code == "missing_payload_fields" else "action_failed"
+        eval_telemetry.log_event(event_type, category=category, action=action, endpoint=endpoint, status=400, error_code=exc.code, message=exc.message, latency_ms=round((time.time() - start) * 1000, 2), **details)
+        if exc.code == "missing_payload_fields":
+            eval_telemetry.log_event("dispatcher_retry_suggested", category=category, action=action, endpoint=endpoint, example_payload=details.get("example_payload"), missing_payload=details.get("missing_payload"))
+        return _err(exc.code, exc.message, **details)
     except Exception as exc:
+        eval_telemetry.log_error("action_failed", exc, category=category, action=action, endpoint=endpoint, status=500, latency_ms=round((time.time() - start) * 1000, 2))
         return _err("internal_error", str(exc), 500)
 
 
@@ -162,7 +175,9 @@ def _quality_actions() -> dict[str, Callable[[dict[str, Any]], Any]]:
         for cmd in test_discovery.quality_commands(workspace_path):
             result = run_checked(cmd["argv"], workspace_path, timeout=p.get("timeout_seconds", 120))
             results.append({"name": cmd["name"], "argv": cmd["argv"], "passed": result["passed"], "exit_code": result["exit_code"], "stdout_tail": result["stdout"][-4000:], "stderr_tail": result["stderr"][-4000:]})
-        return {"passed": all(r["passed"] for r in results), "results": results}
+        out = {"passed": all(r["passed"] for r in results), "results": results}
+        eval_telemetry.log_event("quality_run", endpoint="/coding/quality/action", workspace_path=workspace_path, passed=out["passed"], result_count=len(results), exit_codes=[r.get("exit_code") for r in results])
+        return out
     return {"check": check}
 
 
@@ -254,36 +269,37 @@ def coding_action(req: CodingActionRequest):
     category = (req.category or "").strip().replace("-", "_")
     factory = CATEGORY_MAP.get(category)
     if not factory:
+        eval_telemetry.log_event("action_failed", category=category, action=req.action, endpoint="/coding/action", status=400, error_code="unsupported_category")
         return _err("unsupported_category", f"Unsupported category: {req.category}. Allowed categories: {', '.join(sorted(CATEGORY_MAP))}")
-    return _dispatch(factory(), CategoryActionRequest(action=req.action, payload=req.payload))
+    return _dispatch(factory(), CategoryActionRequest(action=req.action, payload=req.payload), category=category, endpoint="/coding/action")
 
 
 @router.post("/repo/action")
-def repo_action(req: CategoryActionRequest): return _dispatch(_repo_actions(), req)
+def repo_action(req: CategoryActionRequest): return _dispatch(_repo_actions(), req, category="repo", endpoint="/coding/repo/action")
 
 @router.post("/workspace/action")
-def workspace_action(req: CategoryActionRequest): return _dispatch(_workspace_actions(), req)
+def workspace_action(req: CategoryActionRequest): return _dispatch(_workspace_actions(), req, category="workspace", endpoint="/coding/workspace/action")
 
 @router.post("/patch/action")
-def patch_action(req: CategoryActionRequest): return _dispatch(_patch_actions(), req)
+def patch_action(req: CategoryActionRequest): return _dispatch(_patch_actions(), req, category="patch", endpoint="/coding/patch/action")
 
 @router.post("/test/action")
-def test_action(req: CategoryActionRequest): return _dispatch(_test_actions(), req)
+def test_action(req: CategoryActionRequest): return _dispatch(_test_actions(), req, category="test", endpoint="/coding/test/action")
 
 @router.post("/quality/action")
-def quality_action(req: CategoryActionRequest): return _dispatch(_quality_actions(), req)
+def quality_action(req: CategoryActionRequest): return _dispatch(_quality_actions(), req, category="quality", endpoint="/coding/quality/action")
 
 @router.post("/diagnostics/action")
-def diagnostics_action(req: CategoryActionRequest): return _dispatch(_diagnostics_actions(), req)
+def diagnostics_action(req: CategoryActionRequest): return _dispatch(_diagnostics_actions(), req, category="diagnostics", endpoint="/coding/diagnostics/action")
 
 @router.post("/policy/action")
-def policy_action(req: CategoryActionRequest): return _dispatch(_policy_actions(), req)
+def policy_action(req: CategoryActionRequest): return _dispatch(_policy_actions(), req, category="policy", endpoint="/coding/policy/action")
 
 @router.post("/tasks/action")
-def tasks_action(req: CategoryActionRequest): return _dispatch(_tasks_actions(), req)
+def tasks_action(req: CategoryActionRequest): return _dispatch(_tasks_actions(), req, category="tasks", endpoint="/coding/tasks/action")
 
 @router.post("/github/action")
-def github_action(req: CategoryActionRequest): return _dispatch(_github_actions(), req)
+def github_action(req: CategoryActionRequest): return _dispatch(_github_actions(), req, category="github", endpoint="/coding/github/action")
 
 @router.post("/env/action")
-def env_action(req: CategoryActionRequest): return _dispatch(_env_actions(), req)
+def env_action(req: CategoryActionRequest): return _dispatch(_env_actions(), req, category="env", endpoint="/coding/env/action")

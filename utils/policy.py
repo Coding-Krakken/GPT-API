@@ -5,6 +5,8 @@ import os
 from pathlib import Path
 from typing import Iterable
 
+from utils import eval_telemetry
+
 
 DEFAULT_BLOCKED_PATTERNS = [
     ".env", "*.pem", "*.key", "id_rsa", "id_ed25519", ".ssh/*", ".aws/*",
@@ -150,7 +152,9 @@ def evaluate_action(action: str, workspace_path: str | None = None, changed_file
                 risk = "medium"
     if not reasons:
         reasons.append("No policy blockers detected.")
-    return {"allowed": allowed, "risk": risk, "reasons": reasons, "action": action}
+    out = {"allowed": allowed, "risk": risk, "reasons": reasons, "action": action}
+    eval_telemetry.log_event("policy_evaluated", action=action, allowed=allowed, risk=risk, changed_files=changed_files, tests_passed=tests_passed, quality_passed=quality_passed, user_approved_network_write=user_approved_network_write)
+    return out
 
 
 def evaluate_action_deep(
@@ -197,4 +201,6 @@ def evaluate_action_deep(
         allowed = False; risk = "high"; reasons.append("File deletions require explicit approval.")
     if sensitive and not user_approved_sensitive:
         allowed = False; risk = "high"; reasons.append("Sensitive/dependency/generated changes require explicit approval.")
-    return {"allowed": allowed, "risk": risk, "reasons": list(dict.fromkeys(reasons)), "action": (action or "").strip().lower()}
+    out = {"allowed": allowed, "risk": risk, "reasons": list(dict.fromkeys(reasons)), "action": (action or "").strip().lower()}
+    eval_telemetry.log_event("policy_evaluated", action=out["action"], allowed=allowed, risk=risk, changed_files=changed_files, tests_passed=tests_passed, quality_passed=quality_passed, user_approved_network_write=user_approved_network_write, deep=True, diff_line_count=diff_line_count)
+    return out

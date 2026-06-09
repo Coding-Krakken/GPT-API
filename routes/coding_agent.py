@@ -8,7 +8,7 @@ from pydantic import BaseModel
 
 from utils.auth import verify_key
 from utils.policy import PolicyError
-from utils import repo_intel, worktrees, test_discovery, task_ledger
+from utils import repo_intel, worktrees, test_discovery, task_ledger, eval_telemetry
 
 router = APIRouter(dependencies=[Depends(verify_key)])
 
@@ -33,6 +33,7 @@ def _slug(text: str) -> str:
 @router.post("/coding-task")
 def coding_task(req: CodingTaskRequest):
     start = time.time()
+    eval_telemetry.log_event("task_started", endpoint="/agent/coding-task", repo_path=req.repo_path, task_preview=req.task[:200], mode=req.mode, workspace_strategy=req.workspace_strategy, approval_policy=req.approval_policy, create_pr=req.create_pr)
     try:
         if req.mode != "plan_apply_verify":
             return {"error": {"code": "unsupported_mode", "message": "Only plan_apply_verify is supported."}, "status": 400}
@@ -61,6 +62,7 @@ def coding_task(req: CodingTaskRequest):
         ]
         task_ledger.log_event(ledger["task_id"], "plan_created", {"plan": plan})
         task_record = task_ledger.read(ledger["task_id"])
+        eval_telemetry.log_event("action_completed", endpoint="/agent/coding-task", task_id=ledger["task_id"], repo_path=req.repo_path, workspace_path=workspace.get("workspace_path"), status="workspace_ready", latency_ms=round((time.time() - start) * 1000, 2))
         compact_overview = {
             "repo_path": overview.get("repo_path"),
             "is_git_repo": overview.get("is_git_repo"),
@@ -89,8 +91,10 @@ def coding_task(req: CodingTaskRequest):
             "timestamp": int(time.time() * 1000),
         }
     except PolicyError as exc:
+        eval_telemetry.log_error("action_failed", exc, endpoint="/agent/coding-task", repo_path=req.repo_path, status=400, latency_ms=round((time.time() - start) * 1000, 2))
         return {"error": {"code": exc.code, "message": exc.message}, "status": 400}
     except Exception as exc:
+        eval_telemetry.log_error("action_failed", exc, endpoint="/agent/coding-task", repo_path=req.repo_path, status=500, latency_ms=round((time.time() - start) * 1000, 2))
         return {"error": {"code": "internal_error", "message": str(exc)}, "status": 500}
 
 
@@ -101,6 +105,7 @@ class CodingTaskNextRequest(BaseModel):
 @router.post("/coding-task/next")
 def coding_task_next(req: CodingTaskNextRequest):
     start = time.time()
+    eval_telemetry.log_event("action_called", endpoint="/agent/coding-task/next", task_id=req.task_id)
     try:
         task = task_ledger.read(req.task_id)
         status = task.get("status")
@@ -129,7 +134,9 @@ def coding_task_next(req: CodingTaskNextRequest):
             required_action = {"endpoint": "/policy/evaluate-action", "next": "commit or PR dry-run if policy allows"}
         contract = task_ledger.phase_contract(req.task_id)
         task_ledger.log_event(req.task_id, "next_phase", {"phase": contract.get("phase")})
-        return {"status": 200, "phase": contract.get("phase"), "required_action": required_action, "contract": contract.get("contract"), "validation": contract.get("validation"), "task": task_ledger.read(req.task_id), "latency_ms": round((time.time() - start) * 1000, 2), "timestamp": int(time.time() * 1000)}
+        latency = round((time.time() - start) * 1000, 2)
+        eval_telemetry.log_event("task_phase_selected", endpoint="/agent/coding-task/next", task_id=req.task_id, phase=contract.get("phase"), status=200, latency_ms=latency)
+        return {"status": 200, "phase": contract.get("phase"), "required_action": required_action, "contract": contract.get("contract"), "validation": contract.get("validation"), "task": task_ledger.read(req.task_id), "latency_ms": latency, "timestamp": int(time.time() * 1000)}
     except PolicyError as exc:
         return {"status": 400, "error": {"code": exc.code, "message": exc.message}}
     except Exception as exc:
@@ -158,6 +165,7 @@ class CodingTaskFinalizeRequest(BaseModel):
 @router.post("/coding-task/submit")
 def coding_task_submit(req: CodingTaskSubmitRequest):
     start = time.time()
+    eval_telemetry.log_event("action_called", endpoint="/agent/coding-task/submit", task_id=req.task_id, artifact_name=req.artifact_name, has_patch=bool(req.patch), run_tests=req.run_tests, run_quality=req.run_quality)
     try:
         from utils import patching
         from utils import diagnostics as diagnostics_util
@@ -169,9 +177,11 @@ def coding_task_submit(req: CodingTaskSubmitRequest):
         results = {}
         if req.artifact_name and req.artifact is not None:
             task_ledger.add_artifact(req.task_id, req.artifact_name, req.artifact)
+            eval_telemetry.log_event("artifact_recorded", endpoint="/agent/coding-task/submit", task_id=req.task_id, artifact_name=req.artifact_name)
             results[req.artifact_name] = req.artifact
         if req.patch:
             risk = patching.validate_risk(workspace, req.patch)
+            eval_telemetry.log_event("patch_previewed", endpoint="/agent/coding-task/submit", task_id=req.task_id, workspace_path=workspace, allowed=risk.get("allowed"), files_touched=risk.get("files_touched"), risk_count=len(risk.get("risks", [])))
             task_ledger.add_artifact(req.task_id, "patch_risk", risk)
             if not risk.get("allowed"):
                 task_ledger.update(req.task_id, status="blocked_patch_risk")
@@ -182,18 +192,21 @@ def coding_task_submit(req: CodingTaskSubmitRequest):
                 task_ledger.update(req.task_id, status="patch_preview_failed")
                 return {"status": 400, "error": {"code": "patch_preview_failed", "message": preview.get("stderr") or preview.get("preview")}, "preview": preview}
             applied = patching.apply_recorded(workspace, req.patch, req.task_id, "agent_submit")
+            eval_telemetry.log_event("patch_applied", endpoint="/agent/coding-task/submit", task_id=req.task_id, workspace_path=workspace, patch_id=applied.get("patch_id"), applied=applied.get("applied"), files_touched=applied.get("files_touched"))
             task_ledger.add_artifact(req.task_id, "patch_recorded", applied)
             task_ledger.update(req.task_id, status="patch_applied")
             results["patch"] = {"patch_id": applied.get("patch_id"), "applied": applied.get("applied"), "files_touched": applied.get("files_touched")}
         if req.run_tests:
             tests = test_discovery.discover(workspace)
             task_ledger.add_artifact(req.task_id, "test_discovery", tests)
+            eval_telemetry.log_event("tests_discovered", endpoint="/agent/coding-task/submit", task_id=req.task_id, workspace_path=workspace, command_count=len(tests.get("commands", [])), frameworks=tests.get("frameworks"))
             command = (tests.get("commands") or [{}])[0].get("name") if tests.get("commands") else None
             if command:
                 test_result = test_discovery.run_discovered(workspace, command)
             else:
                 test_result = {"passed": False, "error": {"code": "no_test_command", "message": "No discovered test command."}}
             task_ledger.add_artifact(req.task_id, "test_result", test_result)
+            eval_telemetry.log_event("tests_run", endpoint="/agent/coding-task/submit", task_id=req.task_id, workspace_path=workspace, passed=test_result.get("passed"), exit_code=test_result.get("exit_code"), command_name=test_result.get("command_name"))
             results["tests"] = test_result
             if not test_result.get("passed"):
                 parsed = diagnostics_util.parse("pytest", test_result.get("stdout_tail", ""), test_result.get("stderr_tail", ""))
@@ -208,10 +221,13 @@ def coding_task_submit(req: CodingTaskSubmitRequest):
                 quality_results.append({"command": cmd.get("name"), "argv": cmd["argv"], **result})
             quality_result = {"passed": all(r.get("passed") for r in quality_results), "results": quality_results}
             task_ledger.add_artifact(req.task_id, "quality_result", quality_result)
+            eval_telemetry.log_event("quality_run", endpoint="/agent/coding-task/submit", task_id=req.task_id, workspace_path=workspace, passed=quality_result.get("passed"), result_count=len(quality_result.get("results", [])))
             results["quality"] = quality_result
             if not quality_result.get("passed"):
                 task_ledger.update(req.task_id, status="quality_failed")
-        return {"status": 200, "results": results, "task": task_ledger.read(req.task_id), "latency_ms": round((time.time()-start)*1000,2), "timestamp": int(time.time()*1000)}
+        latency = round((time.time()-start)*1000,2)
+        eval_telemetry.log_event("action_completed", endpoint="/agent/coding-task/submit", task_id=req.task_id, status=200, result_keys=sorted(results.keys()), latency_ms=latency)
+        return {"status": 200, "results": results, "task": task_ledger.read(req.task_id), "latency_ms": latency, "timestamp": int(time.time()*1000)}
     except PolicyError as exc:
         return {"status": 400, "error": {"code": exc.code, "message": exc.message}}
     except Exception as exc:
@@ -221,6 +237,7 @@ def coding_task_submit(req: CodingTaskSubmitRequest):
 @router.post("/coding-task/finalize")
 def coding_task_finalize(req: CodingTaskFinalizeRequest):
     start = time.time()
+    eval_telemetry.log_event("action_called", endpoint="/agent/coding-task/finalize", task_id=req.task_id, commit=req.commit, create_pr=req.create_pr)
     try:
         from utils import policy as policy_util
         task = task_ledger.read(req.task_id)
@@ -267,7 +284,9 @@ def coding_task_finalize(req: CodingTaskFinalizeRequest):
         report = task_ledger.final_report(req.task_id)
         task_ledger.add_artifact(req.task_id, "final_report", report)
         task_ledger.update(req.task_id, status="finalized")
-        return {"status": 200, "result": result, "final_report": report, "latency_ms": round((time.time()-start)*1000,2), "timestamp": int(time.time()*1000)}
+        latency = round((time.time()-start)*1000,2)
+        eval_telemetry.log_event("task_finalized", endpoint="/agent/coding-task/finalize", task_id=req.task_id, status=200, commit=req.commit, create_pr=req.create_pr, policy_allowed=policy_result.get("allowed"), latency_ms=latency)
+        return {"status": 200, "result": result, "final_report": report, "latency_ms": latency, "timestamp": int(time.time()*1000)}
     except PolicyError as exc:
         return {"status": 400, "error": {"code": exc.code, "message": exc.message}}
     except Exception as exc:
@@ -284,6 +303,7 @@ class CodingTaskContractReportRequest(BaseModel):
 @router.post("/coding-task/repair-plan")
 def coding_task_repair_plan(req: CodingTaskRepairPlanRequest):
     start = time.time()
+    eval_telemetry.log_event("action_called", endpoint="/agent/coding-task/repair-plan", task_id=req.task_id, max_files=req.max_files)
     try:
         from utils import diagnostics as diagnostics_util
         task = task_ledger.read(req.task_id)
@@ -315,7 +335,9 @@ def coding_task_repair_plan(req: CodingTaskRepairPlanRequest):
         }
         task_ledger.add_artifact(req.task_id, "repair_plan", plan)
         task_ledger.log_event(req.task_id, "repair_plan_created", {"phase": plan["phase"]})
-        return {"status": 200, "repair_plan": plan, "latency_ms": round((time.time()-start)*1000,2), "timestamp": int(time.time()*1000)}
+        latency = round((time.time()-start)*1000,2)
+        eval_telemetry.log_event("repair_plan_created", endpoint="/agent/coding-task/repair-plan", task_id=req.task_id, phase=plan.get("phase"), recommended_context_files=plan.get("recommended_context_files"), latency_ms=latency)
+        return {"status": 200, "repair_plan": plan, "latency_ms": latency, "timestamp": int(time.time()*1000)}
     except PolicyError as exc:
         return {"status": 400, "error": {"code": exc.code, "message": exc.message}}
     except Exception as exc:
@@ -324,9 +346,12 @@ def coding_task_repair_plan(req: CodingTaskRepairPlanRequest):
 @router.post("/coding-task/iteration-summary")
 def coding_task_iteration_summary(req: CodingTaskContractReportRequest):
     start = time.time()
+    eval_telemetry.log_event("action_called", endpoint="/agent/coding-task/iteration-summary", task_id=req.task_id)
     try:
         summary = task_ledger.iteration_summary(req.task_id)
-        return {"status": 200, "summary": summary, "latency_ms": round((time.time()-start)*1000,2), "timestamp": int(time.time()*1000)}
+        latency = round((time.time()-start)*1000,2)
+        eval_telemetry.log_event("action_completed", endpoint="/agent/coding-task/iteration-summary", task_id=req.task_id, status=200, phase=summary.get("phase"), latency_ms=latency)
+        return {"status": 200, "summary": summary, "latency_ms": latency, "timestamp": int(time.time()*1000)}
     except PolicyError as exc:
         return {"status": 400, "error": {"code": exc.code, "message": exc.message}}
     except Exception as exc:
@@ -335,11 +360,14 @@ def coding_task_iteration_summary(req: CodingTaskContractReportRequest):
 @router.post("/coding-task/contract-report")
 def coding_task_contract_report(req: CodingTaskContractReportRequest):
     start = time.time()
+    eval_telemetry.log_event("action_called", endpoint="/agent/coding-task/contract-report", task_id=req.task_id)
     try:
         contract = task_ledger.phase_contract(req.task_id)
         summary = task_ledger.iteration_summary(req.task_id)
         validation = task_ledger.validate_required_artifacts(req.task_id)
-        return {"status": 200, "contract": contract, "summary": summary, "validation": validation, "latency_ms": round((time.time()-start)*1000,2), "timestamp": int(time.time()*1000)}
+        latency = round((time.time()-start)*1000,2)
+        eval_telemetry.log_event("action_completed", endpoint="/agent/coding-task/contract-report", task_id=req.task_id, status=200, phase=contract.get("phase"), contract_valid=validation.get("valid"), latency_ms=latency)
+        return {"status": 200, "contract": contract, "summary": summary, "validation": validation, "latency_ms": latency, "timestamp": int(time.time()*1000)}
     except PolicyError as exc:
         return {"status": 400, "error": {"code": exc.code, "message": exc.message}}
     except Exception as exc:
@@ -357,6 +385,7 @@ class CodingTaskSmokeTestRequest(BaseModel):
 @router.post("/coding-task/smoke-test")
 def coding_task_smoke_test(req: CodingTaskSmokeTestRequest):
     start = time.time()
+    eval_telemetry.log_event("action_called", endpoint="/agent/coding-task/smoke-test", repo_path=req.repo_path, safe_only=req.safe_only)
     try:
         from routes import coding_dispatch
         checks = []
@@ -421,7 +450,9 @@ def coding_task_smoke_test(req: CodingTaskSmokeTestRequest):
             ],
         }
         task_ledger.add_artifact(task_id, "smoke_test_report", report)
-        return {"status": 200, "smoke_test": report, "latency_ms": round((time.time() - start) * 1000, 2), "timestamp": int(time.time() * 1000)}
+        latency = round((time.time() - start) * 1000, 2)
+        eval_telemetry.log_event("action_completed", endpoint="/agent/coding-task/smoke-test", task_id=task_id, repo_path=req.repo_path, workspace_path=workspace, status=200, total=report.get("total"), passed=report.get("passed"), failed=report.get("failed"), latency_ms=latency)
+        return {"status": 200, "smoke_test": report, "latency_ms": latency, "timestamp": int(time.time() * 1000)}
     except PolicyError as exc:
         return {"status": 400, "error": {"code": exc.code, "message": exc.message}}
     except Exception as exc:
