@@ -2224,6 +2224,125 @@ paths:
                 $ref: "#/components/schemas/HTTPValidationError"
       security:
         - ApiKeyAuth: []
+  /evals/cases:
+    get:
+      summary: "List Eval Cases"
+      operationId: "list_eval_cases_evals_cases_get"
+      responses:
+        200:
+          description: "Successful Response"
+          content:
+            application/json:
+              schema: {}
+      security:
+        - ApiKeyAuth: []
+  /evals/run:
+    post:
+      summary: "Run Eval"
+      operationId: "run_eval_evals_run_post"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EvalRunRequest"
+        required: true
+      responses:
+        200:
+          description: "Successful Response"
+          content:
+            application/json:
+              schema: {}
+        422:
+          description: "Validation Error"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+      security:
+        - ApiKeyAuth: []
+  /evals/report:
+    post:
+      summary: "Generate Or Read Report"
+      operationId: "generate_or_read_report_evals_report_post"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EvalReportRequest"
+        required: true
+      responses:
+        200:
+          description: "Successful Response"
+          content:
+            application/json:
+              schema: {}
+        422:
+          description: "Validation Error"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+      security:
+        - ApiKeyAuth: []
+  /evals/compare:
+    post:
+      summary: "Compare Reports"
+      operationId: "compare_reports_evals_compare_post"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EvalCompareRequest"
+        required: true
+      responses:
+        200:
+          description: "Successful Response"
+          content:
+            application/json:
+              schema: {}
+        422:
+          description: "Validation Error"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+      security:
+        - ApiKeyAuth: []
+  /evals/regressions:
+    get:
+      summary: "List Regressions"
+      operationId: "list_regressions_evals_regressions_get"
+      responses:
+        200:
+          description: "Successful Response"
+          content:
+            application/json:
+              schema: {}
+      security:
+        - ApiKeyAuth: []
+    post:
+      summary: "Create Regression"
+      operationId: "create_regression_evals_regressions_post"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegressionCreateRequest"
+        required: true
+      responses:
+        200:
+          description: "Successful Response"
+          content:
+            application/json:
+              schema: {}
+        422:
+          description: "Validation Error"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+      security:
+        - ApiKeyAuth: []
 components:
   schemas:
     AppRequest:
@@ -2729,6 +2848,78 @@ components:
       required:
         - "workspace_path"
       title: "EnvRequest"
+    EvalCompareRequest:
+      properties:
+        current_run_id:
+          anyOf:
+            - type: "string"
+            - type: "null"
+          title: "Current Run Id"
+        baseline_run_id:
+          anyOf:
+            - type: "string"
+            - type: "null"
+          title: "Baseline Run Id"
+        current_report_id:
+          anyOf:
+            - type: "string"
+            - type: "null"
+          title: "Current Report Id"
+        baseline_report_id:
+          anyOf:
+            - type: "string"
+            - type: "null"
+          title: "Baseline Report Id"
+      type: "object"
+      title: "EvalCompareRequest"
+    EvalReportRequest:
+      properties:
+        task_id:
+          anyOf:
+            - type: "string"
+            - type: "null"
+          title: "Task Id"
+        run_id:
+          anyOf:
+            - type: "string"
+            - type: "null"
+          title: "Run Id"
+        events_path:
+          anyOf:
+            - type: "string"
+            - type: "null"
+          title: "Events Path"
+        report_id:
+          anyOf:
+            - type: "string"
+            - type: "null"
+          title: "Report Id"
+      type: "object"
+      title: "EvalReportRequest"
+    EvalRunRequest:
+      properties:
+        suite:
+          type: "string"
+          title: "Suite"
+          description: "Evaluation suite to run. Supported: core_smoke, payload_recovery, release_gate."
+          default: "core_smoke"
+        repo_path:
+          type: "string"
+          title: "Repo Path"
+          description: "Repository path to evaluate, e.g. /home/obsidian/Elevate_test."
+        safe_only:
+          type: "boolean"
+          title: "Safe Only"
+          default: true
+        report_id:
+          anyOf:
+            - type: "string"
+            - type: "null"
+          title: "Report Id"
+      type: "object"
+      required:
+        - "repo_path"
+      title: "EvalRunRequest"
     FileOp:
       properties:
         action:
@@ -3276,6 +3467,39 @@ components:
       required:
         - "workspace_path"
       title: "QualityCheckRequest"
+    RegressionCreateRequest:
+      properties:
+        id:
+          type: "string"
+          title: "Id"
+        title:
+          type: "string"
+          title: "Title"
+        failure_layer:
+          type: "string"
+          title: "Failure Layer"
+          default: "unknown"
+        symptom:
+          type: "string"
+          title: "Symptom"
+        expected_behavior:
+          type: "string"
+          title: "Expected Behavior"
+        source:
+          type: "string"
+          title: "Source"
+          default: "manual"
+        details:
+          additionalProperties: true
+          type: "object"
+          title: "Details"
+      type: "object"
+      required:
+        - "id"
+        - "title"
+        - "symptom"
+        - "expected_behavior"
+      title: "RegressionCreateRequest"
     RepoChangedContextRequest:
       properties:
         repo_path:

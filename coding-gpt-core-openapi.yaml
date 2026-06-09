@@ -965,6 +965,78 @@ components:
       required:
         - "workspace_path"
       title: "EnvRequest"
+    EvalCompareRequest:
+      properties:
+        current_run_id:
+          anyOf:
+            - type: "string"
+            - type: "null"
+          title: "Current Run Id"
+        baseline_run_id:
+          anyOf:
+            - type: "string"
+            - type: "null"
+          title: "Baseline Run Id"
+        current_report_id:
+          anyOf:
+            - type: "string"
+            - type: "null"
+          title: "Current Report Id"
+        baseline_report_id:
+          anyOf:
+            - type: "string"
+            - type: "null"
+          title: "Baseline Report Id"
+      type: "object"
+      title: "EvalCompareRequest"
+    EvalReportRequest:
+      properties:
+        task_id:
+          anyOf:
+            - type: "string"
+            - type: "null"
+          title: "Task Id"
+        run_id:
+          anyOf:
+            - type: "string"
+            - type: "null"
+          title: "Run Id"
+        events_path:
+          anyOf:
+            - type: "string"
+            - type: "null"
+          title: "Events Path"
+        report_id:
+          anyOf:
+            - type: "string"
+            - type: "null"
+          title: "Report Id"
+      type: "object"
+      title: "EvalReportRequest"
+    EvalRunRequest:
+      properties:
+        suite:
+          type: "string"
+          title: "Suite"
+          description: "Evaluation suite to run. Supported: core_smoke, payload_recovery, release_gate."
+          default: "core_smoke"
+        repo_path:
+          type: "string"
+          title: "Repo Path"
+          description: "Repository path to evaluate, e.g. /home/obsidian/Elevate_test."
+        safe_only:
+          type: "boolean"
+          title: "Safe Only"
+          default: true
+        report_id:
+          anyOf:
+            - type: "string"
+            - type: "null"
+          title: "Report Id"
+      type: "object"
+      required:
+        - "repo_path"
+      title: "EvalRunRequest"
     FileOp:
       properties:
         action:
@@ -1512,6 +1584,39 @@ components:
       required:
         - "workspace_path"
       title: "QualityCheckRequest"
+    RegressionCreateRequest:
+      properties:
+        id:
+          type: "string"
+          title: "Id"
+        title:
+          type: "string"
+          title: "Title"
+        failure_layer:
+          type: "string"
+          title: "Failure Layer"
+          default: "unknown"
+        symptom:
+          type: "string"
+          title: "Symptom"
+        expected_behavior:
+          type: "string"
+          title: "Expected Behavior"
+        source:
+          type: "string"
+          title: "Source"
+          default: "manual"
+        details:
+          additionalProperties: true
+          type: "object"
+          title: "Details"
+      type: "object"
+      required:
+        - "id"
+        - "title"
+        - "symptom"
+        - "expected_behavior"
+      title: "RegressionCreateRequest"
     RepoChangedContextRequest:
       properties:
         repo_path:
