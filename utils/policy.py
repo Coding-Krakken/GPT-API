@@ -113,9 +113,13 @@ def safe_walk(root: str | Path):
 def policy_result_for_path(path: str, repo_root: str | None = None) -> dict:
     try:
         resolved = ensure_not_blocked(path, repo_root=repo_root)
-        return {"allowed": True, "path": str(resolved), "risk": "readonly"}
+        out = {"allowed": True, "path": str(resolved), "risk": "readonly"}
+        eval_telemetry.log_event("policy_path_checked", path=path, repo_root=repo_root, allowed=True, risk="readonly")
+        return out
     except PolicyError as exc:
-        return {"allowed": False, "error": {"code": exc.code, "message": exc.message}}
+        out = {"allowed": False, "error": {"code": exc.code, "message": exc.message}}
+        eval_telemetry.log_event("policy_path_checked", path=path, repo_root=repo_root, allowed=False, error_code=exc.code)
+        return out
 
 
 def evaluate_action(action: str, workspace_path: str | None = None, changed_files: list[str] | None = None, tests_passed: bool | None = None, quality_passed: bool | None = None, user_approved_network_write: bool = False) -> dict:

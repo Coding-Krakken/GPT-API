@@ -8,6 +8,7 @@ from pathlib import Path
 
 from utils.policy import EXCLUDED_DIRS, ensure_not_blocked, ensure_repo_path, safe_walk, is_blocked_relative
 from utils.safe_subprocess import run_checked
+from utils import eval_telemetry
 
 
 def _rel_tree(repo: Path, max_depth: int) -> list[str]:
@@ -71,12 +72,16 @@ def overview(repo_path: str, max_depth: int = 4) -> dict:
         dirty = len(lines) > 1
         is_git = True
     languages, frameworks, important, tests = detect_project(repo)
-    return {
+    quality_commands = discover_quality_commands(repo)
+    tree = "\n".join(_rel_tree(repo, max_depth))
+    out = {
         "repo_path": str(repo), "is_git_repo": is_git, "branch": branch, "dirty": dirty,
         "languages": languages, "frameworks": frameworks, "important_files": important,
-        "tree": "\n".join(_rel_tree(repo, max_depth)), "test_commands": tests,
-        "quality_commands": discover_quality_commands(repo),
+        "tree": tree, "test_commands": tests,
+        "quality_commands": quality_commands,
     }
+    eval_telemetry.log_event("repo_overview_completed", repo_path=str(repo), is_git_repo=is_git, branch=branch, dirty=dirty, languages=languages, frameworks=frameworks, important_file_count=len(important), tree_line_count=len(tree.splitlines()), test_command_count=len(tests), quality_command_count=len(quality_commands))
+    return out
 
 
 def search(repo_path: str, query: str, globs: list[str] | None = None, max_results: int = 50) -> dict:
@@ -175,7 +180,9 @@ def repo_instructions(repo_path: str, max_bytes: int = 120000) -> dict:
             remaining -= len(data)
         except Exception:
             continue
-    return {"instructions": out}
+    result = {"instructions": out}
+    eval_telemetry.log_event("repo_instructions_completed", repo_path=str(repo), file_count=len(out), files=[item.get("file") for item in out])
+    return result
 
 
 def dependency_graph(repo_path: str) -> dict:
@@ -249,7 +256,9 @@ def relevant_context(repo_path: str, task: str, diagnostics: list[dict] | None =
         if f:
             add(str(f), 10, "diagnostic file")
     ranked = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)[:max_files]
-    return {"files": [{"file": f, "score": score, "reasons": reasons.get(f, [])[:5]} for f, score in ranked]}
+    files = [{"file": f, "score": score, "reasons": reasons.get(f, [])[:5]} for f, score in ranked]
+    eval_telemetry.log_event("repo_relevant_context_completed", repo_path=str(repo), task_preview=(task or "")[:200], suggested_count=len(files), suggested_files=[f["file"] for f in files])
+    return {"files": files}
 
 
 def _python_defs_and_calls(path: Path) -> tuple[list[dict], list[dict]]:
@@ -330,7 +339,9 @@ def route_map(repo_path: str) -> dict:
                 m = pat.search(line)
                 if m:
                     routes.append({"file": rel.as_posix(), "line": i, "method": m.group(1).upper(), "path": m.group(2), "snippet": line.strip()})
-    return {"routes": routes[:1000], "count": len(routes)}
+    out = {"routes": routes[:1000], "count": len(routes)}
+    eval_telemetry.log_event("repo_route_map_completed", repo_path=str(repo), route_count=len(routes))
+    return out
 
 
 def changed_context(repo_path: str, base_ref: str | None = None) -> dict:

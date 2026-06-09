@@ -5,6 +5,8 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass
 from typing import Any
 
+from evals.engine_metrics import engine_metrics, engine_scores
+
 AGENT_WEIGHTS = {
     "state_management": 20,
     "tool_use": 25,
@@ -135,6 +137,8 @@ def score_agent(events: list[dict[str, Any]]) -> dict[str, Any]:
 
 def score_backend(events: list[dict[str, Any]]) -> dict[str, Any]:
     stats = endpoint_stats(events)
+    engines = engine_metrics(events)
+    engine_scorecard = engine_scores(engines)
     counts = Counter(str(e.get("event_type")) for e in events)
     failures = _events(events, "action_failed")
     subprocesses = _events(events, "subprocess_completed")
@@ -189,9 +193,14 @@ def score_backend(events: list[dict[str, Any]]) -> dict[str, Any]:
         "policy": clamp(policy),
     }
     total = sum(sub[k] * BACKEND_WEIGHTS[k] for k in BACKEND_WEIGHTS) / sum(BACKEND_WEIGHTS.values())
+    combined_score = (clamp(total) * 0.65) + (engine_scorecard["overall"] * 0.35)
     return {
-        "score": clamp(total),
+        "score": clamp(combined_score),
+        "route_score": clamp(total),
+        "engine_score": engine_scorecard["overall"],
         "subscores": sub,
+        "engine_subscores": engine_scorecard["subscores"],
+        "engine_metrics": engines,
         "evidence": {
             "endpoint_stats": stats,
             "subprocess_count": len(subprocesses),

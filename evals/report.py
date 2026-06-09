@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from utils import eval_telemetry
+from evals.engine_metrics import engine_metrics, engine_scores
 from evals.scoring import classify_failures, endpoint_stats, recommendations, score_agent, score_backend
 
 
@@ -63,9 +64,11 @@ def build_report(events: list[dict[str, Any]], *, report_id: str | None = None, 
         "workspace_paths": _unique(events, "workspace_path"),
         **_time_bounds(events),
     }
+    engines = engine_metrics(events)
     report = {
         "summary": summary,
-        "scores": {"agent": agent, "backend": backend},
+        "scores": {"agent": agent, "backend": backend, "engines": engine_scores(engines)},
+        "engine_metrics": engines,
         "event_type_counts": dict(sorted(counts.items())),
         "endpoint_stats": endpoints,
         "failures": failures,
@@ -144,6 +147,21 @@ def markdown_report(report: dict[str, Any]) -> str:
             rows.append([endpoint, counts.get("action_called", 0), counts.get("action_completed", 0), counts.get("action_failed", 0), counts.get("dispatcher_called", 0)])
         lines.append(_table(rows, ["Endpoint", "Called", "Completed", "Failed", "Dispatcher called"]))
         lines.append("")
+    lines.append("## Backend engine metrics")
+    lines.append("")
+    eng_scores = report.get("scores", {}).get("engines", {})
+    lines.append(_table([["overall", eng_scores.get("overall")]] + [[k, v] for k, v in (eng_scores.get("subscores") or {}).items()], ["Engine", "Score"]))
+    lines.append("")
+    for engine_name, data in (report.get("engine_metrics") or {}).items():
+        lines.append(f"### {engine_name}")
+        rows = []
+        for key, value in data.items():
+            if isinstance(value, (dict, list)):
+                value = json.dumps(value, sort_keys=True)[:500]
+            rows.append([key, value])
+        lines.append(_table(rows, ["Metric", "Value"]))
+        lines.append("")
+
     lines.append("## Failures")
     lines.append("")
     failures = report.get("failures", [])

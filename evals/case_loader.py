@@ -199,6 +199,30 @@ def _run_simple_bugfix(case: dict[str, Any], repo_path: str, run_id: str) -> dic
     return {"status": 200 if all(c["passed"] for c in checks) else 400, "checks": checks, "task_id": task_id, "workspace_path": workspace, "changed_files": changed_files, "quality": quality}
 
 
+def _run_backend_engine_metrics(case: dict[str, Any], repo_path: str, run_id: str) -> dict[str, Any]:
+    from evals.engine_metrics import engine_metrics, engine_scores
+    from evals import report as eval_report
+    from routes.coding_agent import CodingTaskSmokeTestRequest, coding_task_smoke_test
+    start_ms = int(time.time() * 1000)
+    smoke = coding_task_smoke_test(CodingTaskSmokeTestRequest(
+        repo_path=repo_path,
+        safe_only=True,
+        task=f"Phase 7 backend engine metrics validation {run_id}",
+    ))
+    events = [e for e in eval_report.load_events() if isinstance(e.get("timestamp"), int) and e.get("timestamp") >= start_ms]
+    metrics = engine_metrics(events)
+    scores = engine_scores(metrics)
+    checks = [
+        _ok("smoke_passed", smoke.get("status") == 200 and (smoke.get("smoke_test") or {}).get("failed") == 0, {"status": smoke.get("status"), "smoke": smoke.get("smoke_test", {})}),
+        _ok("repo_metrics_present", metrics["repo_intelligence"].get("overview_count", 0) > 0, metrics["repo_intelligence"]),
+        _ok("workspace_metrics_present", metrics["workspace"].get("created_count", 0) > 0, metrics["workspace"]),
+        _ok("test_quality_metrics_present", metrics["test_quality_engine"].get("test_discovery_count", 0) > 0 or metrics["test_quality_engine"].get("quality_run_count", 0) > 0, metrics["test_quality_engine"]),
+        _ok("policy_metrics_present", metrics["policy_engine"].get("policy_event_count", 0) > 0 or metrics["policy_engine"].get("path_check_count", 0) > 0, metrics["policy_engine"]),
+        _ok("engine_scores_present", scores.get("overall") is not None and bool(scores.get("subscores")), scores),
+    ]
+    return {"status": 200 if all(c["passed"] for c in checks) else 400, "checks": checks, "engine_metrics": metrics, "engine_scores": scores}
+
+
 def run_case(case: dict[str, Any], *, repo_path: str, run_id: str | None = None) -> dict[str, Any]:
     run_id = run_id or f"case_{case.get('id')}_{int(time.time() * 1000)}"
     runner = case.get("runner")
@@ -218,6 +242,8 @@ def run_case(case: dict[str, Any], *, repo_path: str, run_id: str | None = None)
             result = _run_repo_intelligence(case, repo_path, run_id)
         elif runner in {"simple_bugfix", "fixture_planned"}:
             result = _run_simple_bugfix(case, repo_path, run_id)
+        elif runner == "backend_engine_metrics":
+            result = _run_backend_engine_metrics(case, repo_path, run_id)
         else:
             result = {"status": 400, "error": {"code": "unsupported_case_runner", "message": f"Unsupported runner: {runner}"}, "checks": []}
     except Exception as exc:

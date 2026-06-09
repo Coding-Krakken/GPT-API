@@ -268,3 +268,20 @@ Run through the API:
 Current regressions cover real incidents: missing dispatcher payload, wrong ngrok domain, missing API key, instructions over 8000 characters, OpenAPI security list formatting, Custom GPT operation limit, and regression fixture creation.
 
 Every real failure should be added as an executable regression with a `failure_layer` and `runner`.
+
+
+## Phase 7 backend engine metrics
+
+Phase 7 adds engine-specific quality metrics in `evals/engine_metrics.py` and a dedicated eval case:
+
+```text
+evals/cases/backend_engine_metrics.yaml
+```
+
+Run it with:
+
+```bash
+python evals/run_eval_suite.py --suite backend_engine_metrics --repo-path /home/obsidian/Elevate_test
+```
+
+Reports now include `scores.engines` and `engine_metrics` for repo intelligence, workspace, patch engine, test/quality engine, and policy engine. See `docs/CODING_GPT_PHASE7_ENGINE_METRICS.md`.

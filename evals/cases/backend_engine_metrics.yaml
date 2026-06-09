@@ -1,0 +1,25 @@
+{
+  "id": "backend_engine_metrics",
+  "suite": "backend_engine_metrics",
+  "suites": ["backend_engine_metrics", "phase7_backend_engines", "release_gate"],
+  "type": "engine_metrics",
+  "title": "Phase 7 backend engine metrics benchmark",
+  "safe_only": true,
+  "runner": "backend_engine_metrics",
+  "repo_path_default": "/home/obsidian/Elevate_test",
+  "description": "Runs the safe core smoke test and verifies repo intelligence, workspace, test/quality, policy, and engine score metrics are emitted and scored.",
+  "expected": {
+    "repo_metrics_present": true,
+    "workspace_metrics_present": true,
+    "test_quality_metrics_present": true,
+    "policy_metrics_present": true,
+    "engine_scores_present": true
+  },
+  "score": {
+    "repo_intelligence": 20,
+    "workspace": 20,
+    "patch_engine": 20,
+    "test_quality_engine": 20,
+    "policy_engine": 20
+  }
+}
