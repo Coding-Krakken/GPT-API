@@ -19,11 +19,11 @@ router = APIRouter(dependencies=[Depends(verify_key)])
 
 class CategoryActionRequest(BaseModel):
     action: str = Field(..., description="Allowlisted action name for this category.")
-    payload: dict[str, Any] = Field(default_factory=dict, description="Action-specific payload.")
+    payload: dict[str, Any] = Field(..., description="Required action-specific payload. Never omit this. Example: {'repo_path': '/home/obsidian/Elevate_test'} for repo actions.")
 
 
 class CodingActionRequest(CategoryActionRequest):
-    category: str = Field(..., description="Allowlisted category: repo, workspace, patch, test, quality, diagnostics, policy, tasks, github, env.")
+    category: str = Field(..., description="Allowlisted category: repo, workspace, patch, test, quality, diagnostics, policy, tasks, github, env. Unsupported categories such as shell/files/git/package are blocked.")
 
 
 def _ok(out: Any, start: float) -> dict[str, Any]:
@@ -37,14 +37,55 @@ def _ok(out: Any, start: float) -> dict[str, Any]:
     return result
 
 
-def _err(code: str, message: str, status: int = 400) -> dict[str, Any]:
-    return {"status": status, "error": {"code": code, "message": message}}
+def _err(code: str, message: str, status: int = 400, **extra: Any) -> dict[str, Any]:
+    error = {"code": code, "message": message}
+    error.update(extra)
+    return {"status": status, "error": error}
+
+
+def _example_for_missing(names: list[str], payload: dict[str, Any]) -> dict[str, Any]:
+    examples = {
+        "repo_path": "/home/obsidian/Elevate_test",
+        "workspace_path": "/tmp/gpt-api-worktrees/<workspace>",
+        "task_id": "task_<id>",
+        "task": "Describe the coding task",
+        "query": "search terms",
+        "files": ["README.md"],
+        "symbol": "ComponentName",
+        "symbols": ["ComponentName"],
+        "patch": "diff --git a/file b/file\n--- a/file\n+++ b/file\n@@ ...",
+        "command_name": "npm lint",
+        "diagnostics": [],
+        "path": "README.md",
+        "message": "Commit message",
+        "title": "PR title",
+        "issue": "1",
+        "pr": "1",
+        "body": "Comment/body text",
+        "checks": [],
+        "comments": [],
+        "event_type": "manual_event",
+        "name": "artifact_name",
+        "artifact": {},
+    }
+    sample = dict(payload or {})
+    for name in names:
+        sample[name] = examples.get(name, f"<{name}>")
+    return sample
 
 
 def _required(payload: dict[str, Any], *names: str) -> list[Any]:
     missing = [n for n in names if n not in payload or payload[n] is None]
     if missing:
-        raise PolicyError("missing_payload_fields", f"Missing required payload fields: {', '.join(missing)}")
+        exc = PolicyError("missing_payload_fields", f"Missing required payload fields: {', '.join(missing)}")
+        exc.details = {
+            "required_payload": list(names),
+            "missing_payload": missing,
+            "received_payload_keys": sorted((payload or {}).keys()),
+            "hint": "Put required fields inside the payload object, not at the top level. Retry once with the corrected payload.",
+            "example_payload": _example_for_missing(missing, payload or {}),
+        }
+        raise exc
     return [payload[n] for n in names]
 
 
@@ -57,7 +98,7 @@ def _dispatch(action_map: dict[str, Callable[[dict[str, Any]], Any]], req: Categ
             return _err("unsupported_action", f"Unsupported action: {req.action}. Allowed actions: {', '.join(sorted(action_map))}")
         return _ok(fn(req.payload or {}), start)
     except PolicyError as exc:
-        return _err(exc.code, exc.message)
+        return _err(exc.code, exc.message, **getattr(exc, "details", {}))
     except Exception as exc:
         return _err("internal_error", str(exc), 500)
 

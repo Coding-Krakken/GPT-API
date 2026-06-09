@@ -23,6 +23,7 @@ class CodingTaskRequest(BaseModel):
     create_pr: bool = False
     base_branch: str | None = None
     task_id: str | None = None
+    compact_response: bool = True
 
 
 def _slug(text: str) -> str:
@@ -40,7 +41,7 @@ def coding_task(req: CodingTaskRequest):
         if req.approval_policy not in {"safe_auto", "manual_network_writes", "dry_run_only"}:
             return {"error": {"code": "unsupported_approval_policy", "message": "Supported policies: safe_auto, manual_network_writes, dry_run_only."}, "status": 400}
 
-        overview = repo_intel.overview(req.repo_path, 4)
+        overview = repo_intel.overview(req.repo_path, 2 if req.compact_response else 4)
         ledger = task_ledger.read(req.task_id) if req.task_id else task_ledger.create(
             task=req.task,
             repo_path=req.repo_path,
@@ -59,14 +60,28 @@ def coding_task(req: CodingTaskRequest):
             "Return final diff, tests run, risks, and next steps.",
         ]
         task_ledger.log_event(ledger["task_id"], "plan_created", {"plan": plan})
+        task_record = task_ledger.read(ledger["task_id"])
+        compact_overview = {
+            "repo_path": overview.get("repo_path"),
+            "is_git_repo": overview.get("is_git_repo"),
+            "branch": overview.get("branch"),
+            "dirty": overview.get("dirty"),
+            "languages": overview.get("languages", []),
+            "frameworks": overview.get("frameworks", []),
+            "important_files": overview.get("important_files", []),
+            "test_commands": overview.get("test_commands", []),
+            "quality_commands": overview.get("quality_commands", []),
+        }
         return {
             "status": "workspace_ready",
-            "message": "Coding task initialized safely. Continue with /repo/search, /repo/read-context, /patch/preview, /patch/apply, /test/run, /quality/check, /tasks/artifacts, and /workspace/diff.",
-            "task": task_ledger.read(ledger["task_id"]),
+            "message": "Coding task initialized safely. Store repo_path, task_id, and workspace_path. Then call /agent/coding-task/next before acting. For endpoint smoke tests, call /agent/coding-task/smoke-test.",
+            "task": task_record if not req.compact_response else {"task_id": task_record.get("task_id"), "task": task_record.get("task"), "repo_path": task_record.get("repo_path"), "workspace_path": task_record.get("workspace_path"), "status": task_record.get("status"), "metadata": task_record.get("metadata", {})},
             "workspace": workspace,
-            "overview": overview,
+            "overview": compact_overview if req.compact_response else overview,
             "test_discovery": tests,
             "plan": plan,
+            "next_required_call": "/agent/coding-task/next",
+            "dispatcher_payload_rule": "Never call /coding/*/action with only action. Always include payload with required repo_path, workspace_path, task_id, or other required fields.",
             "max_iterations": min(max(req.max_iterations, 1), 10),
             "create_pr": req.create_pr,
             "approval_policy": req.approval_policy,
@@ -325,6 +340,88 @@ def coding_task_contract_report(req: CodingTaskContractReportRequest):
         summary = task_ledger.iteration_summary(req.task_id)
         validation = task_ledger.validate_required_artifacts(req.task_id)
         return {"status": 200, "contract": contract, "summary": summary, "validation": validation, "latency_ms": round((time.time()-start)*1000,2), "timestamp": int(time.time()*1000)}
+    except PolicyError as exc:
+        return {"status": 400, "error": {"code": exc.code, "message": exc.message}}
+    except Exception as exc:
+        return {"status": 500, "error": {"code": "internal_error", "message": str(exc)}}
+
+
+class CodingTaskSmokeTestRequest(BaseModel):
+    repo_path: str
+    task: str = "Smoke-test all uploadable Coding GPT core endpoints safely."
+    safe_only: bool = True
+    approval_policy: str = "safe_auto"
+    max_iterations: int = 1
+
+
+@router.post("/coding-task/smoke-test")
+def coding_task_smoke_test(req: CodingTaskSmokeTestRequest):
+    start = time.time()
+    try:
+        from routes import coding_dispatch
+        checks = []
+
+        def record(name: str, path: str, body: dict):
+            ok = body.get("status") == 200 or isinstance(body.get("status"), str)
+            checks.append({
+                "name": name,
+                "path": path,
+                "ok": bool(ok),
+                "status": body.get("status"),
+                "error": body.get("error"),
+            })
+            return body
+
+        init = coding_task(CodingTaskRequest(
+            repo_path=req.repo_path,
+            task=req.task,
+            mode="plan_apply_verify",
+            workspace_strategy="git_worktree",
+            max_iterations=req.max_iterations,
+            approval_policy=req.approval_policy,
+            create_pr=False,
+        ))
+        record("01_agent_coding_task", "/agent/coding-task", init)
+        task_id = init.get("task", {}).get("task_id") if isinstance(init, dict) else None
+        workspace = init.get("workspace", {}).get("workspace_path") if isinstance(init, dict) else None
+        if not task_id or not workspace:
+            return {"status": 500, "error": {"code": "smoke_init_failed", "message": "Could not initialize task/workspace."}, "checks": checks}
+
+        record("02_agent_next", "/agent/coding-task/next", coding_task_next(CodingTaskNextRequest(task_id=task_id)))
+        record("03_agent_submit_artifact", "/agent/coding-task/submit", coding_task_submit(CodingTaskSubmitRequest(task_id=task_id, artifact_name="relevant_context", artifact={"smoke_test": True, "repo_path": req.repo_path})))
+        record("04_agent_repair_plan", "/agent/coding-task/repair-plan", coding_task_repair_plan(CodingTaskRepairPlanRequest(task_id=task_id, max_files=5)))
+        record("05_agent_iteration_summary", "/agent/coding-task/iteration-summary", coding_task_iteration_summary(CodingTaskContractReportRequest(task_id=task_id)))
+        record("06_agent_contract_report", "/agent/coding-task/contract-report", coding_task_contract_report(CodingTaskContractReportRequest(task_id=task_id)))
+        record("07_agent_finalize_no_commit", "/agent/coding-task/finalize", coding_task_finalize(CodingTaskFinalizeRequest(task_id=task_id, commit=False, create_pr=False, enforce_contract=False)))
+
+        record("08_coding_universal_action", "/coding/action", coding_dispatch.coding_action(coding_dispatch.CodingActionRequest(category="diagnostics", action="triage", payload={"diagnostics": [{"tool": "pytest", "file": "tests/test_smoke.py", "message": "manual smoke diagnostic"}], "task": req.task})))
+        record("09_coding_repo_action", "/coding/repo/action", coding_dispatch.repo_action(coding_dispatch.CategoryActionRequest(action="overview", payload={"repo_path": req.repo_path, "max_depth": 2})))
+        record("10_coding_workspace_action", "/coding/workspace/action", coding_dispatch.workspace_action(coding_dispatch.CategoryActionRequest(action="status", payload={"workspace_path": workspace})))
+        record("11_coding_patch_action", "/coding/patch/action", coding_dispatch.patch_action(coding_dispatch.CategoryActionRequest(action="history", payload={"workspace_path": workspace, "task_id": task_id})))
+        record("12_coding_test_action", "/coding/test/action", coding_dispatch.test_action(coding_dispatch.CategoryActionRequest(action="discover", payload={"workspace_path": workspace})))
+        record("13_coding_quality_action", "/coding/quality/action", coding_dispatch.quality_action(coding_dispatch.CategoryActionRequest(action="check", payload={"workspace_path": workspace, "timeout_seconds": 60})))
+        record("14_coding_diagnostics_action", "/coding/diagnostics/action", coding_dispatch.diagnostics_action(coding_dispatch.CategoryActionRequest(action="parse", payload={"tool": "pytest", "stdout": "FAILED tests/test_x.py::test_x", "stderr": ""})))
+        record("15_coding_policy_action", "/coding/policy/action", coding_dispatch.policy_action(coding_dispatch.CategoryActionRequest(action="check", payload={"path": "README.md", "repo_root": req.repo_path})))
+        record("16_coding_tasks_action", "/coding/tasks/action", coding_dispatch.tasks_action(coding_dispatch.CategoryActionRequest(action="artifact_index", payload={"task_id": task_id})))
+        record("17_coding_github_action", "/coding/github/action", coding_dispatch.github_action(coding_dispatch.CategoryActionRequest(action="checks_diagnose", payload={"checks": [{"name": "manual-smoke", "state": "success"}]})))
+        record("18_coding_env_action", "/coding/env/action", coding_dispatch.env_action(coding_dispatch.CategoryActionRequest(action="discover", payload={"workspace_path": workspace})))
+
+        passed = sum(1 for c in checks if c.get("ok"))
+        report = {
+            "repo_path": req.repo_path,
+            "task_id": task_id,
+            "workspace_path": workspace,
+            "total": len(checks),
+            "passed": passed,
+            "failed": len(checks) - passed,
+            "checks": checks,
+            "notes": [
+                "This safe smoke test uses an isolated worktree and does not commit, push, create PRs, install dependencies, or modify the primary checkout.",
+                "Quality action success means the endpoint responded; the underlying repo quality command may still report passed=false if dependencies are missing.",
+            ],
+        }
+        task_ledger.add_artifact(task_id, "smoke_test_report", report)
+        return {"status": 200, "smoke_test": report, "latency_ms": round((time.time() - start) * 1000, 2), "timestamp": int(time.time() * 1000)}
     except PolicyError as exc:
         return {"status": 400, "error": {"code": exc.code, "message": exc.message}}
     except Exception as exc:

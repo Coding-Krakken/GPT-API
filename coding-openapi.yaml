@@ -1036,6 +1036,30 @@ paths:
                 $ref: "#/components/schemas/HTTPValidationError"
       security:
         - ApiKeyAuth: []
+  /agent/coding-task/smoke-test:
+    post:
+      summary: "Coding Task Smoke Test"
+      operationId: "coding_task_smoke_test_agent_coding_task_smoke_test_post"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CodingTaskSmokeTestRequest"
+        required: true
+      responses:
+        200:
+          description: "Successful Response"
+          content:
+            application/json:
+              schema: {}
+        422:
+          description: "Validation Error"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+      security:
+        - ApiKeyAuth: []
   /tasks/create:
     post:
       summary: "Task Create"
@@ -2283,10 +2307,11 @@ components:
           additionalProperties: true
           type: "object"
           title: "Payload"
-          description: "Action-specific payload."
+          description: "Required action-specific payload. Never omit this. Example: {'repo_path': '/home/obsidian/Elevate_test'} for repo actions."
       type: "object"
       required:
         - "action"
+        - "payload"
       title: "CategoryActionRequest"
     CodeAction:
       properties:
@@ -2340,14 +2365,15 @@ components:
           additionalProperties: true
           type: "object"
           title: "Payload"
-          description: "Action-specific payload."
+          description: "Required action-specific payload. Never omit this. Example: {'repo_path': '/home/obsidian/Elevate_test'} for repo actions."
         category:
           type: "string"
           title: "Category"
-          description: "Allowlisted category: repo, workspace, patch, test, quality, diagnostics, policy, tasks, github, env."
+          description: "Allowlisted category: repo, workspace, patch, test, quality, diagnostics, policy, tasks, github, env. Unsupported categories such as shell/files/git/package are blocked."
       type: "object"
       required:
         - "action"
+        - "payload"
         - "category"
       title: "CodingActionRequest"
     CodingTaskContractReportRequest:
@@ -2458,11 +2484,40 @@ components:
             - type: "string"
             - type: "null"
           title: "Task Id"
+        compact_response:
+          type: "boolean"
+          title: "Compact Response"
+          default: true
       type: "object"
       required:
         - "repo_path"
         - "task"
       title: "CodingTaskRequest"
+    CodingTaskSmokeTestRequest:
+      properties:
+        repo_path:
+          type: "string"
+          title: "Repo Path"
+        task:
+          type: "string"
+          title: "Task"
+          default: "Smoke-test all uploadable Coding GPT core endpoints safely."
+        safe_only:
+          type: "boolean"
+          title: "Safe Only"
+          default: true
+        approval_policy:
+          type: "string"
+          title: "Approval Policy"
+          default: "safe_auto"
+        max_iterations:
+          type: "integer"
+          title: "Max Iterations"
+          default: 1
+      type: "object"
+      required:
+        - "repo_path"
+      title: "CodingTaskSmokeTestRequest"
     CodingTaskSubmitRequest:
       properties:
         task_id:

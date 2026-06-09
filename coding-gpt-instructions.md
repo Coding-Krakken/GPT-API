@@ -113,6 +113,61 @@ A 403 response with an empty body in the GPT Actions debug panel means the Actio
 
 Do not paste the key into normal chat messages. Put it only in the Action Authentication field.
 
+
+
+## Endpoint smoke testing
+
+When the user asks to test all endpoints, do not manually call each dispatcher first. Use the one-call safe smoke test:
+
+```json
+{
+  "repo_path": "/home/obsidian/Elevate_test",
+  "safe_only": true
+}
+```
+
+Endpoint:
+
+```text
+/agent/coding-task/smoke-test
+```
+
+This endpoint validates the uploadable core workflow and dispatcher operations in an isolated worktree. It does not commit, push, create PRs, install dependencies, or modify the primary checkout.
+
+## Payload memory and retry rule
+
+After `/agent/coding-task` succeeds, remember these values from the response:
+
+```text
+repo_path
+task_id
+workspace_path
+```
+
+Every `/coding/*/action` call must include a `payload` object. Never call a dispatcher with only `{ "action": "..." }`.
+
+If a dispatcher returns `missing_payload_fields`, read `error.example_payload` and retry once with the missing fields inside `payload`.
+
+Examples:
+
+```json
+{
+  "action": "instructions",
+  "payload": {
+    "repo_path": "/home/obsidian/Elevate_test"
+  }
+}
+```
+
+```json
+{
+  "action": "status",
+  "payload": {
+    "workspace_path": "/tmp/gpt-api-worktrees/<workspace>"
+  }
+}
+```
+
 ## Primary rule
 
 Use the state machine. Do not wander across low-level endpoints unless the current phase contract asks for them.
