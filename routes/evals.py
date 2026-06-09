@@ -6,10 +6,12 @@ import time
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
+from fastapi.responses import HTMLResponse, PlainTextResponse
 from pydantic import BaseModel, Field
 
 from evals import report as eval_report
+from evals import dashboard as eval_dashboard
 from evals import case_loader
 from evals import regression_loader
 from utils import eval_telemetry
@@ -186,6 +188,54 @@ def _run_suite(suite: str, repo_path: str, *, run_id: str | None = None) -> dict
         return {"status": 200 if passed else 400, "passed": passed, "core_smoke": core, "payload_recovery": payload}
     available = sorted({c.get("suite") for c in case_loader.list_cases() if c.get("suite")} | {c.get("id") for c in case_loader.list_cases() if c.get("id")} | {"core_smoke", "payload_recovery", "release_gate"})
     return {"status": 400, "error": {"code": "unsupported_suite", "message": f"Supported suites/cases: {', '.join(available)}"}}
+
+
+
+
+@router.get("/dashboard", response_class=HTMLResponse)
+def eval_dashboard_html(limit: int = Query(25, ge=1, le=200)):
+    return HTMLResponse(eval_dashboard.render_html(limit=limit))
+
+
+@router.get("/dashboard.md", response_class=PlainTextResponse)
+def eval_dashboard_markdown(limit: int = Query(25, ge=1, le=200)):
+    return PlainTextResponse(eval_dashboard.render_markdown(limit=limit), media_type="text/markdown")
+
+
+@router.get("/dashboard/summary")
+def eval_dashboard_summary(limit: int = Query(25, ge=1, le=200), repo_path: str | None = None, task_id: str | None = None, min_agent_score: int | None = None, min_backend_score: int | None = None, failure_layer: str | None = None, endpoint: str | None = None):
+    return eval_dashboard.list_reports(limit=limit, repo_path=repo_path, task_id=task_id, min_agent_score=min_agent_score, min_backend_score=min_backend_score, failure_layer=failure_layer, endpoint=endpoint)
+
+
+@router.get("/dashboard/latest")
+def eval_dashboard_latest():
+    return eval_dashboard.latest_report()
+
+
+@router.get("/dashboard/trend")
+def eval_dashboard_trend(limit: int = Query(20, ge=1, le=200)):
+    return eval_dashboard.trend(limit=limit)
+
+
+@router.get("/dashboard/report/{report_id}")
+def eval_dashboard_report_detail(report_id: str):
+    try:
+        report = eval_dashboard.load_report(report_id)
+        return {"status": 200, "report": report}
+    except FileNotFoundError as exc:
+        return {"status": 404, "error": {"code": "report_not_found", "message": str(exc)}}
+    except ValueError as exc:
+        return {"status": 400, "error": {"code": "invalid_report", "message": str(exc)}}
+
+
+@router.get("/dashboard/compare")
+def eval_dashboard_compare(current_report_id: str, baseline_report_id: str):
+    try:
+        return eval_dashboard.compare(current_report_id, baseline_report_id)
+    except FileNotFoundError as exc:
+        return {"status": 404, "error": {"code": "report_not_found", "message": str(exc)}}
+    except ValueError as exc:
+        return {"status": 400, "error": {"code": "invalid_report", "message": str(exc)}}
 
 
 @router.get("/cases")
