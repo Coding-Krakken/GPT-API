@@ -1,30 +1,71 @@
-# Coding GPT Knowledge: Evaluation System
+# Coding GPT Knowledge: Evaluation and Operations
 
-The backend includes an evaluation system for reviewing and improving the Coding GPT and backend engines.
+Use this as a knowledge file for reviewing and improving the Coding GPT system.
 
-## Key endpoints
+## Evaluation layers
 
-- `/evals/run` runs a suite or case.
-- `/evals/release-gate` runs schema, instruction, regression, and smoke checks.
-- `/evals/continuous-learning` runs the Phase 12 improvement loop and returns a ship/no-ship decision.
-- `/evals/dashboard` shows recent reports.
-- `/evals/ingest-debug-log` parses Custom GPT Actions debug transcripts.
+Evaluate two systems separately:
 
-## Phase 12 continuous learning loop
+1. Custom GPT behavior: state management, tool use, payload discipline, safety, recovery, final answer quality.
+2. Backend engines: endpoint reliability, latency, repo intelligence, patching, tests, quality, diagnostics, policy.
 
-Use `/evals/continuous-learning` before shipping improvements. It runs the release gate, checks known regression coverage, compares against a baseline/latest report, checks git cleanliness/pushed state when requested, and writes JSON/Markdown reports.
+## Core commands
 
-Example:
+Run release gate:
 
-```json
-{
-  "repo_path": "/home/obsidian/Elevate_test",
-  "require_clean_git": true
-}
+```bash
+python evals/run_release_gate.py --repo-path /home/obsidian/Elevate_test
 ```
 
-A result is ship-ready only when the release gate passes, known failures have regressions, git is clean/pushed when required, and the baseline comparison does not show unacceptable regressions.
+Run continuous learning cycle:
 
-## Rule
+```bash
+python evals/continuous_learning.py --repo-path /home/obsidian/Elevate_test
+```
 
-Every real failure should become a regression case. Every claimed improvement should have before/after evaluation evidence.
+Run Phase 13 production ops:
+
+```bash
+python evals/phase13_ops.py --repo-path /home/obsidian/Elevate_test
+```
+
+Use `--allow-dirty` only while developing evaluation tooling.
+
+## API endpoints
+
+```text
+/evals/run
+/evals/report
+/evals/compare
+/evals/recommendations
+/evals/release-gate
+/evals/continuous-learning
+/evals/ingest-debug-log
+/evals/dashboard
+/evals/phase13/status
+/evals/phase13/run
+/evals/phase13/promote-baseline
+```
+
+## Real failure loop
+
+Every real failure should become a regression case:
+
+1. Capture the debug transcript or backend trace.
+2. Classify the failure layer.
+3. Generate a regression fixture.
+4. Improve backend/schema/instructions/knowledge.
+5. Run release gate.
+6. Run Phase 13.
+7. Ship only when the system is ship-ready.
+
+## Phase 13
+
+Phase 13 is complete when it produces:
+
+- operational readiness result
+- continuous-learning cycle result
+- ship/no-ship decision
+- optional approved baseline promotion
+- release bundle archive
+- Markdown and JSON reports

@@ -479,3 +479,67 @@ def create_regression_from_debug_log(req: DebugLogIngestRequest):
     payload = debug_ingest.regression_from_debug(parsed, title=req.regression_title, source=req.source)
     result = create_regression(RegressionCreateRequest(**payload))
     return {"status": 200, "regression": result.get("regression"), "source_summary": {"failure_codes": parsed.get("failure_codes"), "failure_layers": parsed.get("failure_layers"), "call_count": parsed.get("call_count")}}
+
+
+class EvalPhase13Request(BaseModel):
+    repo_path: str = Field(..., description="Repository path to evaluate, e.g. /home/obsidian/Elevate_test.")
+    run_id: str | None = None
+    baseline_report_id: str | None = None
+    promote_baseline: bool = False
+    create_bundle: bool = True
+    require_clean_git: bool = True
+
+
+@router.get("/phase13/status")
+def phase13_status(require_clean_git: bool = Query(True)):
+    from evals.phase13_ops import operational_readiness
+
+    return operational_readiness(require_clean_git=require_clean_git)
+
+
+@router.post("/phase13/run")
+def run_phase13_endpoint(req: EvalPhase13Request):
+    from evals.phase13_ops import run_phase13_production_ops
+
+    result = run_phase13_production_ops(
+        req.repo_path,
+        run_id=req.run_id,
+        baseline_report_id=req.baseline_report_id,
+        promote=req.promote_baseline,
+        create_bundle=req.create_bundle,
+        require_clean_git=req.require_clean_git,
+    )
+    return {
+        "status": result.get("status"),
+        "phase13_complete": result.get("phase13_complete"),
+        "version": result.get("version"),
+        "run_id": result.get("run_id"),
+        "ship_ready": (result.get("ship_decision") or {}).get("ship_ready"),
+        "blockers": (result.get("ship_decision") or {}).get("blockers"),
+        "warnings": (result.get("ship_decision") or {}).get("warnings"),
+        "current_report_id": result.get("current_report_id"),
+        "baseline_report_id": result.get("baseline_report_id"),
+        "readiness": result.get("readiness"),
+        "continuous_learning_md": result.get("continuous_learning_md"),
+        "phase13_json": result.get("phase13_json"),
+        "phase13_md": result.get("phase13_md"),
+        "baseline_promotion": result.get("baseline_promotion"),
+        "release_bundle": {
+            "status": (result.get("release_bundle") or {}).get("status"),
+            "bundle_archive": (result.get("release_bundle") or {}).get("bundle_archive"),
+            "bundle_dir": (result.get("release_bundle") or {}).get("bundle_dir"),
+        } if result.get("release_bundle") else None,
+    }
+
+
+class EvalPhase13PromoteRequest(BaseModel):
+    report_id: str
+    run_id: str | None = None
+    reason: str = "manual Phase 13 baseline promotion"
+
+
+@router.post("/phase13/promote-baseline")
+def phase13_promote_baseline(req: EvalPhase13PromoteRequest):
+    from evals.phase13_ops import promote_baseline
+
+    return promote_baseline(req.report_id, run_id=req.run_id, reason=req.reason)
