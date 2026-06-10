@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import json
+import os
 import re
+import subprocess
+import sys
 import time
 from pathlib import Path
 from typing import Any
@@ -488,6 +491,8 @@ class EvalPhase13Request(BaseModel):
     promote_baseline: bool = False
     create_bundle: bool = True
     require_clean_git: bool = True
+    blocking: bool = False
+    timeout_seconds: int = 15
 
 
 @router.get("/phase13/status")
@@ -497,13 +502,89 @@ def phase13_status(require_clean_git: bool = Query(True)):
     return operational_readiness(require_clean_git=require_clean_git)
 
 
+def _phase13_job_paths(run_id: str) -> dict[str, str]:
+    root = eval_telemetry.eval_root() / "phase13"
+    jobs = root / "jobs"
+    jobs.mkdir(parents=True, exist_ok=True)
+    return {
+        "job_json": str(jobs / f"{run_id}.json"),
+        "job_log": str(jobs / f"{run_id}.log"),
+        "phase13_json": str(root / f"{run_id}.json"),
+        "phase13_md": str(root / f"{run_id}.md"),
+    }
+
+
+def _read_phase13_job(run_id: str) -> dict[str, Any]:
+    paths = _phase13_job_paths(run_id)
+    job_path = Path(paths["job_json"])
+    phase_path = Path(paths["phase13_json"])
+    if phase_path.exists():
+        try:
+            result = json.loads(phase_path.read_text(encoding="utf-8"))
+            return {"status": 200, "job_status": "completed", "run_id": run_id, "result": result, **paths}
+        except Exception as exc:
+            return {"status": 500, "job_status": "invalid_result", "run_id": run_id, "error": {"code": "invalid_phase13_result", "message": str(exc)}, **paths}
+    if job_path.exists():
+        try:
+            job = json.loads(job_path.read_text(encoding="utf-8"))
+        except Exception:
+            job = {"job_status": "unknown", "run_id": run_id}
+        pid = job.get("pid")
+        if pid and Path(f"/proc/{pid}").exists():
+            job["job_status"] = "running"
+            job["status"] = 202
+        else:
+            job["job_status"] = job.get("job_status") or "exited_without_result"
+            job["status"] = 500
+        job.update(paths)
+        return job
+    return {"status": 404, "job_status": "not_found", "run_id": run_id, "error": {"code": "phase13_job_not_found", "message": f"No Phase 13 job/result found for {run_id}"}, **paths}
+
+
+def _start_phase13_job(req: EvalPhase13Request, run_id: str) -> dict[str, Any]:
+    paths = _phase13_job_paths(run_id)
+    args = [sys.executable, str(_REPO_ROOT / "evals" / "phase13_ops.py"), "--repo-path", req.repo_path, "--run-id", run_id]
+    if req.baseline_report_id:
+        args.extend(["--baseline-report-id", req.baseline_report_id])
+    if req.promote_baseline:
+        args.append("--promote")
+    if not req.create_bundle:
+        args.append("--no-bundle")
+    if not req.require_clean_git:
+        args.append("--allow-dirty")
+    job = {
+        "status": 202,
+        "job_status": "running",
+        "run_id": run_id,
+        "repo_path": req.repo_path,
+        "started_at": int(time.time() * 1000),
+        "command": args,
+        **paths,
+    }
+    Path(paths["job_json"]).write_text(json.dumps(job, indent=2, sort_keys=True), encoding="utf-8")
+    log_fh = open(paths["job_log"], "ab")
+    proc = subprocess.Popen(args, cwd=str(_REPO_ROOT), stdout=log_fh, stderr=subprocess.STDOUT, start_new_session=True, env=os.environ.copy())
+    log_fh.close()
+    job["pid"] = proc.pid
+    Path(paths["job_json"]).write_text(json.dumps(job, indent=2, sort_keys=True), encoding="utf-8")
+    eval_telemetry.log_event("phase13_job_started", run_id=run_id, repo_path=req.repo_path, pid=proc.pid, job_json=paths["job_json"], job_log=paths["job_log"])
+    return job
+
+
 @router.post("/phase13/run")
 def run_phase13_endpoint(req: EvalPhase13Request):
     from evals.phase13_ops import run_phase13_production_ops
 
+    run_id = req.run_id or _now_id("phase13")
+    if not req.blocking:
+        existing = _read_phase13_job(run_id)
+        if existing.get("status") in {200, 202}:
+            return existing
+        return _start_phase13_job(req, run_id)
+
     result = run_phase13_production_ops(
         req.repo_path,
-        run_id=req.run_id,
+        run_id=run_id,
         baseline_report_id=req.baseline_report_id,
         promote=req.promote_baseline,
         create_bundle=req.create_bundle,
@@ -511,6 +592,7 @@ def run_phase13_endpoint(req: EvalPhase13Request):
     )
     return {
         "status": result.get("status"),
+        "job_status": "completed",
         "phase13_complete": result.get("phase13_complete"),
         "version": result.get("version"),
         "run_id": result.get("run_id"),
@@ -530,6 +612,11 @@ def run_phase13_endpoint(req: EvalPhase13Request):
             "bundle_dir": (result.get("release_bundle") or {}).get("bundle_dir"),
         } if result.get("release_bundle") else None,
     }
+
+
+@router.get("/phase13/job/{run_id}")
+def phase13_job_status(run_id: str):
+    return _read_phase13_job(run_id)
 
 
 class EvalPhase13PromoteRequest(BaseModel):

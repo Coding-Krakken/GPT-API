@@ -109,3 +109,28 @@ A release bundle includes:
 ## Operating rule
 
 Do not ship a Coding GPT backend/schema/instruction change unless Phase 13 is complete and ship-ready, or a human explicitly accepts and documents the tradeoff.
+
+## Production-safe HTTP behavior
+
+`POST /evals/phase13/run` is job-based by default. It returns quickly with `status: 202` and a `run_id` instead of blocking the production HTTP worker until the entire Phase 13 cycle finishes.
+
+Poll job status with:
+
+```text
+GET /evals/phase13/job/{run_id}
+```
+
+To force legacy synchronous behavior, set `blocking: true` in the request. This is intended for local or controlled tests only.
+
+## Incremental production smoke testing
+
+Use the incremental HTTP smoke tester for production validation:
+
+```bash
+python evals/http_smoke.py \
+  --base-url http://127.0.0.1:8000 \
+  --repo-path /home/obsidian/Elevate_test \
+  --run-id prod_smoke
+```
+
+The tester writes a JSON report after every endpoint call, so partial results are preserved even if an endpoint hangs or the test process is interrupted.
