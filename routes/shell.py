@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends, Response, Request
 from pydantic import BaseModel
+import asyncio
 import subprocess
 import shlex
 import shutil
@@ -198,26 +199,27 @@ async def run_shell_command(data: ShellCommand, request: Request):
                 full_command,
                 shell=True,
                 executable=shell_executable,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
                 text=True,
                 start_new_session=True
             )
-            stdout, stderr = proc.communicate(timeout=min(data.timeout_seconds,3600))
-            exit_code = proc.returncode
             resp = {
-                "stdout": redact_secrets(stdout.strip()),
-                "stderr": redact_secrets(stderr.strip()),
-                "exit_code": exit_code,
+                "stdout": "",
+                "stderr": "",
+                "exit_code": None,
                 "pid": proc.pid,
+                "background": True,
                 "status": 200,
+                "message": "Process started in background. Output is not captured for background commands.",
                 "latency_ms": round((time.time() - start) * 1000, 2),
                 "timestamp": int(time.time() * 1000)
             }
             log_api_action(request, "/shell", "run_shell_command", 200, str(resp))
             return resp
         else:
-            result = subprocess.run(
+            result = await asyncio.to_thread(
+                subprocess.run,
                 full_command,
                 shell=True,
                 executable=shell_executable,
