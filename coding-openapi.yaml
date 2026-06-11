@@ -2563,678 +2563,77 @@ paths:
                 $ref: '#/components/schemas/HTTPValidationError'
 components:
   schemas:
-    GithubApplyFeedbackPlanRequest:
-      properties:
-        workspace_path:
-          type: string
-          title: Workspace Path
-        comments:
-          items:
-            additionalProperties: true
-            type: object
-          type: array
-          title: Comments
-      type: object
-      required:
-      - workspace_path
-      - comments
-      title: GithubApplyFeedbackPlanRequest
-    GithubChecksDiagnoseRequest:
-      properties:
-        checks:
-          items:
-            additionalProperties: true
-            type: object
-          type: array
-          title: Checks
-      type: object
-      required:
-      - checks
-      title: GithubChecksDiagnoseRequest
-    EvalReportRequest:
-      properties:
-        task_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Task Id
-        run_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Run Id
-        events_path:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Events Path
-        report_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Report Id
-      type: object
-      title: EvalReportRequest
-    HTTPValidationError:
-      properties:
-        detail:
-          items:
-            $ref: '#/components/schemas/ValidationError'
-          type: array
-          title: Detail
-      type: object
-      title: HTTPValidationError
-    GithubIssueReadRequest:
-      properties:
-        workspace_path:
-          type: string
-          title: Workspace Path
-        issue:
-          type: string
-          title: Issue
-      type: object
-      required:
-      - workspace_path
-      - issue
-      title: GithubIssueReadRequest
-    DebugLogIngestRequest:
-      properties:
-        log_text:
-          type: string
-          title: Log Text
-          description: Pasted Custom GPT Actions debug transcript.
-        source:
-          type: string
-          title: Source
-          default: custom_gpt_debug
-        run_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Run Id
-        write_events:
-          type: boolean
-          title: Write Events
-          default: true
-        create_regression:
-          type: boolean
-          title: Create Regression
-          default: false
-        regression_title:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Regression Title
-      type: object
-      required:
-      - log_text
-      title: DebugLogIngestRequest
-    RunTestRequest:
-      properties:
-        workspace_path:
-          type: string
-          title: Workspace Path
-        command_name:
-          type: string
-          title: Command Name
-        timeout_seconds:
-          type: integer
-          title: Timeout Seconds
-          default: 120
-      type: object
-      required:
-      - workspace_path
-      - command_name
-      title: RunTestRequest
-    EvalRecommendationsRequest:
-      properties:
-        report_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Report Id
-        task_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Task Id
-        run_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Run Id
-        events_path:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Events Path
-        top_n:
-          type: integer
-          title: Top N
-          default: 10
-      type: object
-      title: EvalRecommendationsRequest
-    RepoSymbolsRequest:
+    RepoReadContextRequest:
       properties:
         repo_path:
           type: string
           title: Repo Path
         files:
-          anyOf:
-          - items:
-              type: string
-            type: array
-          - type: 'null'
+          items:
+            type: string
+          type: array
           title: Files
+        max_bytes_per_file:
+          type: integer
+          title: Max Bytes Per File
+          default: 50000
       type: object
       required:
       - repo_path
-      title: RepoSymbolsRequest
-    RepoSearchRequest:
+      - files
+      title: RepoReadContextRequest
+    RepoReferencesRequest:
       properties:
         repo_path:
           type: string
           title: Repo Path
-        query:
+        symbol:
           type: string
-          title: Query
-        globs:
-          anyOf:
-          - items:
-              type: string
-            type: array
-          - type: 'null'
-          title: Globs
+          title: Symbol
         max_results:
           type: integer
           title: Max Results
-          default: 50
+          default: 100
       type: object
       required:
       - repo_path
-      - query
-      title: RepoSearchRequest
-    EvalRunRequest:
-      properties:
-        suite:
-          type: string
-          title: Suite
-          description: 'Evaluation suite to run. Supported: core_smoke, payload_recovery,
-            release_gate, regressions, phase6_regressions.'
-          default: core_smoke
-        repo_path:
-          type: string
-          title: Repo Path
-          description: Repository path to evaluate, e.g. /home/obsidian/Elevate_test.
-        safe_only:
-          type: boolean
-          title: Safe Only
-          default: true
-        report_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Report Id
-      type: object
-      required:
-      - repo_path
-      title: EvalRunRequest
-    TaskLogRequest:
-      properties:
-        task_id:
-          type: string
-          title: Task Id
-        event_type:
-          type: string
-          title: Event Type
-        data:
-          anyOf:
-          - additionalProperties: true
-            type: object
-          - type: 'null'
-          title: Data
-      type: object
-      required:
-      - task_id
-      - event_type
-      title: TaskLogRequest
-    CodingTaskNextRequest:
-      properties:
-        task_id:
-          type: string
-          title: Task Id
-      type: object
-      required:
-      - task_id
-      title: CodingTaskNextRequest
-    TaskCancelRequest:
-      properties:
-        task_id:
-          type: string
-          title: Task Id
-        reason:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Reason
-      type: object
-      required:
-      - task_id
-      title: TaskCancelRequest
-    GithubChecksReadRequest:
+      - symbol
+      title: RepoReferencesRequest
+    PatchRevertRecordedRequest:
       properties:
         workspace_path:
           type: string
           title: Workspace Path
-        ref:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Ref
+        patch_id:
+          type: string
+          title: Patch Id
       type: object
       required:
       - workspace_path
-      title: GithubChecksReadRequest
-    PolicyEvaluateActionRequest:
+      - patch_id
+      title: PatchRevertRecordedRequest
+    GithubCiRepairPlanRequest:
       properties:
-        action:
-          type: string
-          title: Action
         workspace_path:
-          anyOf:
-          - type: string
-          - type: 'null'
+          type: string
           title: Workspace Path
-        changed_files:
+        checks:
           anyOf:
           - items:
-              type: string
+              additionalProperties: true
+              type: object
             type: array
           - type: 'null'
-          title: Changed Files
-        tests_passed:
-          anyOf:
-          - type: boolean
-          - type: 'null'
-          title: Tests Passed
-        quality_passed:
-          anyOf:
-          - type: boolean
-          - type: 'null'
-          title: Quality Passed
-        user_approved_network_write:
-          type: boolean
-          title: User Approved Network Write
-          default: false
-      type: object
-      required:
-      - action
-      title: PolicyEvaluateActionRequest
-    CodingTaskSubmitRequest:
-      properties:
-        task_id:
-          type: string
-          title: Task Id
-        artifact_name:
+          title: Checks
+        logs:
           anyOf:
           - type: string
           - type: 'null'
-          title: Artifact Name
-        artifact:
-          anyOf:
-          - additionalProperties: true
-            type: object
-          - type: 'null'
-          title: Artifact
-        patch:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Patch
-        run_tests:
-          type: boolean
-          title: Run Tests
-          default: false
-        run_quality:
-          type: boolean
-          title: Run Quality
-          default: false
-      type: object
-      required:
-      - task_id
-      title: CodingTaskSubmitRequest
-    PolicyCheckRequest:
-      properties:
-        path:
-          type: string
-          title: Path
-        repo_root:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Repo Root
-      type: object
-      required:
-      - path
-      title: PolicyCheckRequest
-    RepoOverviewRequest:
-      properties:
-        repo_path:
-          type: string
-          title: Repo Path
-        max_depth:
-          type: integer
-          title: Max Depth
-          default: 4
-      type: object
-      required:
-      - repo_path
-      title: RepoOverviewRequest
-    PatchRequest:
-      properties:
-        workspace_path:
-          type: string
-          title: Workspace Path
-        patch:
-          type: string
-          title: Patch
-        strict:
-          type: boolean
-          title: Strict
-          default: true
-        require_preview:
-          type: boolean
-          title: Require Preview
-          default: true
+          title: Logs
       type: object
       required:
       - workspace_path
-      - patch
-      title: PatchRequest
-    CodingTaskContractReportRequest:
-      properties:
-        task_id:
-          type: string
-          title: Task Id
-      type: object
-      required:
-      - task_id
-      title: CodingTaskContractReportRequest
-    TaskIdRequest:
-      properties:
-        task_id:
-          type: string
-          title: Task Id
-      type: object
-      required:
-      - task_id
-      title: TaskIdRequest
-    TaskOwnerRequest:
-      properties:
-        task_id:
-          type: string
-          title: Task Id
-        owner:
-          type: string
-          title: Owner
-          default: coding-gpt
-      type: object
-      required:
-      - task_id
-      title: TaskOwnerRequest
-    EvalReleaseGateRequest:
-      properties:
-        repo_path:
-          type: string
-          title: Repo Path
-          description: Repository path to evaluate, e.g. /home/obsidian/Elevate_test.
-        run_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Run Id
-        require_clean_git:
-          type: boolean
-          title: Require Clean Git
-          default: true
-      type: object
-      required:
-      - repo_path
-      title: EvalReleaseGateRequest
-    GithubReviewCommentsRequest:
-      properties:
-        workspace_path:
-          type: string
-          title: Workspace Path
-        pr:
-          type: string
-          title: Pr
-      type: object
-      required:
-      - workspace_path
-      - pr
-      title: GithubReviewCommentsRequest
-    EvalContinuousLearningRequest:
-      properties:
-        repo_path:
-          type: string
-          title: Repo Path
-          description: Repository path to evaluate, e.g. /home/obsidian/Elevate_test.
-        run_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Run Id
-        baseline_report_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Baseline Report Id
-        require_clean_git:
-          type: boolean
-          title: Require Clean Git
-          default: true
-      type: object
-      required:
-      - repo_path
-      title: EvalContinuousLearningRequest
-    EnvRequest:
-      properties:
-        workspace_path:
-          type: string
-          title: Workspace Path
-      type: object
-      required:
-      - workspace_path
-      title: EnvRequest
-    DiagnosticsSuggestRequest:
-      properties:
-        diagnostics:
-          items:
-            additionalProperties: true
-            type: object
-          type: array
-          title: Diagnostics
-        max_files:
-          type: integer
-          title: Max Files
-          default: 20
-      type: object
-      required:
-      - diagnostics
-      title: DiagnosticsSuggestRequest
-    WorkspaceDestroyRequest:
-      properties:
-        workspace_path:
-          type: string
-          title: Workspace Path
-        force:
-          type: boolean
-          title: Force
-          default: false
-        keep_branch:
-          type: boolean
-          title: Keep Branch
-          default: true
-      type: object
-      required:
-      - workspace_path
-      title: WorkspaceDestroyRequest
-    CodingTaskFinalizeRequest:
-      properties:
-        task_id:
-          type: string
-          title: Task Id
-        commit:
-          type: boolean
-          title: Commit
-          default: false
-        commit_message:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Commit Message
-        create_pr:
-          type: boolean
-          title: Create Pr
-          default: false
-        pr_title:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Pr Title
-        pr_body:
-          type: string
-          title: Pr Body
-          default: ''
-        user_approved_network_write:
-          type: boolean
-          title: User Approved Network Write
-          default: false
-        enforce_contract:
-          type: boolean
-          title: Enforce Contract
-          default: true
-      type: object
-      required:
-      - task_id
-      title: CodingTaskFinalizeRequest
-    EvalCompareRequest:
-      properties:
-        current_run_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Current Run Id
-        baseline_run_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Baseline Run Id
-        current_report_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Current Report Id
-        baseline_report_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Baseline Report Id
-      type: object
-      title: EvalCompareRequest
-    WorkspaceCommitRequest:
-      properties:
-        workspace_path:
-          type: string
-          title: Workspace Path
-        message:
-          type: string
-          title: Message
-        files:
-          anyOf:
-          - items:
-              type: string
-            type: array
-          - type: 'null'
-          title: Files
-      type: object
-      required:
-      - workspace_path
-      - message
-      title: WorkspaceCommitRequest
-    PolicyEvaluateDeepRequest:
-      properties:
-        action:
-          type: string
-          title: Action
-        workspace_path:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Workspace Path
-        changed_files:
-          anyOf:
-          - items:
-              type: string
-            type: array
-          - type: 'null'
-          title: Changed Files
-        tests_passed:
-          anyOf:
-          - type: boolean
-          - type: 'null'
-          title: Tests Passed
-        quality_passed:
-          anyOf:
-          - type: boolean
-          - type: 'null'
-          title: Quality Passed
-        user_approved_network_write:
-          type: boolean
-          title: User Approved Network Write
-          default: false
-        user_approved_sensitive:
-          type: boolean
-          title: User Approved Sensitive
-          default: false
-        user_approved_large_diff:
-          type: boolean
-          title: User Approved Large Diff
-          default: false
-        user_approved_deletions:
-          type: boolean
-          title: User Approved Deletions
-          default: false
-        diff_line_count:
-          type: integer
-          title: Diff Line Count
-          default: 0
-      type: object
-      required:
-      - action
-      title: PolicyEvaluateDeepRequest
-    ValidationError:
-      properties:
-        loc:
-          items:
-            anyOf:
-            - type: string
-            - type: integer
-          type: array
-          title: Location
-        msg:
-          type: string
-          title: Message
-        type:
-          type: string
-          title: Error Type
-      type: object
-      required:
-      - loc
-      - msg
-      - type
-      title: ValidationError
+      title: GithubCiRepairPlanRequest
     CodingActionRequest:
       properties:
         action:
@@ -3290,87 +2689,6 @@ components:
       - action
       - category
       title: CodingActionRequest
-    QualityCheckRequest:
-      properties:
-        workspace_path:
-          type: string
-          title: Workspace Path
-        timeout_seconds:
-          type: integer
-          title: Timeout Seconds
-          default: 120
-      type: object
-      required:
-      - workspace_path
-      title: QualityCheckRequest
-    RegressionCreateRequest:
-      properties:
-        id:
-          type: string
-          title: Id
-        title:
-          type: string
-          title: Title
-        failure_layer:
-          type: string
-          title: Failure Layer
-          default: unknown
-        symptom:
-          type: string
-          title: Symptom
-        expected_behavior:
-          type: string
-          title: Expected Behavior
-        source:
-          type: string
-          title: Source
-          default: manual
-        details:
-          additionalProperties: true
-          type: object
-          title: Details
-      type: object
-      required:
-      - id
-      - title
-      - symptom
-      - expected_behavior
-      title: RegressionCreateRequest
-    TaskLockTtlRequest:
-      properties:
-        task_id:
-          type: string
-          title: Task Id
-        owner:
-          type: string
-          title: Owner
-          default: coding-gpt
-        ttl_ms:
-          type: integer
-          title: Ttl Ms
-          default: 1800000
-      type: object
-      required:
-      - task_id
-      title: TaskLockTtlRequest
-    RepoRecentHistoryRequest:
-      properties:
-        repo_path:
-          type: string
-          title: Repo Path
-        query:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Query
-        max_commits:
-          type: integer
-          title: Max Commits
-          default: 20
-      type: object
-      required:
-      - repo_path
-      title: RepoRecentHistoryRequest
     TaskCreateRequest:
       properties:
         task:
@@ -3395,35 +2713,271 @@ components:
       - task
       - repo_path
       title: TaskCreateRequest
-    DiagnosticsParseRequest:
+    ValidationError:
       properties:
-        tool:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
           type: string
-          title: Tool
-        stdout:
+          title: Message
+        type:
           type: string
-          title: Stdout
-          default: ''
-        stderr:
-          type: string
-          title: Stderr
-          default: ''
+          title: Error Type
       type: object
       required:
-      - tool
-      title: DiagnosticsParseRequest
-    WorkspacePrCreateRequest:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    GithubApplyFeedbackPlanRequest:
       properties:
         workspace_path:
           type: string
           title: Workspace Path
-        title:
+        comments:
+          items:
+            additionalProperties: true
+            type: object
+          type: array
+          title: Comments
+      type: object
+      required:
+      - workspace_path
+      - comments
+      title: GithubApplyFeedbackPlanRequest
+    RunTestRequest:
+      properties:
+        workspace_path:
           type: string
-          title: Title
-        body:
+          title: Workspace Path
+        command_name:
           type: string
-          title: Body
-          default: ''
+          title: Command Name
+        timeout_seconds:
+          type: integer
+          title: Timeout Seconds
+          default: 120
+      type: object
+      required:
+      - workspace_path
+      - command_name
+      title: RunTestRequest
+    RepoSymbolsRequest:
+      properties:
+        repo_path:
+          type: string
+          title: Repo Path
+        files:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Files
+      type: object
+      required:
+      - repo_path
+      title: RepoSymbolsRequest
+    PolicyEvaluateDeepRequest:
+      properties:
+        action:
+          type: string
+          title: Action
+        workspace_path:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Workspace Path
+        changed_files:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Changed Files
+        tests_passed:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Tests Passed
+        quality_passed:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Quality Passed
+        user_approved_network_write:
+          type: boolean
+          title: User Approved Network Write
+          default: false
+        user_approved_sensitive:
+          type: boolean
+          title: User Approved Sensitive
+          default: false
+        user_approved_large_diff:
+          type: boolean
+          title: User Approved Large Diff
+          default: false
+        user_approved_deletions:
+          type: boolean
+          title: User Approved Deletions
+          default: false
+        diff_line_count:
+          type: integer
+          title: Diff Line Count
+          default: 0
+      type: object
+      required:
+      - action
+      title: PolicyEvaluateDeepRequest
+    TaskListRequest:
+      properties:
+        status:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Status
+      type: object
+      title: TaskListRequest
+    PatchRequest:
+      properties:
+        workspace_path:
+          type: string
+          title: Workspace Path
+        patch:
+          type: string
+          title: Patch
+        strict:
+          type: boolean
+          title: Strict
+          default: true
+        require_preview:
+          type: boolean
+          title: Require Preview
+          default: true
+      type: object
+      required:
+      - workspace_path
+      - patch
+      title: PatchRequest
+    RepoRelevantContextRequest:
+      properties:
+        repo_path:
+          type: string
+          title: Repo Path
+        task:
+          type: string
+          title: Task
+        diagnostics:
+          anyOf:
+          - items:
+              additionalProperties: true
+              type: object
+            type: array
+          - type: 'null'
+          title: Diagnostics
+        max_files:
+          type: integer
+          title: Max Files
+          default: 12
+      type: object
+      required:
+      - repo_path
+      - task
+      title: RepoRelevantContextRequest
+    TaskGcRequest:
+      properties:
+        max_age_ms:
+          type: integer
+          title: Max Age Ms
+          default: 604800000
+        statuses:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Statuses
+        dry_run:
+          type: boolean
+          title: Dry Run
+          default: true
+      type: object
+      title: TaskGcRequest
+    RepoSymbolReferencesRequest:
+      properties:
+        repo_path:
+          type: string
+          title: Repo Path
+        symbols:
+          items:
+            type: string
+          type: array
+          title: Symbols
+        max_results_per_symbol:
+          type: integer
+          title: Max Results Per Symbol
+          default: 50
+      type: object
+      required:
+      - repo_path
+      - symbols
+      title: RepoSymbolReferencesRequest
+    EvalRecommendationsRequest:
+      properties:
+        report_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Report Id
+        task_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Task Id
+        run_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Run Id
+        events_path:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Events Path
+        top_n:
+          type: integer
+          title: Top N
+          default: 10
+      type: object
+      title: EvalRecommendationsRequest
+    GithubBranchPushRequest:
+      properties:
+        workspace_path:
+          type: string
+          title: Workspace Path
+        remote:
+          type: string
+          title: Remote
+          default: origin
+        branch:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Branch
         dry_run:
           type: boolean
           title: Dry Run
@@ -3431,38 +2985,130 @@ components:
       type: object
       required:
       - workspace_path
-      - title
-      title: WorkspacePrCreateRequest
-    WorkspacePathRequest:
+      title: GithubBranchPushRequest
+    CodingTaskRequest:
       properties:
-        workspace_path:
+        repo_path:
           type: string
-          title: Workspace Path
-      type: object
-      required:
-      - workspace_path
-      title: WorkspacePathRequest
-    GithubPrUpdateBodyRequest:
-      properties:
-        workspace_path:
+          title: Repo Path
+        task:
           type: string
-          title: Workspace Path
-        pr:
+          title: Task
+        mode:
           type: string
-          title: Pr
-        body:
+          title: Mode
+          default: plan_apply_verify
+        workspace_strategy:
           type: string
-          title: Body
-        dry_run:
+          title: Workspace Strategy
+          default: git_worktree
+        max_iterations:
+          type: integer
+          title: Max Iterations
+          default: 5
+        approval_policy:
+          type: string
+          title: Approval Policy
+          default: safe_auto
+        create_pr:
           type: boolean
-          title: Dry Run
+          title: Create Pr
+          default: false
+        base_branch:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Base Branch
+        task_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Task Id
+        compact_response:
+          type: boolean
+          title: Compact Response
           default: true
       type: object
       required:
+      - repo_path
+      - task
+      title: CodingTaskRequest
+    GithubChecksReadRequest:
+      properties:
+        workspace_path:
+          type: string
+          title: Workspace Path
+        ref:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Ref
+      type: object
+      required:
       - workspace_path
-      - pr
-      - body
-      title: GithubPrUpdateBodyRequest
+      title: GithubChecksReadRequest
+    RepoOverviewRequest:
+      properties:
+        repo_path:
+          type: string
+          title: Repo Path
+        max_depth:
+          type: integer
+          title: Max Depth
+          default: 4
+      type: object
+      required:
+      - repo_path
+      title: RepoOverviewRequest
+    TaskIdRequest:
+      properties:
+        task_id:
+          type: string
+          title: Task Id
+      type: object
+      required:
+      - task_id
+      title: TaskIdRequest
+    DiagnosticsSuggestRequest:
+      properties:
+        diagnostics:
+          items:
+            additionalProperties: true
+            type: object
+          type: array
+          title: Diagnostics
+        max_files:
+          type: integer
+          title: Max Files
+          default: 20
+      type: object
+      required:
+      - diagnostics
+      title: DiagnosticsSuggestRequest
+    RepoSearchRequest:
+      properties:
+        repo_path:
+          type: string
+          title: Repo Path
+        query:
+          type: string
+          title: Query
+        globs:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Globs
+        max_results:
+          type: integer
+          title: Max Results
+          default: 50
+      type: object
+      required:
+      - repo_path
+      - query
+      title: RepoSearchRequest
     CategoryActionRequest:
       properties:
         action:
@@ -3516,88 +3162,16 @@ components:
       required:
       - action
       title: CategoryActionRequest
-    PatchHistoryRequest:
-      properties:
-        workspace_path:
-          type: string
-          title: Workspace Path
-        task_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Task Id
-      type: object
-      required:
-      - workspace_path
-      title: PatchHistoryRequest
-    RepoChangedContextRequest:
-      properties:
-        repo_path:
-          type: string
-          title: Repo Path
-        base_ref:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Base Ref
-      type: object
-      required:
-      - repo_path
-      title: RepoChangedContextRequest
-    TaskArtifactRequest:
+    CodingTaskNextRequest:
       properties:
         task_id:
           type: string
           title: Task Id
-        name:
-          type: string
-          title: Name
-        artifact:
-          additionalProperties: true
-          type: object
-          title: Artifact
       type: object
       required:
       - task_id
-      - name
-      - artifact
-      title: TaskArtifactRequest
-    GithubPrCreateFromTaskRequest:
-      properties:
-        workspace_path:
-          type: string
-          title: Workspace Path
-        task_id:
-          type: string
-          title: Task Id
-        title:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Title
-        dry_run:
-          type: boolean
-          title: Dry Run
-          default: true
-      type: object
-      required:
-      - workspace_path
-      - task_id
-      title: GithubPrCreateFromTaskRequest
-    PatchRevertRecordedRequest:
-      properties:
-        workspace_path:
-          type: string
-          title: Workspace Path
-        patch_id:
-          type: string
-          title: Patch Id
-      type: object
-      required:
-      - workspace_path
-      - patch_id
-      title: PatchRevertRecordedRequest
-    GithubPrCommentRequest:
+      title: CodingTaskNextRequest
+    GithubPrUpdateBodyRequest:
       properties:
         workspace_path:
           type: string
@@ -3617,124 +3191,7 @@ components:
       - workspace_path
       - pr
       - body
-      title: GithubPrCommentRequest
-    GithubChecksLogsRequest:
-      properties:
-        workspace_path:
-          type: string
-          title: Workspace Path
-        ref:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Ref
-        dry_run:
-          type: boolean
-          title: Dry Run
-          default: true
-      type: object
-      required:
-      - workspace_path
-      title: GithubChecksLogsRequest
-    DiagnosticsTriageRequest:
-      properties:
-        diagnostics:
-          items:
-            additionalProperties: true
-            type: object
-          type: array
-          title: Diagnostics
-        task:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Task
-        max_files:
-          type: integer
-          title: Max Files
-          default: 20
-      type: object
-      required:
-      - diagnostics
-      title: DiagnosticsTriageRequest
-    GithubFeedbackContractRequest:
-      properties:
-        workspace_path:
-          type: string
-          title: Workspace Path
-        comments:
-          items:
-            additionalProperties: true
-            type: object
-          type: array
-          title: Comments
-      type: object
-      required:
-      - workspace_path
-      - comments
-      title: GithubFeedbackContractRequest
-    TaskUpdateRequest:
-      properties:
-        task_id:
-          type: string
-          title: Task Id
-        status:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Status
-        workspace_path:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Workspace Path
-        metadata:
-          anyOf:
-          - additionalProperties: true
-            type: object
-          - type: 'null'
-          title: Metadata
-      type: object
-      required:
-      - task_id
-      title: TaskUpdateRequest
-    EvalPhase13PromoteRequest:
-      properties:
-        report_id:
-          type: string
-          title: Report Id
-        run_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Run Id
-        reason:
-          type: string
-          title: Reason
-          default: manual Phase 13 baseline promotion
-      type: object
-      required:
-      - report_id
-      title: EvalPhase13PromoteRequest
-    RepoReadContextRequest:
-      properties:
-        repo_path:
-          type: string
-          title: Repo Path
-        files:
-          items:
-            type: string
-          type: array
-          title: Files
-        max_bytes_per_file:
-          type: integer
-          title: Max Bytes Per File
-          default: 50000
-      type: object
-      required:
-      - repo_path
-      - files
-      title: RepoReadContextRequest
+      title: GithubPrUpdateBodyRequest
     EvalPhase13Request:
       properties:
         repo_path:
@@ -3775,6 +3232,209 @@ components:
       required:
       - repo_path
       title: EvalPhase13Request
+    DiagnosticsParseRequest:
+      properties:
+        tool:
+          type: string
+          title: Tool
+        stdout:
+          type: string
+          title: Stdout
+          default: ''
+        stderr:
+          type: string
+          title: Stderr
+          default: ''
+      type: object
+      required:
+      - tool
+      title: DiagnosticsParseRequest
+    RepoChangedContextRequest:
+      properties:
+        repo_path:
+          type: string
+          title: Repo Path
+        base_ref:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Base Ref
+      type: object
+      required:
+      - repo_path
+      title: RepoChangedContextRequest
+    GithubFeedbackContractRequest:
+      properties:
+        workspace_path:
+          type: string
+          title: Workspace Path
+        comments:
+          items:
+            additionalProperties: true
+            type: object
+          type: array
+          title: Comments
+      type: object
+      required:
+      - workspace_path
+      - comments
+      title: GithubFeedbackContractRequest
+    EvalPhase13PromoteRequest:
+      properties:
+        report_id:
+          type: string
+          title: Report Id
+        run_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Run Id
+        reason:
+          type: string
+          title: Reason
+          default: manual Phase 13 baseline promotion
+      type: object
+      required:
+      - report_id
+      title: EvalPhase13PromoteRequest
+    DiagnosticsTriageRequest:
+      properties:
+        diagnostics:
+          items:
+            additionalProperties: true
+            type: object
+          type: array
+          title: Diagnostics
+        task:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Task
+        max_files:
+          type: integer
+          title: Max Files
+          default: 20
+      type: object
+      required:
+      - diagnostics
+      title: DiagnosticsTriageRequest
+    TaskArtifactRequest:
+      properties:
+        task_id:
+          type: string
+          title: Task Id
+        name:
+          type: string
+          title: Name
+        artifact:
+          additionalProperties: true
+          type: object
+          title: Artifact
+      type: object
+      required:
+      - task_id
+      - name
+      - artifact
+      title: TaskArtifactRequest
+    RegressionCreateRequest:
+      properties:
+        id:
+          type: string
+          title: Id
+        title:
+          type: string
+          title: Title
+        failure_layer:
+          type: string
+          title: Failure Layer
+          default: unknown
+        symptom:
+          type: string
+          title: Symptom
+        expected_behavior:
+          type: string
+          title: Expected Behavior
+        source:
+          type: string
+          title: Source
+          default: manual
+        details:
+          additionalProperties: true
+          type: object
+          title: Details
+      type: object
+      required:
+      - id
+      - title
+      - symptom
+      - expected_behavior
+      title: RegressionCreateRequest
+    DebugLogIngestRequest:
+      properties:
+        log_text:
+          type: string
+          title: Log Text
+          description: Pasted Custom GPT Actions debug transcript.
+        source:
+          type: string
+          title: Source
+          default: custom_gpt_debug
+        run_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Run Id
+        write_events:
+          type: boolean
+          title: Write Events
+          default: true
+        create_regression:
+          type: boolean
+          title: Create Regression
+          default: false
+        regression_title:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Regression Title
+      type: object
+      required:
+      - log_text
+      title: DebugLogIngestRequest
+    WorkspacePrCreateRequest:
+      properties:
+        workspace_path:
+          type: string
+          title: Workspace Path
+        title:
+          type: string
+          title: Title
+        body:
+          type: string
+          title: Body
+          default: ''
+        dry_run:
+          type: boolean
+          title: Dry Run
+          default: true
+      type: object
+      required:
+      - workspace_path
+      - title
+      title: WorkspacePrCreateRequest
+    QualityCheckRequest:
+      properties:
+        workspace_path:
+          type: string
+          title: Workspace Path
+        timeout_seconds:
+          type: integer
+          title: Timeout Seconds
+          default: 120
+      type: object
+      required:
+      - workspace_path
+      title: QualityCheckRequest
     CodingTaskSmokeTestRequest:
       properties:
         repo_path:
@@ -3800,6 +3460,608 @@ components:
       required:
       - repo_path
       title: CodingTaskSmokeTestRequest
+    CodingTaskRepairPlanRequest:
+      properties:
+        task_id:
+          type: string
+          title: Task Id
+        max_files:
+          type: integer
+          title: Max Files
+          default: 12
+      type: object
+      required:
+      - task_id
+      title: CodingTaskRepairPlanRequest
+    GithubReviewCommentsRequest:
+      properties:
+        workspace_path:
+          type: string
+          title: Workspace Path
+        pr:
+          type: string
+          title: Pr
+      type: object
+      required:
+      - workspace_path
+      - pr
+      title: GithubReviewCommentsRequest
+    GithubPrCreateFromTaskRequest:
+      properties:
+        workspace_path:
+          type: string
+          title: Workspace Path
+        task_id:
+          type: string
+          title: Task Id
+        title:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Title
+        dry_run:
+          type: boolean
+          title: Dry Run
+          default: true
+      type: object
+      required:
+      - workspace_path
+      - task_id
+      title: GithubPrCreateFromTaskRequest
+    EvalReportRequest:
+      properties:
+        task_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Task Id
+        run_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Run Id
+        events_path:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Events Path
+        report_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Report Id
+      type: object
+      title: EvalReportRequest
+    TaskLogRequest:
+      properties:
+        task_id:
+          type: string
+          title: Task Id
+        event_type:
+          type: string
+          title: Event Type
+        data:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Data
+      type: object
+      required:
+      - task_id
+      - event_type
+      title: TaskLogRequest
+    GithubChecksLogsRequest:
+      properties:
+        workspace_path:
+          type: string
+          title: Workspace Path
+        ref:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Ref
+        dry_run:
+          type: boolean
+          title: Dry Run
+          default: true
+      type: object
+      required:
+      - workspace_path
+      title: GithubChecksLogsRequest
+    PatchRiskRequest:
+      properties:
+        workspace_path:
+          type: string
+          title: Workspace Path
+        patch:
+          type: string
+          title: Patch
+        max_files:
+          type: integer
+          title: Max Files
+          default: 25
+        max_lines:
+          type: integer
+          title: Max Lines
+          default: 2000
+      type: object
+      required:
+      - workspace_path
+      - patch
+      title: PatchRiskRequest
+    EvalReleaseGateRequest:
+      properties:
+        repo_path:
+          type: string
+          title: Repo Path
+          description: Repository path to evaluate, e.g. /home/obsidian/Elevate_test.
+        run_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Run Id
+        require_clean_git:
+          type: boolean
+          title: Require Clean Git
+          default: true
+      type: object
+      required:
+      - repo_path
+      title: EvalReleaseGateRequest
+    EvalCompareRequest:
+      properties:
+        current_run_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Current Run Id
+        baseline_run_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Baseline Run Id
+        current_report_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Current Report Id
+        baseline_report_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Baseline Report Id
+      type: object
+      title: EvalCompareRequest
+    WorkspacePathRequest:
+      properties:
+        workspace_path:
+          type: string
+          title: Workspace Path
+      type: object
+      required:
+      - workspace_path
+      title: WorkspacePathRequest
+    PolicyCheckRequest:
+      properties:
+        path:
+          type: string
+          title: Path
+        repo_root:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Repo Root
+      type: object
+      required:
+      - path
+      title: PolicyCheckRequest
+    EnvPrepareApprovedRequest:
+      properties:
+        workspace_path:
+          type: string
+          title: Workspace Path
+        approved:
+          type: boolean
+          title: Approved
+          default: false
+      type: object
+      required:
+      - workspace_path
+      title: EnvPrepareApprovedRequest
+    GithubIssueReadRequest:
+      properties:
+        workspace_path:
+          type: string
+          title: Workspace Path
+        issue:
+          type: string
+          title: Issue
+      type: object
+      required:
+      - workspace_path
+      - issue
+      title: GithubIssueReadRequest
+    PatchHistoryRequest:
+      properties:
+        workspace_path:
+          type: string
+          title: Workspace Path
+        task_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Task Id
+      type: object
+      required:
+      - workspace_path
+      title: PatchHistoryRequest
+    TaskOwnerRequest:
+      properties:
+        task_id:
+          type: string
+          title: Task Id
+        owner:
+          type: string
+          title: Owner
+          default: coding-gpt
+      type: object
+      required:
+      - task_id
+      title: TaskOwnerRequest
+    EnvRequest:
+      properties:
+        workspace_path:
+          type: string
+          title: Workspace Path
+      type: object
+      required:
+      - workspace_path
+      title: EnvRequest
+    EvalRunRequest:
+      properties:
+        suite:
+          type: string
+          title: Suite
+          description: 'Evaluation suite to run. Supported: core_smoke, payload_recovery,
+            release_gate, regressions, phase6_regressions.'
+          default: core_smoke
+        repo_path:
+          type: string
+          title: Repo Path
+          description: Repository path to evaluate, e.g. /home/obsidian/Elevate_test.
+        safe_only:
+          type: boolean
+          title: Safe Only
+          default: true
+        report_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Report Id
+      type: object
+      required:
+      - repo_path
+      title: EvalRunRequest
+    TaskUpdateRequest:
+      properties:
+        task_id:
+          type: string
+          title: Task Id
+        status:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Status
+        workspace_path:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Workspace Path
+        metadata:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Metadata
+      type: object
+      required:
+      - task_id
+      title: TaskUpdateRequest
+    PolicyEvaluateActionRequest:
+      properties:
+        action:
+          type: string
+          title: Action
+        workspace_path:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Workspace Path
+        changed_files:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Changed Files
+        tests_passed:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Tests Passed
+        quality_passed:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Quality Passed
+        user_approved_network_write:
+          type: boolean
+          title: User Approved Network Write
+          default: false
+      type: object
+      required:
+      - action
+      title: PolicyEvaluateActionRequest
+    WorkspaceCreateRequest:
+      properties:
+        repo_path:
+          type: string
+          title: Repo Path
+        task_id:
+          type: string
+          title: Task Id
+        strategy:
+          type: string
+          title: Strategy
+          default: git_worktree
+        base_branch:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Base Branch
+      type: object
+      required:
+      - repo_path
+      - task_id
+      title: WorkspaceCreateRequest
+    WorkspaceCommitRequest:
+      properties:
+        workspace_path:
+          type: string
+          title: Workspace Path
+        message:
+          type: string
+          title: Message
+        files:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Files
+      type: object
+      required:
+      - workspace_path
+      - message
+      title: WorkspaceCommitRequest
+    WorkspaceDestroyRequest:
+      properties:
+        workspace_path:
+          type: string
+          title: Workspace Path
+        force:
+          type: boolean
+          title: Force
+          default: false
+        keep_branch:
+          type: boolean
+          title: Keep Branch
+          default: true
+      type: object
+      required:
+      - workspace_path
+      title: WorkspaceDestroyRequest
+    CodingTaskSubmitRequest:
+      properties:
+        task_id:
+          type: string
+          title: Task Id
+        artifact_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Artifact Name
+        artifact:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Artifact
+        patch:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Patch
+        run_tests:
+          type: boolean
+          title: Run Tests
+          default: false
+        run_quality:
+          type: boolean
+          title: Run Quality
+          default: false
+      type: object
+      required:
+      - task_id
+      title: CodingTaskSubmitRequest
+    EvalContinuousLearningRequest:
+      properties:
+        repo_path:
+          type: string
+          title: Repo Path
+          description: Repository path to evaluate, e.g. /home/obsidian/Elevate_test.
+        run_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Run Id
+        baseline_report_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Baseline Report Id
+        require_clean_git:
+          type: boolean
+          title: Require Clean Git
+          default: true
+      type: object
+      required:
+      - repo_path
+      title: EvalContinuousLearningRequest
+    CodingTaskFinalizeRequest:
+      properties:
+        task_id:
+          type: string
+          title: Task Id
+        commit:
+          type: boolean
+          title: Commit
+          default: false
+        commit_message:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Commit Message
+        create_pr:
+          type: boolean
+          title: Create Pr
+          default: false
+        pr_title:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Pr Title
+        pr_body:
+          type: string
+          title: Pr Body
+          default: ''
+        user_approved_network_write:
+          type: boolean
+          title: User Approved Network Write
+          default: false
+        enforce_contract:
+          type: boolean
+          title: Enforce Contract
+          default: true
+      type: object
+      required:
+      - task_id
+      title: CodingTaskFinalizeRequest
+    CodingTaskContractReportRequest:
+      properties:
+        task_id:
+          type: string
+          title: Task Id
+      type: object
+      required:
+      - task_id
+      title: CodingTaskContractReportRequest
+    TaskCancelRequest:
+      properties:
+        task_id:
+          type: string
+          title: Task Id
+        reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Reason
+      type: object
+      required:
+      - task_id
+      title: TaskCancelRequest
+    TaskLockTtlRequest:
+      properties:
+        task_id:
+          type: string
+          title: Task Id
+        owner:
+          type: string
+          title: Owner
+          default: coding-gpt
+        ttl_ms:
+          type: integer
+          title: Ttl Ms
+          default: 1800000
+      type: object
+      required:
+      - task_id
+      title: TaskLockTtlRequest
+    RepoRecentHistoryRequest:
+      properties:
+        repo_path:
+          type: string
+          title: Repo Path
+        query:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Query
+        max_commits:
+          type: integer
+          title: Max Commits
+          default: 20
+      type: object
+      required:
+      - repo_path
+      title: RepoRecentHistoryRequest
+    GithubPrReadRequest:
+      properties:
+        workspace_path:
+          type: string
+          title: Workspace Path
+        pr:
+          type: string
+          title: Pr
+      type: object
+      required:
+      - workspace_path
+      - pr
+      title: GithubPrReadRequest
+    GithubPrCommentRequest:
+      properties:
+        workspace_path:
+          type: string
+          title: Workspace Path
+        pr:
+          type: string
+          title: Pr
+        body:
+          type: string
+          title: Body
+        dry_run:
+          type: boolean
+          title: Dry Run
+          default: true
+      type: object
+      required:
+      - workspace_path
+      - pr
+      - body
+      title: GithubPrCommentRequest
+    GithubChecksDiagnoseRequest:
+      properties:
+        checks:
+          items:
+            additionalProperties: true
+            type: object
+          type: array
+          title: Checks
+      type: object
+      required:
+      - checks
+      title: GithubChecksDiagnoseRequest
     PatchRecordedRequest:
       properties:
         workspace_path:
@@ -3823,268 +4085,6 @@ components:
       - workspace_path
       - patch
       title: PatchRecordedRequest
-    RepoSymbolReferencesRequest:
-      properties:
-        repo_path:
-          type: string
-          title: Repo Path
-        symbols:
-          items:
-            type: string
-          type: array
-          title: Symbols
-        max_results_per_symbol:
-          type: integer
-          title: Max Results Per Symbol
-          default: 50
-      type: object
-      required:
-      - repo_path
-      - symbols
-      title: RepoSymbolReferencesRequest
-    CodingTaskRepairPlanRequest:
-      properties:
-        task_id:
-          type: string
-          title: Task Id
-        max_files:
-          type: integer
-          title: Max Files
-          default: 12
-      type: object
-      required:
-      - task_id
-      title: CodingTaskRepairPlanRequest
-    WorkspaceCreateRequest:
-      properties:
-        repo_path:
-          type: string
-          title: Repo Path
-        task_id:
-          type: string
-          title: Task Id
-        strategy:
-          type: string
-          title: Strategy
-          default: git_worktree
-        base_branch:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Base Branch
-      type: object
-      required:
-      - repo_path
-      - task_id
-      title: WorkspaceCreateRequest
-    RepoRelevantContextRequest:
-      properties:
-        repo_path:
-          type: string
-          title: Repo Path
-        task:
-          type: string
-          title: Task
-        diagnostics:
-          anyOf:
-          - items:
-              additionalProperties: true
-              type: object
-            type: array
-          - type: 'null'
-          title: Diagnostics
-        max_files:
-          type: integer
-          title: Max Files
-          default: 12
-      type: object
-      required:
-      - repo_path
-      - task
-      title: RepoRelevantContextRequest
-    PatchRiskRequest:
-      properties:
-        workspace_path:
-          type: string
-          title: Workspace Path
-        patch:
-          type: string
-          title: Patch
-        max_files:
-          type: integer
-          title: Max Files
-          default: 25
-        max_lines:
-          type: integer
-          title: Max Lines
-          default: 2000
-      type: object
-      required:
-      - workspace_path
-      - patch
-      title: PatchRiskRequest
-    GithubCiRepairPlanRequest:
-      properties:
-        workspace_path:
-          type: string
-          title: Workspace Path
-        checks:
-          anyOf:
-          - items:
-              additionalProperties: true
-              type: object
-            type: array
-          - type: 'null'
-          title: Checks
-        logs:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Logs
-      type: object
-      required:
-      - workspace_path
-      title: GithubCiRepairPlanRequest
-    TaskGcRequest:
-      properties:
-        max_age_ms:
-          type: integer
-          title: Max Age Ms
-          default: 604800000
-        statuses:
-          anyOf:
-          - items:
-              type: string
-            type: array
-          - type: 'null'
-          title: Statuses
-        dry_run:
-          type: boolean
-          title: Dry Run
-          default: true
-      type: object
-      title: TaskGcRequest
-    EnvPrepareApprovedRequest:
-      properties:
-        workspace_path:
-          type: string
-          title: Workspace Path
-        approved:
-          type: boolean
-          title: Approved
-          default: false
-      type: object
-      required:
-      - workspace_path
-      title: EnvPrepareApprovedRequest
-    CodingTaskRequest:
-      properties:
-        repo_path:
-          type: string
-          title: Repo Path
-        task:
-          type: string
-          title: Task
-        mode:
-          type: string
-          title: Mode
-          default: plan_apply_verify
-        workspace_strategy:
-          type: string
-          title: Workspace Strategy
-          default: git_worktree
-        max_iterations:
-          type: integer
-          title: Max Iterations
-          default: 5
-        approval_policy:
-          type: string
-          title: Approval Policy
-          default: safe_auto
-        create_pr:
-          type: boolean
-          title: Create Pr
-          default: false
-        base_branch:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Base Branch
-        task_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Task Id
-        compact_response:
-          type: boolean
-          title: Compact Response
-          default: true
-      type: object
-      required:
-      - repo_path
-      - task
-      title: CodingTaskRequest
-    GithubPrReadRequest:
-      properties:
-        workspace_path:
-          type: string
-          title: Workspace Path
-        pr:
-          type: string
-          title: Pr
-      type: object
-      required:
-      - workspace_path
-      - pr
-      title: GithubPrReadRequest
-    GithubBranchPushRequest:
-      properties:
-        workspace_path:
-          type: string
-          title: Workspace Path
-        remote:
-          type: string
-          title: Remote
-          default: origin
-        branch:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Branch
-        dry_run:
-          type: boolean
-          title: Dry Run
-          default: true
-      type: object
-      required:
-      - workspace_path
-      title: GithubBranchPushRequest
-    TaskListRequest:
-      properties:
-        status:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Status
-      type: object
-      title: TaskListRequest
-    RepoReferencesRequest:
-      properties:
-        repo_path:
-          type: string
-          title: Repo Path
-        symbol:
-          type: string
-          title: Symbol
-        max_results:
-          type: integer
-          title: Max Results
-          default: 100
-      type: object
-      required:
-      - repo_path
-      - symbol
-      title: RepoReferencesRequest
   securitySchemes:
     ApiKeyAuth:
       type: apiKey

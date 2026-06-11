@@ -509,17 +509,137 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /quality/check:
+    post:
+      summary: Quality Check
+      operationId: quality_check_quality_check_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QualityCheckRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /env/discover:
+    post:
+      summary: Env Discover
+      operationId: env_discover_env_discover_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnvRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /env/doctor:
+    post:
+      summary: Env Doctor
+      operationId: env_doctor_env_doctor_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnvRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /env/prepare-dry-run:
+    post:
+      summary: Env Prepare Dry Run
+      operationId: env_prepare_dry_run_env_prepare_dry_run_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnvRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /env/prepare-approved:
+    post:
+      summary: Env Prepare Approved
+      operationId: env_prepare_approved_env_prepare_approved_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnvPrepareApprovedRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
 components:
   schemas:
-    CodingTaskNextRequest:
+    RepoReadContextRequest:
       properties:
-        task_id:
+        repo_path:
           type: string
-          title: Task Id
+          title: Repo Path
+        files:
+          items:
+            type: string
+          type: array
+          title: Files
+        max_bytes_per_file:
+          type: integer
+          title: Max Bytes Per File
+          default: 50000
       type: object
       required:
-      - task_id
-      title: CodingTaskNextRequest
+      - repo_path
+      - files
+      title: RepoReadContextRequest
     ValidationError:
       properties:
         loc:
@@ -541,83 +661,39 @@ components:
       - msg
       - type
       title: ValidationError
-    CodingTaskRepairPlanRequest:
+    RunTestRequest:
       properties:
-        task_id:
+        workspace_path:
           type: string
-          title: Task Id
-        max_files:
+          title: Workspace Path
+        command_name:
+          type: string
+          title: Command Name
+        timeout_seconds:
           type: integer
-          title: Max Files
-          default: 12
+          title: Timeout Seconds
+          default: 120
       type: object
       required:
-      - task_id
-      title: CodingTaskRepairPlanRequest
-    CodingTaskSubmitRequest:
-      properties:
-        task_id:
-          type: string
-          title: Task Id
-        artifact_name:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Artifact Name
-        artifact:
-          anyOf:
-          - additionalProperties: true
-            type: object
-          - type: 'null'
-          title: Artifact
-        patch:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Patch
-        run_tests:
-          type: boolean
-          title: Run Tests
-          default: false
-        run_quality:
-          type: boolean
-          title: Run Quality
-          default: false
-      type: object
-      required:
-      - task_id
-      title: CodingTaskSubmitRequest
-    HTTPValidationError:
-      properties:
-        detail:
-          items:
-            $ref: '#/components/schemas/ValidationError'
-          type: array
-          title: Detail
-      type: object
-      title: HTTPValidationError
-    CodingTaskContractReportRequest:
-      properties:
-        task_id:
-          type: string
-          title: Task Id
-      type: object
-      required:
-      - task_id
-      title: CodingTaskContractReportRequest
-    RepoOverviewRequest:
+      - workspace_path
+      - command_name
+      title: RunTestRequest
+    RepoSymbolsRequest:
       properties:
         repo_path:
           type: string
           title: Repo Path
-        max_depth:
-          type: integer
-          title: Max Depth
-          default: 4
+        files:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Files
       type: object
       required:
       - repo_path
-      title: RepoOverviewRequest
+      title: RepoSymbolsRequest
     RepoRelevantContextRequest:
       properties:
         repo_path:
@@ -643,32 +719,6 @@ components:
       - repo_path
       - task
       title: RepoRelevantContextRequest
-    WorkspacePathRequest:
-      properties:
-        workspace_path:
-          type: string
-          title: Workspace Path
-      type: object
-      required:
-      - workspace_path
-      title: WorkspacePathRequest
-    RunTestRequest:
-      properties:
-        workspace_path:
-          type: string
-          title: Workspace Path
-        command_name:
-          type: string
-          title: Command Name
-        timeout_seconds:
-          type: integer
-          title: Timeout Seconds
-          default: 120
-      type: object
-      required:
-      - workspace_path
-      - command_name
-      title: RunTestRequest
     CodingTaskRequest:
       properties:
         repo_path:
@@ -716,22 +766,19 @@ components:
       - repo_path
       - task
       title: CodingTaskRequest
-    RepoSymbolsRequest:
+    RepoOverviewRequest:
       properties:
         repo_path:
           type: string
           title: Repo Path
-        files:
-          anyOf:
-          - items:
-              type: string
-            type: array
-          - type: 'null'
-          title: Files
+        max_depth:
+          type: integer
+          title: Max Depth
+          default: 4
       type: object
       required:
       - repo_path
-      title: RepoSymbolsRequest
+      title: RepoOverviewRequest
     RepoSearchRequest:
       properties:
         repo_path:
@@ -756,6 +803,97 @@ components:
       - repo_path
       - query
       title: RepoSearchRequest
+    CodingTaskNextRequest:
+      properties:
+        task_id:
+          type: string
+          title: Task Id
+      type: object
+      required:
+      - task_id
+      title: CodingTaskNextRequest
+    QualityCheckRequest:
+      properties:
+        workspace_path:
+          type: string
+          title: Workspace Path
+        timeout_seconds:
+          type: integer
+          title: Timeout Seconds
+          default: 120
+      type: object
+      required:
+      - workspace_path
+      title: QualityCheckRequest
+    CodingTaskSmokeTestRequest:
+      properties:
+        repo_path:
+          type: string
+          title: Repo Path
+        task:
+          type: string
+          title: Task
+          default: Smoke-test all uploadable Coding GPT core endpoints safely.
+        safe_only:
+          type: boolean
+          title: Safe Only
+          default: true
+        approval_policy:
+          type: string
+          title: Approval Policy
+          default: safe_auto
+        max_iterations:
+          type: integer
+          title: Max Iterations
+          default: 1
+      type: object
+      required:
+      - repo_path
+      title: CodingTaskSmokeTestRequest
+    CodingTaskRepairPlanRequest:
+      properties:
+        task_id:
+          type: string
+          title: Task Id
+        max_files:
+          type: integer
+          title: Max Files
+          default: 12
+      type: object
+      required:
+      - task_id
+      title: CodingTaskRepairPlanRequest
+    WorkspacePathRequest:
+      properties:
+        workspace_path:
+          type: string
+          title: Workspace Path
+      type: object
+      required:
+      - workspace_path
+      title: WorkspacePathRequest
+    EnvPrepareApprovedRequest:
+      properties:
+        workspace_path:
+          type: string
+          title: Workspace Path
+        approved:
+          type: boolean
+          title: Approved
+          default: false
+      type: object
+      required:
+      - workspace_path
+      title: EnvPrepareApprovedRequest
+    EnvRequest:
+      properties:
+        workspace_path:
+          type: string
+          title: Workspace Path
+      type: object
+      required:
+      - workspace_path
+      title: EnvRequest
     CodingTaskFinalizeRequest:
       properties:
         task_id:
@@ -795,50 +933,57 @@ components:
       required:
       - task_id
       title: CodingTaskFinalizeRequest
-    RepoReadContextRequest:
+    CodingTaskContractReportRequest:
       properties:
-        repo_path:
+        task_id:
           type: string
-          title: Repo Path
-        files:
-          items:
-            type: string
-          type: array
-          title: Files
-        max_bytes_per_file:
-          type: integer
-          title: Max Bytes Per File
-          default: 50000
+          title: Task Id
       type: object
       required:
-      - repo_path
-      - files
-      title: RepoReadContextRequest
-    CodingTaskSmokeTestRequest:
+      - task_id
+      title: CodingTaskContractReportRequest
+    CodingTaskSubmitRequest:
       properties:
-        repo_path:
+        task_id:
           type: string
-          title: Repo Path
-        task:
-          type: string
-          title: Task
-          default: Smoke-test all uploadable Coding GPT core endpoints safely.
-        safe_only:
+          title: Task Id
+        artifact_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Artifact Name
+        artifact:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Artifact
+        patch:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Patch
+        run_tests:
           type: boolean
-          title: Safe Only
-          default: true
-        approval_policy:
-          type: string
-          title: Approval Policy
-          default: safe_auto
-        max_iterations:
-          type: integer
-          title: Max Iterations
-          default: 1
+          title: Run Tests
+          default: false
+        run_quality:
+          type: boolean
+          title: Run Quality
+          default: false
       type: object
       required:
-      - repo_path
-      title: CodingTaskSmokeTestRequest
+      - task_id
+      title: CodingTaskSubmitRequest
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
   securitySchemes:
     ApiKeyAuth:
       type: apiKey
