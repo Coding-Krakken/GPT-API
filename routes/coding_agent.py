@@ -111,31 +111,28 @@ def coding_task_next(req: CodingTaskNextRequest):
         status = task.get("status")
         workspace_path = task.get("workspace_path")
         artifacts = task.get("artifacts", {})
-        if not workspace_path:
-            phase = "need_workspace"
-            required_action = {"endpoint": "/workspace/create", "then": "/tasks/update"}
-        elif "relevant_context" not in artifacts:
-            phase = "need_context"
-            required_action = {"endpoint": "/repo/relevant-context", "then": "/tasks/artifacts"}
-        elif "coverage_baseline" not in artifacts and ("coverage" in task.get("task","").lower() or "test" in task.get("task","").lower()):
-            phase = "need_baseline"
-            required_action = {"endpoint": "/test/discover then /test/run coverage command", "then": "/tasks/artifacts coverage_baseline"}
-        elif "patch_preview" not in artifacts:
-            phase = "need_patch"
-            required_action = {"format": "unified_diff", "endpoint": "/patch/preview", "then": "/patch/apply"}
-        elif "test_result" not in artifacts:
-            phase = "need_tests"
-            required_action = {"endpoint": "/test/discover then /test/run", "then": "/tasks/artifacts"}
-        elif "quality_result" not in artifacts:
-            phase = "need_quality"
-            required_action = {"endpoint": "/quality/check", "then": "/tasks/artifacts"}
-        elif "diff_summary" not in artifacts:
-            phase = "need_review"
-            required_action = {"endpoint": "/workspace/diff-summary and /workspace/review-checklist", "then": "/tasks/artifacts"}
-        else:
-            phase = "ready_to_finalize"
-            required_action = {"endpoint": "/policy/evaluate-action", "next": "commit or PR dry-run if policy allows"}
         contract = task_ledger.phase_contract(req.task_id)
+        phase = contract.get("phase")
+        if phase == "need_workspace":
+            required_action = {"endpoint": "/workspace/create", "then": "/tasks/update"}
+        elif phase == "need_context":
+            required_action = {"endpoint": "/repo/instructions and /repo/relevant-context", "then": "/agent/coding-task/submit relevant_context"}
+        elif phase == "need_coverage_baseline":
+            required_action = {"endpoint": "/test/discover then /test/run coverage command", "then": "/agent/coding-task/submit coverage_baseline"}
+        elif phase == "need_coverage_analysis":
+            required_action = {"endpoint": "/repo/read-context", "then": "/agent/coding-task/submit coverage_report and coverage_gaps"}
+        elif phase == "need_environment":
+            required_action = {"endpoint": "/env/discover, /env/doctor, /env/prepare-dry-run", "then": "ask user approval before /env/prepare-approved"}
+        elif phase == "need_patch":
+            required_action = {"format": "unified_diff", "endpoint": "/agent/coding-task/submit"}
+        elif phase == "need_tests":
+            required_action = {"endpoint": "/agent/coding-task/submit run_tests=true"}
+        elif phase == "need_quality":
+            required_action = {"endpoint": "/quality/check or /agent/coding-task/submit run_quality=true"}
+        elif phase == "need_review":
+            required_action = {"endpoint": "/agent/coding-task/finalize", "then": "records diff/risk/review/policy artifacts"}
+        else:
+            required_action = {"endpoint": "/agent/coding-task/finalize", "next": "commit or PR dry-run if policy allows"}
         task_ledger.log_event(req.task_id, "next_phase", {"phase": contract.get("phase")})
         latency = round((time.time() - start) * 1000, 2)
         eval_telemetry.log_event("task_phase_selected", endpoint="/agent/coding-task/next", task_id=req.task_id, phase=contract.get("phase"), status=200, latency_ms=latency)

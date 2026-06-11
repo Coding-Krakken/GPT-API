@@ -281,6 +281,21 @@ def is_coverage_task(record: dict) -> bool:
     return any(term in text for term in ["coverage", "test coverage", "threshold", "lcov", "vitest", "jest"])
 
 
+def needs_environment_preparation(record: dict) -> bool:
+    artifacts = record.get("artifacts", {})
+    haystacks = []
+    for name in ["test_result", "quality_result", "coverage_baseline"]:
+        data = artifacts.get(name, {}).get("data", {})
+        if isinstance(data, dict):
+            haystacks.extend(str(data.get(k, "")) for k in ["stdout_tail", "stderr_tail", "stdout", "stderr", "message"])
+            for result in data.get("results", []) if isinstance(data.get("results"), list) else []:
+                if isinstance(result, dict):
+                    haystacks.extend(str(result.get(k, "")) for k in ["stdout_tail", "stderr_tail", "stdout", "stderr"])
+    text = "\n".join(haystacks).lower()
+    missing_markers = ["command not found", "not recognized", "cannot find module", "no such file or directory", "turbo: not found", "turbo: command not found", "pnpm: not found", "npm: not found"]
+    return any(marker in text for marker in missing_markers)
+
+
 def required_artifacts_for(record: dict) -> list[str]:
     required = list(REQUIRED_FINAL_ARTIFACTS)
     if is_coverage_task(record):
@@ -320,12 +335,18 @@ def phase_contract(task_id: str) -> dict:
     elif "test_result" not in artifacts:
         phase = "need_tests"
         contract = {"allowed_submission": "run_tests", "must_call": ["/agent/coding-task/submit"], "gpt_instruction": "Run discovered tests through submit with run_tests=true. Do not run arbitrary commands."}
+    elif artifacts.get("test_result", {}).get("data", {}).get("passed") is False and needs_environment_preparation(record):
+        phase = "need_environment"
+        contract = {"allowed_submission": "environment_plan", "must_call": ["/env/discover", "/env/doctor", "/env/prepare-dry-run"], "gpt_instruction": "Tests failed because required tools/dependencies appear missing. Run env discovery/doctor/prepare-dry-run. Ask the user before /env/prepare-approved because it may perform network-writing dependency installation."}
     elif artifacts.get("test_result", {}).get("data", {}).get("passed") is False:
         phase = "need_repair"
         contract = {"allowed_submission": "repair_patch", "must_call": ["/agent/coding-task/repair-plan", "/repo/read-context", "/agent/coding-task/submit"], "gpt_instruction": "Use repair-plan and diagnostics before patching. Patch only the likely failure area."}
     elif "quality_result" not in artifacts:
         phase = "need_quality"
         contract = {"allowed_submission": "run_quality", "must_call": ["/agent/coding-task/submit"], "gpt_instruction": "Run quality checks through submit with run_quality=true."}
+    elif artifacts.get("quality_result", {}).get("data", {}).get("passed") is False and needs_environment_preparation(record):
+        phase = "need_environment"
+        contract = {"allowed_submission": "environment_plan", "must_call": ["/env/discover", "/env/doctor", "/env/prepare-dry-run"], "gpt_instruction": "Quality failed because required tools/dependencies appear missing. Run env discovery/doctor/prepare-dry-run. Ask the user before /env/prepare-approved because it may perform network-writing dependency installation."}
     elif artifacts.get("quality_result", {}).get("data", {}).get("passed") is False:
         phase = "need_quality_repair"
         contract = {"allowed_submission": "quality_repair_patch", "must_call": ["/agent/coding-task/repair-plan", "/agent/coding-task/submit"], "gpt_instruction": "Repair quality failures minimally, then rerun quality checks."}
