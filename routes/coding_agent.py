@@ -76,7 +76,7 @@ def coding_task(req: CodingTaskRequest):
         }
         return {
             "status": "workspace_ready",
-            "message": "Coding task initialized safely. Store repo_path, task_id, and workspace_path. Then call /agent/coding-task/next before acting. For endpoint smoke tests, call /agent/coding-task/smoke-test.",
+            "message": "Coding task initialized safely. Store repo_path, task_id, and workspace_path. Then call /agent/coding-task/next before acting and generate a patch. For endpoint smoke tests, call /agent/coding-task/smoke-test.",
             "task": task_record if not req.compact_response else {"task_id": task_record.get("task_id"), "task": task_record.get("task"), "repo_path": task_record.get("repo_path"), "workspace_path": task_record.get("workspace_path"), "status": task_record.get("status"), "metadata": task_record.get("metadata", {})},
             "workspace": workspace,
             "overview": compact_overview if req.compact_response else overview,
@@ -117,6 +117,9 @@ def coding_task_next(req: CodingTaskNextRequest):
         elif "relevant_context" not in artifacts:
             phase = "need_context"
             required_action = {"endpoint": "/repo/relevant-context", "then": "/tasks/artifacts"}
+        elif "coverage_baseline" not in artifacts and ("coverage" in task.get("task","").lower() or "test" in task.get("task","").lower()):
+            phase = "need_baseline"
+            required_action = {"endpoint": "/test/discover then /test/run coverage command", "then": "/tasks/artifacts coverage_baseline"}
         elif "patch_preview" not in artifacts:
             phase = "need_patch"
             required_action = {"format": "unified_diff", "endpoint": "/patch/preview", "then": "/patch/apply"}
@@ -180,12 +183,20 @@ def coding_task_submit(req: CodingTaskSubmitRequest):
             eval_telemetry.log_event("artifact_recorded", endpoint="/agent/coding-task/submit", task_id=req.task_id, artifact_name=req.artifact_name)
             results[req.artifact_name] = req.artifact
         if req.patch:
+            current_task = task_ledger.read(req.task_id)
+            current_artifacts = current_task.get("artifacts", {})
+            if task_ledger.is_coverage_task(current_task) and patching.touches_coverage_threshold(req.patch):
+                missing_cov = [name for name in ["coverage_baseline", "coverage_report", "coverage_gaps"] if name not in current_artifacts]
+                if missing_cov:
+                    task_ledger.update(req.task_id, status="blocked_coverage_baseline_required")
+                    return {"status": 400, "error": {"code": "coverage_baseline_required", "message": "Coverage threshold/config patches require measured baseline and gap artifacts first."}, "missing": missing_cov, "required_artifacts": ["coverage_baseline", "coverage_report", "coverage_gaps"]}
             risk = patching.validate_risk(workspace, req.patch)
             eval_telemetry.log_event("patch_previewed", endpoint="/agent/coding-task/submit", task_id=req.task_id, workspace_path=workspace, allowed=risk.get("allowed"), files_touched=risk.get("files_touched"), risk_count=len(risk.get("risks", [])))
             task_ledger.add_artifact(req.task_id, "patch_risk", risk)
             if not risk.get("allowed"):
                 task_ledger.update(req.task_id, status="blocked_patch_risk")
-                return {"status": 400, "error": {"code": "patch_risk_blocked", "message": "Patch failed risk validation."}, "risk": risk}
+                err_code = "invalid_unified_diff" if risk.get("diagnostics") else "patch_risk_blocked"
+                return {"status": 400, "error": {"code": err_code, "message": "Patch failed risk validation."}, "risk": risk, "diagnostics": risk.get("diagnostics")}
             preview = patching.preview(workspace, req.patch)
             task_ledger.add_artifact(req.task_id, "patch_preview", preview)
             if not preview.get("applies"):
@@ -223,8 +234,15 @@ def coding_task_submit(req: CodingTaskSubmitRequest):
             task_ledger.add_artifact(req.task_id, "quality_result", quality_result)
             eval_telemetry.log_event("quality_run", endpoint="/agent/coding-task/submit", task_id=req.task_id, workspace_path=workspace, passed=quality_result.get("passed"), result_count=len(quality_result.get("results", [])))
             results["quality"] = quality_result
-            if not quality_result.get("passed"):
-                task_ledger.update(req.task_id, status="quality_failed")
+        # auto-generate review artifacts when enough data exists
+        try:
+            task_ledger.add_artifact(req.task_id, "diff_summary", worktrees.diff_summary(workspace))
+            task_ledger.add_artifact(req.task_id, "risk_report", worktrees.risk_report(workspace))
+            task_ledger.add_artifact(req.task_id, "review_checklist", worktrees.review_checklist(workspace))
+        except Exception:
+            pass
+        if req.run_quality and 'quality_result' in locals() and not quality_result.get("passed"):
+            task_ledger.update(req.task_id, status="quality_failed")
         latency = round((time.time()-start)*1000,2)
         eval_telemetry.log_event("action_completed", endpoint="/agent/coding-task/submit", task_id=req.task_id, status=200, result_keys=sorted(results.keys()), latency_ms=latency)
         return {"status": 200, "results": results, "task": task_ledger.read(req.task_id), "latency_ms": latency, "timestamp": int(time.time()*1000)}
@@ -253,9 +271,9 @@ def coding_task_finalize(req: CodingTaskFinalizeRequest):
         tests = task.get("artifacts", {}).get("test_result", {}).get("data", {})
         quality = task.get("artifacts", {}).get("quality_result", {}).get("data", {})
         changed = [f.get("file") for f in diff_summary.get("files", []) if f.get("file")]
-        validation_before_policy = task_ledger.validate_required_artifacts(req.task_id, ["relevant_context", "patch_recorded", "test_result", "quality_result"])
-        if req.enforce_contract and (req.commit or req.create_pr) and not validation_before_policy.get("valid"):
-            return {"status": 400, "error": {"code": "contract_incomplete", "message": "Required task artifacts are missing before commit/PR finalization."}, "validation": validation_before_policy}
+        validation_before_policy = task_ledger.validate_required_artifacts(req.task_id)
+        if req.enforce_contract and not validation_before_policy.get("valid"):
+            return {"status": 400, "error": {"code": "contract_incomplete", "message": "Required task artifacts are missing before finalization."}, "validation": validation_before_policy}
         diff_lines = sum(int(x.split("	")[0]) + int(x.split("	")[1]) for x in diff_summary.get("numstat", "").splitlines() if len(x.split("	")) >= 3 and x.split("	")[0].isdigit() and x.split("	")[1].isdigit())
         policy_result = policy_util.evaluate_action_deep(
             "create_pr" if (req.create_pr and req.user_approved_network_write) else "commit" if req.commit else "finalize",

@@ -11,7 +11,54 @@ from utils import eval_telemetry
 _FILE_RE = re.compile(r"^(?:diff --git a/(.*?) b/(.*?)|--- a/(.*)|\+\+\+ b/(.*))$")
 
 
+_DIFF_MARKERS = ("diff --git ", "--- ", "+++ ", "@@ ")
+_THRESHOLD_RE = re.compile(r"(?i)(coverageThreshold|thresholds?\s*[:=]|coverage\s*[:=].*threshold|branches\s*[:=]\s*\d+|functions\s*[:=]\s*\d+|lines\s*[:=]\s*\d+|statements\s*[:=]\s*\d+)")
+_COVERAGE_FILE_RE = re.compile(r"(?i)(vitest\.config|jest\.config|nyc|c8|coverage|package\.json|\.github/workflows)")
+
+
+def patch_diagnostics(patch: str) -> dict:
+    text = patch or ""
+    lines = text.splitlines()
+    has_diff = any(line.startswith("diff --git ") for line in lines)
+    has_headers = any(line.startswith("--- ") for line in lines) and any(line.startswith("+++ ") for line in lines)
+    has_hunk = any(line.startswith("@@ ") for line in lines)
+    looks_like_fenced = "```" in text
+    looks_like_summary = bool(re.search(r"(?im)^\s*(file|path)\s*:", text))
+    valid_shape = (has_diff or has_headers) and has_hunk
+    guidance = []
+    if looks_like_fenced:
+        guidance.append("Remove Markdown code fences from the patch payload.")
+    if not has_headers:
+        guidance.append("Include --- a/path and +++ b/path headers.")
+    if not has_hunk:
+        guidance.append("Include at least one @@ unified-diff hunk.")
+    if looks_like_summary:
+        guidance.append("Do not submit prose/file summaries; submit a real unified diff.")
+    if not guidance:
+        guidance.append("Ensure the diff was generated against the current worktree and paths are relative.")
+    return {"valid_unified_diff_shape": valid_shape, "has_diff_header": has_diff, "has_file_headers": has_headers, "has_hunk": has_hunk, "line_count": len(lines), "guidance": guidance, "accepted_example": "diff --git a/README.md b/README.md\n--- a/README.md\n+++ b/README.md\n@@ -1 +1 @@\n-old\n+new\n"}
+
+
+def normalize_patch(patch: str) -> str:
+    text = (patch or "").strip()
+    if text.startswith("```"):
+        text = re.sub(r"^```(?:diff|patch)?\s*", "", text)
+        text = re.sub(r"\s*```$", "", text).strip()
+    return text + ("\n" if text and not text.endswith("\n") else "")
+
+
+def touches_coverage_threshold(patch: str) -> bool:
+    text = patch or ""
+    return bool(_THRESHOLD_RE.search(text) and (_COVERAGE_FILE_RE.search(text) or "coverage" in text.lower()))
+
+
 def touched_files(patch: str) -> list[str]:
+    patch = normalize_patch(patch)
+    diag = patch_diagnostics(patch)
+    if not diag["valid_unified_diff_shape"]:
+        exc = PolicyError("invalid_unified_diff", "No valid unified diff found in patch payload.")
+        exc.details = diag
+        raise exc
     files: list[str] = []
     for line in patch.splitlines():
         m = _FILE_RE.match(line.strip())
@@ -35,7 +82,11 @@ def _write_patch_file(patch: str) -> str:
 
 def preview(workspace_path: str, patch: str) -> dict:
     workspace = ensure_under_allowed_root(workspace_path)
-    files = touched_files(patch)
+    patch = normalize_patch(patch)
+    try:
+        files = touched_files(patch)
+    except PolicyError as exc:
+        return {"applies": False, "files_touched": [], "risk": "invalid_patch", "preview": exc.message, "stderr": exc.message, "diagnostics": getattr(exc, "details", patch_diagnostics(patch))}
     patch_file = _write_patch_file(patch)
     try:
         check = run_checked(["git", "apply", "--check", patch_file], workspace, timeout=30)
@@ -151,6 +202,10 @@ def revert_recorded(workspace_path: str, patch_id: str) -> dict:
 
 def validate_risk(workspace_path: str, patch: str, max_files: int = 25, max_lines: int = 2000) -> dict:
     workspace = ensure_under_allowed_root(workspace_path)
+    patch = normalize_patch(patch)
+    diag = patch_diagnostics(patch)
+    if not diag["valid_unified_diff_shape"]:
+        return {"workspace_path": str(workspace), "allowed": False, "files_touched": [], "line_count": len((patch or "").splitlines()), "risks": [{"risk": "invalid_unified_diff", "diagnostics": diag}], "diagnostics": diag}
     files = touched_files(patch)
     line_count = len(patch.splitlines())
     risks = []

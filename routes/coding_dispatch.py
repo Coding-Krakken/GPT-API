@@ -4,7 +4,7 @@ import time
 from typing import Any, Callable
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 from utils.auth import verify_key
 from utils.policy import PolicyError, policy_result_for_path, evaluate_action, evaluate_action_deep
@@ -19,8 +19,24 @@ router = APIRouter(dependencies=[Depends(verify_key)])
 
 
 class CategoryActionRequest(BaseModel):
+    model_config = ConfigDict(extra="allow")
     action: str = Field(..., description="Allowlisted action name for this category.")
-    payload: dict[str, Any] = Field(..., description="Required action-specific payload. Never omit this. Example: {'repo_path': '/home/obsidian/Elevate_test'} for repo actions.")
+    payload: dict[str, Any] | None = Field(default=None, description="Action-specific payload. Optional.")
+    repo_path: str | None = None
+    workspace_path: str | None = None
+    task_id: str | None = None
+    task: str | None = None
+    query: str | None = None
+    symbol: str | None = None
+    category: str | None = None
+
+    def normalized_payload(self) -> dict[str, Any]:
+        data = dict(self.payload or {})
+        extras = getattr(self, "__pydantic_extra__", {}) or {}
+        for k,v in extras.items():
+            if k not in {"action","category","payload"}:
+                data.setdefault(k,v)
+        return data
 
 
 class CodingActionRequest(CategoryActionRequest):
@@ -93,7 +109,7 @@ def _required(payload: dict[str, Any], *names: str) -> list[Any]:
 def _dispatch(action_map: dict[str, Callable[[dict[str, Any]], Any]], req: CategoryActionRequest, *, category: str = "unknown", endpoint: str = "/coding/action") -> dict[str, Any]:
     start = time.time()
     action = (req.action or "").strip().replace("-", "_")
-    payload = req.payload or {}
+    payload = req.normalized_payload()
     eval_telemetry.log_event("dispatcher_called", category=category, action=action, endpoint=endpoint, payload_keys=eval_telemetry.payload_keys(payload))
     try:
         fn = action_map.get(action)
@@ -271,7 +287,7 @@ def coding_action(req: CodingActionRequest):
     if not factory:
         eval_telemetry.log_event("action_failed", category=category, action=req.action, endpoint="/coding/action", status=400, error_code="unsupported_category")
         return _err("unsupported_category", f"Unsupported category: {req.category}. Allowed categories: {', '.join(sorted(CATEGORY_MAP))}")
-    return _dispatch(factory(), CategoryActionRequest(action=req.action, payload=req.payload), category=category, endpoint="/coding/action")
+    return _dispatch(factory(), CategoryActionRequest(action=req.action, payload=req.normalized_payload()), category=category, endpoint="/coding/action")
 
 
 @router.post("/repo/action")

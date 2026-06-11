@@ -273,27 +273,47 @@ def artifact_index(task_id: str) -> dict:
 
 
 REQUIRED_FINAL_ARTIFACTS = ["relevant_context", "patch_recorded", "test_result", "quality_result", "diff_summary", "risk_report", "review_checklist", "policy_result"]
+COVERAGE_FINAL_ARTIFACTS = ["coverage_baseline", "coverage_report", "coverage_gaps"]
+
+
+def is_coverage_task(record: dict) -> bool:
+    text = f"{record.get('task', '')} {record.get('metadata', {})}".lower()
+    return any(term in text for term in ["coverage", "test coverage", "threshold", "lcov", "vitest", "jest"])
+
+
+def required_artifacts_for(record: dict) -> list[str]:
+    required = list(REQUIRED_FINAL_ARTIFACTS)
+    if is_coverage_task(record):
+        required += COVERAGE_FINAL_ARTIFACTS
+    return required
 
 
 def validate_required_artifacts(task_id: str, required: list[str] | None = None) -> dict:
     record = read(task_id)
     artifacts = record.get("artifacts", {})
-    required = required or REQUIRED_FINAL_ARTIFACTS
+    required = required or required_artifacts_for(record)
     missing = [name for name in required if name not in artifacts]
     present = [name for name in required if name in artifacts]
-    return {"task_id": task_id, "valid": not missing, "present": present, "missing": missing, "artifact_names": sorted(artifacts.keys())}
+    return {"task_id": task_id, "valid": not missing, "present": present, "missing": missing, "artifact_names": sorted(artifacts.keys()), "coverage_task": is_coverage_task(record)}
 
 
 def phase_contract(task_id: str) -> dict:
     record = read(task_id)
     artifacts = record.get("artifacts", {})
     workspace = record.get("workspace_path")
+    coverage_task = is_coverage_task(record)
     if not workspace:
         phase = "need_workspace"
         contract = {"allowed_submission": "workspace_path", "must_call": ["/workspace/create", "/tasks/update"], "gpt_instruction": "Create an isolated worktree. Do not patch the primary checkout."}
     elif "relevant_context" not in artifacts:
         phase = "need_context"
-        contract = {"allowed_submission": "artifact", "artifact_name": "relevant_context", "must_call": ["/repo/instructions", "/repo/relevant-context", "/agent/coding-task/submit"], "gpt_instruction": "Gather repo instructions and relevant files. Submit them as relevant_context before creating a patch."}
+        contract = {"allowed_submission": "artifact", "artifact_name": "relevant_context", "must_call": ["/repo/instructions", "/repo/relevant-context", "/repo/search", "/repo/read-context", "/agent/coding-task/submit"], "gpt_instruction": "Gather repo instructions, CI/test config, existing tests, and relevant files. Submit them as relevant_context before creating a patch."}
+    elif coverage_task and "coverage_baseline" not in artifacts:
+        phase = "need_coverage_baseline"
+        contract = {"allowed_submission": "artifact", "artifact_name": "coverage_baseline", "must_call": ["/test/discover", "/test/run", "/agent/coding-task/submit"], "gpt_instruction": "Before any coverage threshold/config patch, run or attempt the existing coverage/test command, inspect output, and submit coverage_baseline with command, exit_code, stdout/stderr tails, current metrics if available, and whether baseline was measurable."}
+    elif coverage_task and ("coverage_report" not in artifacts or "coverage_gaps" not in artifacts):
+        phase = "need_coverage_analysis"
+        contract = {"allowed_submission": "artifact", "artifact_name": "coverage_report and coverage_gaps", "must_call": ["/repo/read-context", "/agent/coding-task/submit"], "gpt_instruction": "Summarize measured coverage output and identify directories/files/gaps before changing thresholds."}
     elif "patch_recorded" not in artifacts:
         phase = "need_patch"
         contract = {"allowed_submission": "unified_diff", "must_call": ["/agent/coding-task/submit"], "gpt_instruction": "Return a minimal unified diff only. No prose in the patch payload. The submit endpoint will risk-check, preview, record, and apply it."}
@@ -309,9 +329,12 @@ def phase_contract(task_id: str) -> dict:
     elif artifacts.get("quality_result", {}).get("data", {}).get("passed") is False:
         phase = "need_quality_repair"
         contract = {"allowed_submission": "quality_repair_patch", "must_call": ["/agent/coding-task/repair-plan", "/agent/coding-task/submit"], "gpt_instruction": "Repair quality failures minimally, then rerun quality checks."}
-    elif "diff_summary" not in artifacts or "review_checklist" not in artifacts:
+    elif "diff_summary" not in artifacts or "review_checklist" not in artifacts or "risk_report" not in artifacts:
         phase = "need_review"
         contract = {"allowed_submission": "review_artifacts", "must_call": ["/agent/coding-task/finalize"], "gpt_instruction": "Finalize will attach diff summary, risk report, review checklist, policy result, and optional commit/PR dry-run."}
+    elif "policy_result" not in artifacts:
+        phase = "need_policy"
+        contract = {"allowed_submission": "policy_result", "must_call": ["/agent/coding-task/finalize"], "gpt_instruction": "Finalize to attach policy_result. Do not claim completion before policy result exists."}
     else:
         phase = "ready_to_finalize"
         contract = {"allowed_submission": "finalize", "must_call": ["/agent/coding-task/finalize"], "gpt_instruction": "Finalize with exact tests run, risks, and policy status. Do not claim success without passing checks."}
