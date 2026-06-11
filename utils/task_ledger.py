@@ -283,6 +283,8 @@ def is_coverage_task(record: dict) -> bool:
 
 def needs_environment_preparation(record: dict) -> bool:
     artifacts = record.get("artifacts", {})
+    if "environment_prepared" in artifacts:
+        return False
     haystacks = []
     for name in ["test_result", "quality_result", "coverage_baseline"]:
         data = artifacts.get(name, {}).get("data", {})
@@ -292,7 +294,7 @@ def needs_environment_preparation(record: dict) -> bool:
                 if isinstance(result, dict):
                     haystacks.extend(str(result.get(k, "")) for k in ["stdout_tail", "stderr_tail", "stdout", "stderr"])
     text = "\n".join(haystacks).lower()
-    missing_markers = ["command not found", "not recognized", "cannot find module", "no such file or directory", "turbo: not found", "turbo: command not found", "pnpm: not found", "npm: not found"]
+    missing_markers = ["command not found", "not recognized", "no such file or directory", "turbo: not found", "turbo: command not found", "pnpm: not found", "npm: not found"]
     return any(marker in text for marker in missing_markers)
 
 
