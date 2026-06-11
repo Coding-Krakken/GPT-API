@@ -269,8 +269,15 @@ def coding_task_finalize(req: CodingTaskFinalizeRequest):
         quality = task.get("artifacts", {}).get("quality_result", {}).get("data", {})
         changed = [f.get("file") for f in diff_summary.get("files", []) if f.get("file")]
         validation_before_policy = task_ledger.validate_required_artifacts(req.task_id)
+        contract_now = task_ledger.phase_contract(req.task_id)
         if req.enforce_contract and not validation_before_policy.get("valid"):
-            return {"status": 400, "error": {"code": "contract_incomplete", "message": "Required task artifacts are missing before finalization."}, "validation": validation_before_policy}
+            return {"status": 400, "error": {"code": "contract_incomplete", "message": "Required task artifacts are missing before finalization."}, "validation": validation_before_policy, "phase": contract_now.get("phase"), "contract": contract_now.get("contract")}
+        if req.enforce_contract and contract_now.get("phase") not in {"need_review", "need_policy", "ready_to_finalize"}:
+            return {"status": 400, "error": {"code": "workflow_incomplete", "message": "Task is not ready to finalize. Follow the returned phase contract first."}, "phase": contract_now.get("phase"), "contract": contract_now.get("contract"), "validation": validation_before_policy}
+        if req.enforce_contract and tests and tests.get("passed") is False:
+            return {"status": 400, "error": {"code": "tests_failed", "message": "Cannot finalize with contract enforcement while tests are failing."}, "phase": contract_now.get("phase"), "contract": contract_now.get("contract"), "tests": tests}
+        if req.enforce_contract and quality and quality.get("passed") is False:
+            return {"status": 400, "error": {"code": "quality_failed", "message": "Cannot finalize with contract enforcement while quality checks are failing."}, "phase": contract_now.get("phase"), "contract": contract_now.get("contract"), "quality": quality}
         diff_lines = sum(int(x.split("	")[0]) + int(x.split("	")[1]) for x in diff_summary.get("numstat", "").splitlines() if len(x.split("	")) >= 3 and x.split("	")[0].isdigit() and x.split("	")[1].isdigit())
         policy_result = policy_util.evaluate_action_deep(
             "create_pr" if (req.create_pr and req.user_approved_network_write) else "commit" if req.commit else "finalize",

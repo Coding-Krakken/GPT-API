@@ -20,16 +20,28 @@ def discover(workspace_path: str) -> dict:
         if tests_dir.exists():
             for test_file in sorted(tests_dir.rglob("test_*.py"))[:20]:
                 commands.append({"name": f"pytest {test_file.relative_to(root)}", "argv": ["python", "-m", "pytest", str(test_file.relative_to(root))], "scope": "focused"})
-    pkg = root / "package.json"
-    if pkg.exists():
+    def add_node_scripts(pkg: Path, prefix: str = ""):
         try:
             scripts = json.loads(pkg.read_text(encoding="utf-8")).get("scripts", {})
-            for name in ("test", "lint", "typecheck"):
-                if name in scripts:
+            cwd = str(pkg.parent.relative_to(root)) if pkg.parent != root else "."
+            for name in sorted(scripts):
+                lname = name.lower()
+                if name in ("test", "lint", "typecheck") or "coverage" in lname or lname in {"test:coverage", "coverage"}:
                     frameworks.add("node")
-                    commands.append({"name": f"npm {name}", "argv": ["npm", "run", name] if name != "test" else ["npm", "test"], "scope": "all"})
+                    display = f"{prefix}npm {name}".strip()
+                    argv = ["npm", "test"] if name == "test" else ["npm", "run", name]
+                    if cwd != ".":
+                        display = f"{cwd} {display}"
+                    commands.append({"name": display, "argv": argv, "cwd": cwd, "scope": "all", "script": name})
         except Exception:
             pass
+    pkg = root / "package.json"
+    if pkg.exists():
+        add_node_scripts(pkg)
+    for pkg in sorted(root.glob("apps/*/package.json"))[:20]:
+        add_node_scripts(pkg)
+    for pkg in sorted(root.glob("packages/*/package.json"))[:20]:
+        add_node_scripts(pkg)
     if (root / "go.mod").exists():
         frameworks.add("go"); commands.append({"name": "go test", "argv": ["go", "test", "./..."], "scope": "all"})
     if (root / "Cargo.toml").exists():
@@ -60,7 +72,10 @@ def run_discovered(workspace_path: str, command_name: str, timeout_seconds: int 
     cmd = command_by_name(workspace_path, command_name)
     if not cmd:
         return {"error": {"code": "command_not_discovered", "message": "Only discovered commands may be executed."}, "status": 400}
-    result = run_checked(cmd["argv"], workspace_path, timeout=timeout_seconds)
+    from pathlib import Path
+    root = ensure_under_allowed_root(workspace_path)
+    cwd = root if cmd.get("cwd", ".") == "." else root / cmd.get("cwd")
+    result = run_checked(cmd["argv"], cwd, timeout=timeout_seconds)
     eval_telemetry.log_event("tests_run", workspace_path=workspace_path, command_name=command_name, argv=cmd["argv"], passed=result["passed"], exit_code=result["exit_code"], timeout=result.get("timeout", False))
     return {
         "command_name": command_name,
