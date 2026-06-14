@@ -990,6 +990,6 @@ components:
       in: header
       name: x-api-key
 servers:
-- url: https://unscrutinized-immotile-jermaine.ngrok-free.dev
+  - url: "https://unscrutinized-immotile-jermaine.ngrok-free.dev/"
 security:
 - ApiKeyAuth: []
