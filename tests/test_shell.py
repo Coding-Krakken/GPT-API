@@ -42,7 +42,8 @@ class TestShellEndpoints:
         """Test command with background flag."""
         payload = {
             "command": "sleep 1",
-            "background": True
+            "background": True,
+            "confirm": True
         }
         response = client.post("/shell", headers=auth_headers, json=payload)
         assert response.status_code == 200

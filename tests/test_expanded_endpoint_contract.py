@@ -35,6 +35,7 @@ def test_shell_background_job_lifecycle(client, auth_headers):
     start = client.post('/shell', headers=auth_headers, json={
         'action': 'start',
         'command': 'sleep 5',
+        'confirm': True,
     }).json()
     assert start['job_id']
     job_id = start['job_id']
@@ -87,7 +88,7 @@ def test_files_expanded_editing_discovery_and_snapshots(client, auth_headers, te
     snap = client.post('/files', headers=auth_headers, json={'action': 'snapshot', 'path': str(base), 'target_path': snap_path}).json()['result']
     assert snap['status'] == 200
     base.write_text('mutated', encoding='utf-8')
-    restore = client.post('/files', headers=auth_headers, json={'action': 'restore', 'path': snap_path, 'target_path': str(base)}).json()['result']
+    restore = client.post('/files', headers=auth_headers, json={'action': 'restore', 'path': snap_path, 'target_path': str(base), 'confirm': True}).json()['result']
     assert restore['status'] == 200
     assert base.read_text(encoding='utf-8') == 'new\n'
 
@@ -160,7 +161,7 @@ def test_git_expanded_typed_actions(client, auth_headers, temp_git_repo):
 
 def test_package_expanded_dry_run_fields(client, auth_headers, temp_dir):
     dry = client.post('/package', headers=auth_headers, json={
-        'manager': 'pip', 'action': 'install', 'packages': ['example-pkg'], 'version': '1.2.3', 'dry_run': True, 'working_dir': temp_dir
+        'manager': 'pip', 'action': 'install', 'confirm': True, 'packages': ['example-pkg'], 'version': '1.2.3', 'dry_run': True, 'working_dir': temp_dir
     }).json()
     assert dry['dry_run'] is True
     assert 'example-pkg==1.2.3' in dry['stdout']
@@ -241,7 +242,7 @@ def test_batch_expanded_endpoint_payload_dependencies_and_modes(client, auth_hea
     txn = client.post('/batch', headers=auth_headers, json={
         'mode': 'transaction', 'rollback_on_error': True,
         'operations': [
-            {'id': 'write', 'endpoint': 'files', 'action': 'files', 'payload': {'action': 'write', 'path': str(rollback_file), 'content': 'created'}, 'rollback': {'endpoint': 'files', 'action': 'files', 'payload': {'action': 'delete', 'path': str(rollback_file)}}},
+            {'id': 'write', 'endpoint': 'files', 'action': 'files', 'payload': {'action': 'write', 'path': str(rollback_file), 'content': 'created'}, 'rollback': {'endpoint': 'files', 'action': 'files', 'payload': {'action': 'delete', 'path': str(rollback_file), 'confirm': True}}},
             {'id': 'fail', 'endpoint': 'files', 'action': 'files', 'payload': {'action': 'read', 'path': str(Path(temp_dir) / 'missing.txt')}},
         ],
     }).json()

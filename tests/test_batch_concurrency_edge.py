@@ -57,7 +57,7 @@ def test_batch_concurrent_file_ops(client, auth_headers, temp_dir):
     payload = {"operations": [
         {"action": "files", "args": {"action": "write", "path": fname, "content": "data"}} for fname in files
     ] + [
-        {"action": "files", "args": {"action": "delete", "path": fname}} for fname in files
+        {"action": "files", "args": {"action": "delete", "path": fname, "confirm": True}} for fname in files
     ]}
     response = client.post("/batch", headers=auth_headers, json=payload)
     assert response.status_code == 200

@@ -85,8 +85,8 @@ def preview(workspace_path: str, patch: str) -> dict:
     patch = normalize_patch(patch)
     try:
         files = touched_files(patch)
-    except PolicyError as exc:
-        return {"applies": False, "files_touched": [], "risk": "invalid_patch", "preview": exc.message, "stderr": exc.message, "diagnostics": getattr(exc, "details", patch_diagnostics(patch))}
+    except PolicyError:
+        raise
     patch_file = _write_patch_file(patch)
     try:
         check = run_checked(["git", "apply", "--check", patch_file], workspace, timeout=30)

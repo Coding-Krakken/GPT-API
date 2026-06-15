@@ -263,9 +263,8 @@ class TestRefactorEndpoints:
         response = client.post("/refactor", headers=auth_headers, json=payload)
         assert response.status_code == 500
         data = response.json()
-        assert "detail" in data
-        assert "error" in data["detail"]
-        assert data["detail"]["error"]["code"] == "internal_error"
+        assert data["error"]["code"] == "execution_error"
+        assert data["error"]["details"]["error"]["code"] == "internal_error"
 
     def test_refactor_missing_replace(self, client, auth_headers, temp_file):
         """Test missing replace parameter."""
@@ -288,9 +287,8 @@ class TestRefactorEndpoints:
         response = client.post("/refactor", headers=auth_headers, json=payload)
         assert response.status_code == 500
         data = response.json()
-        assert "detail" in data
-        assert "error" in data["detail"]
-        assert data["detail"]["error"]["code"] == "internal_error"
+        assert data["error"]["code"] == "execution_error"
+        assert data["error"]["details"]["error"]["code"] == "internal_error"
 
     def test_refactor_empty_files_list(self, client, auth_headers):
         """Test empty files list."""

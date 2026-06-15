@@ -92,6 +92,7 @@ class TestAppsEndpoints:
         """Test launching an app."""
         payload = {
             "action": "launch",
+            "confirm": True,
             "app": "echo",
             "args": "test launch"
         }
@@ -109,6 +110,7 @@ class TestAppsEndpoints:
         # First launch an app
         launch_payload = {
             "action": "launch",
+            "confirm": True,
             "app": "echo",
             "args": "test list"
         }
@@ -147,6 +149,7 @@ class TestAppsEndpoints:
         # First launch an app
         launch_payload = {
             "action": "launch",
+            "confirm": True,
             "app": "echo",
             "args": "test kill"
         }
@@ -158,6 +161,7 @@ class TestAppsEndpoints:
         # Then kill it
         kill_payload = {
             "action": "kill",
+            "confirm": True,
             "pid": pid
         }
         kill_response = client.post("/apps", headers=auth_headers, json=kill_payload)
@@ -171,6 +175,7 @@ class TestAppsEndpoints:
         """Test killing a nonexistent app."""
         payload = {
             "action": "kill",
+            "confirm": True,
             "pid": 99999
         }
         response = client.post("/apps", headers=auth_headers, json=payload)
@@ -184,6 +189,7 @@ class TestAppsEndpoints:
         """Test launching app with missing app field."""
         payload = {
             "action": "launch",
+            "confirm": True,
             "args": "test"
         }
         response = client.post("/apps", headers=auth_headers, json=payload)
@@ -196,7 +202,8 @@ class TestAppsEndpoints:
     def test_kill_app_missing_pid(self, client, auth_headers):
         """Test killing app with missing pid field."""
         payload = {
-            "action": "kill"
+            "action": "kill",
+            "confirm": True
         }
         response = client.post("/apps", headers=auth_headers, json=payload)
         assert response.status_code == 200
@@ -268,6 +275,7 @@ class TestAppsEndpoints:
         # First launch an app
         launch_payload = {
             "action": "launch",
+            "confirm": True,
             "app": "echo",
             "args": "test resize"
         }
@@ -333,6 +341,7 @@ class TestAppsEndpoints:
         # First launch an app
         launch_payload = {
             "action": "launch",
+            "confirm": True,
             "app": "echo",
             "args": "test resize missing"
         }
@@ -397,6 +406,7 @@ class TestAppsEndpoints:
         # First launch an app
         launch_payload = {
             "action": "launch",
+            "confirm": True,
             "app": "echo",
             "args": "test resize invalid"
         }
@@ -515,6 +525,7 @@ class TestAppsEndpoints:
         # First launch an app
         launch_payload = {
             "action": "launch",
+            "confirm": True,
             "app": "echo",
             "args": "test move"
         }
@@ -646,7 +657,7 @@ class TestAppsEndpoints:
     def test_launch_app_validation(self, client, auth_headers):
         """Test various launch app validation scenarios."""
         # Test missing app
-        payload = {"action": "launch", "args": "test"}
+        payload = {"action": "launch", "confirm": True, "args": "test"}
         response = client.post("/apps", headers=auth_headers, json=payload)
         assert response.status_code == 200
         data = response.json()
@@ -654,7 +665,7 @@ class TestAppsEndpoints:
         assert data["errors"][0]["code"] == "MISSING_FIELD"
 
         # Test invalid app name
-        payload = {"action": "launch", "app": "bad;app", "args": "test"}
+        payload = {"action": "launch", "confirm": True, "app": "bad;app", "args": "test"}
         response = client.post("/apps", headers=auth_headers, json=payload)
         assert response.status_code == 200
         data = response.json()
@@ -662,7 +673,7 @@ class TestAppsEndpoints:
         assert data["errors"][0]["code"] == "INVALID_APP"
 
         # Test dangerous args
-        payload = {"action": "launch", "app": "echo", "args": "; rm -rf /"}
+        payload = {"action": "launch", "confirm": True, "app": "echo", "args": "; rm -rf /"}
         response = client.post("/apps", headers=auth_headers, json=payload)
         assert response.status_code == 200
         data = response.json()
@@ -672,7 +683,7 @@ class TestAppsEndpoints:
     def test_kill_app_validation(self, client, auth_headers):
         """Test kill app validation."""
         # Test missing pid
-        payload = {"action": "kill"}
+        payload = {"action": "kill", "confirm": True}
         response = client.post("/apps", headers=auth_headers, json=payload)
         assert response.status_code == 200
         data = response.json()
@@ -780,7 +791,7 @@ class TestAppsEndpoints:
         monkeypatch.setattr("routes.apps._get_cached_env", mock_get_cached_env)
         
         # First launch an app
-        launch_payload = {"action": "launch", "app": "echo", "args": "test"}
+        launch_payload = {"action": "launch", "confirm": True, "app": "echo", "args": "test"}
         launch_response = client.post("/apps", headers=auth_headers, json=launch_payload)
         assert launch_response.status_code == 200
         pid = launch_response.json()["result"]["pid"]
@@ -797,6 +808,7 @@ class TestAppsEndpoints:
         """Test launching app with dangerous name."""
         payload = {
             "action": "launch",
+            "confirm": True,
             "app": "rm -rf /",
             "args": ""
         }
@@ -811,6 +823,7 @@ class TestAppsEndpoints:
         """Test launching app with dangerous arguments."""
         payload = {
             "action": "launch",
+            "confirm": True,
             "app": "echo",
             "args": "; rm -rf /"
         }
@@ -882,6 +895,7 @@ class TestAppsEndpoints:
         # Launch
         launch_payload = {
             "action": "launch",
+            "confirm": True,
             "app": "echo",
             "args": "lifecycle test"
         }
@@ -913,7 +927,7 @@ class TestAppsEndpoints:
         assert resize_response.status_code == 200
 
         # Kill
-        kill_payload = {"action": "kill", "pid": pid}
+        kill_payload = {"action": "kill", "confirm": True, "pid": pid}
         kill_response = client.post("/apps", headers=auth_headers, json=kill_payload)
         assert kill_response.status_code == 200
 
