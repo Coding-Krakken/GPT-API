@@ -1316,12 +1316,8 @@ paths:
     post:
       operationId: manageGPTs
       summary: Duplicate and configure a custom ChatGPT GPT via browser automation
-      description: 'Uses Playwright to open a GPT editor page, duplicate the GPT, switch to the Configure tab, update Name
-        / Description / Instructions, configure API-key authentication for the Action entry, and optionally click Create.
-        Session credentials can be passed in the request body or via environment variables (CHATGPT_SESSION_TOKEN, CHATGPT_SESSION_TOKEN_1,
-        CHATGPT_PROFILE_DIR).
-
-        '
+      description: Uses Playwright to duplicate or update a GPT editor page, configure name, description, instructions, API-key
+        Action auth, and optionally create the GPT. Session credentials may come from the request body or environment variables.
       security:
       - ApiKeyAuth: []
       requestBody:
