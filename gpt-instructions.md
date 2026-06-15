@@ -23,6 +23,14 @@
 
 ---
 
+## Current confirmation policy
+
+Dangerous operations require explicit confirmation in the request payload. Use `confirm: true` only after the user explicitly approves the specific dangerous operation, or use a `confirmation` string such as `confirmed`, `approved`, `i understand`, or `yes-i-understand`. Unconfirmed dangerous operations return `confirmation_required` with status `403` in the response body.
+
+Examples of guarded operations include `/shell` background or sudo/destructive commands, `/files` delete or restore overwrite, `/git` checkout/reset/rebase/push/clean, `/package` install/remove/update/upgrade/sync, `/apps` launch/kill, and nested `/batch` rollback payloads that perform those actions.
+
+Health checks are unauthenticated: `GET /health`, `GET /healthz`, and `GET /api/health`. Core action endpoints support slashless and trailing-slash forms without redirects, and duplicate slashes are normalized.
+
 ## 🛡️ Safety Checklist
 - [ ] Only use `run_as_sudo` if absolutely required
 - [ ] Confirm before using `delete`, `kill`, `format`, or dangerous shell commands
@@ -41,8 +49,8 @@
 | `/system`   | System info                    | none                   | `{}` |
 | `/monitor`  | System metrics/logs            | `type`                 | `{ "type": "cpu" }` |
 | `/git`      | Git version control            | `action`, `path`       | `{ "action": "status", "path": "." }` |
-| `/package`  | Package management             | `manager`, `action`    | `{ "manager": "pip", "action": "install", "package": "requests" }` |
-| `/apps`     | Manage GUI/background apps     | `action`, `app`        | `{ "action": "launch", "app": "firefox" }` |
+| `/package`  | Package management             | `manager`, `action`    | `{ "manager": "pip", "action": "install", "package": "requests", "confirm": true }` |
+| `/apps`     | Manage GUI/background apps     | `action`, `app`        | `{ "action": "launch", "app": "firefox", "confirm": true }` |
 | `/refactor` | Search/replace in files        | `search`, `replace`, `files` | `{ "search": "foo", "replace": "bar", "files": ["a.py"] }` |
 | `/batch`    | Multi-command execution        | `operations`           | `{ "operations": [{ "action": "shell", "args": { "command": "echo hi" }}] }` |
 
@@ -101,14 +109,14 @@
 **Purpose:** pip, npm, apt, pacman, brew, winget
 **Example:**
 ```json
-{ "manager": "pip", "action": "install", "package": "requests" }
+{ "manager": "pip", "action": "install", "package": "requests", "confirm": true }
 ```
 
 ### `/apps` — Manage third-party GUI/background apps
 **Purpose:** launch/kill/list apps
 **Example:**
 ```json
-{ "action": "launch", "app": "firefox" }
+{ "action": "launch", "app": "firefox", "confirm": true }
 ```
 
 ### `/refactor` — Search and replace code across files

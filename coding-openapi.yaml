@@ -531,6 +531,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+        '400':
+          description: Patch rejected by policy or malformed unified diff
+      description: Preview a unified diff in a workspace. Returns status 400 with
+        error.code blocked_patch_path when the diff touches blocked files such as
+        .env or secret/credential paths; returns invalid_unified_diff for malformed
+        patches.
   /patch/apply:
     post:
       summary: Patch Apply
@@ -2923,9 +2929,14 @@ components:
         workspace_path:
           type: string
           title: Workspace Path
+          description: Workspace path created by /workspace/create or another approved
+            workspace endpoint.
         patch:
           type: string
           title: Patch
+          description: Unified diff patch body. Markdown fences are not accepted.
+            Paths are policy-checked; blocked paths such as .env, secret files, credentials,
+            and unsafe absolute/traversal paths return blocked_patch_path or invalid_unified_diff.
         strict:
           type: boolean
           title: Strict
@@ -2939,6 +2950,8 @@ components:
       - workspace_path
       - patch
       title: PatchRequest
+      description: Patch request. Preview/apply operations enforce path safety and
+        reject blocked files such as .env before running git apply.
     RepoRelevantContextRequest:
       properties:
         repo_path:

@@ -49,6 +49,10 @@ Prefer the state-machine workflow:
 
 Use typed repo endpoints with explicit fields like `repo_path`, `task`, `files`, `query`, and `symbols`. Every repo payload must use the hard-coded repo path above.
 
+## Patch safety and blocked paths
+
+Always preview patches with `/patch/preview` before apply. Submit only real unified diffs without Markdown fences. If `/patch/preview` returns `blocked_patch_path` for `.env`, secrets, credentials, unsafe absolute paths, or traversal paths, stop and report the blocker. Do not bypass patch policy with `/shell`, broad `/files`, unrestricted `/git`, or operator endpoints.
+
 ## Repo profile
 
 BuschProducts is a private AI-powered countertop estimation platform. It is a turborepo/npm workspace with:

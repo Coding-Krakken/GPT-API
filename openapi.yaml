@@ -78,6 +78,17 @@ paths:
                 dry_run:
                   type: boolean
                   default: false
+                confirm:
+                  type: boolean
+                  default: false
+                  description: Set true only after explicit user approval for dangerous
+                    operations such as background process launch, delete/restore overwrite,
+                    package install/remove/update/upgrade, git checkout/reset/rebase/push,
+                    or app launch/kill.
+                confirmation:
+                  type: string
+                  description: Alternative explicit confirmation string. Accepted
+                    examples include confirmed, approved, i understand, and yes-i-understand.
       responses:
         '200':
           description: Shell command or job result
@@ -99,9 +110,14 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       security:
       - ApiKeyAuth: []
-      description: Run commands synchronously, start background jobs, inspect job
+      description: 'Run commands synchronously, start background jobs, inspect job
         status/logs, or stop jobs. Prefer typed endpoints when available; use /shell
         as a controlled escape hatch.
+
+
+        Dangerous operations require explicit confirmation using confirm: true or
+        an accepted confirmation string. Unconfirmed dangerous operations return confirmation_required
+        in the response body with status 403.'
   /dispatch:
     post:
       operationId: dispatchToAgent
@@ -175,9 +191,14 @@ paths:
     post:
       operationId: manageFiles
       summary: Read, write, patch, inspect, and safely manipulate files or directories
-      description: Unified file interface for single or batched operations, including
+      description: 'Unified file interface for single or batched operations, including
         hash-guarded writes, line-range edits, glob/tree discovery, snapshots, and
         restore operations.
+
+
+        Dangerous operations require explicit confirmation using confirm: true or
+        an accepted confirmation string. Unconfirmed dangerous operations return confirmation_required
+        in the response body with status 403.'
       requestBody:
         required: true
         content:
@@ -316,6 +337,17 @@ paths:
                         type: integer
                         minimum: 1
                         maximum: 10000
+                confirm:
+                  type: boolean
+                  default: false
+                  description: Set true only after explicit user approval for dangerous
+                    operations such as background process launch, delete/restore overwrite,
+                    package install/remove/update/upgrade, git checkout/reset/rebase/push,
+                    or app launch/kill.
+                confirmation:
+                  type: string
+                  description: Alternative explicit confirmation string. Accepted
+                    examples include confirmed, approved, i understand, and yes-i-understand.
       responses:
         '200':
           description: File operation result
@@ -757,6 +789,17 @@ paths:
                   type: integer
                   minimum: 1
                   maximum: 3600
+                confirm:
+                  type: boolean
+                  default: false
+                  description: Set true only after explicit user approval for dangerous
+                    operations such as background process launch, delete/restore overwrite,
+                    package install/remove/update/upgrade, git checkout/reset/rebase/push,
+                    or app launch/kill.
+                confirmation:
+                  type: string
+                  description: Alternative explicit confirmation string. Accepted
+                    examples include confirmed, approved, i understand, and yes-i-understand.
       responses:
         '200':
           description: Git operation result
@@ -799,8 +842,13 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       security:
       - ApiKeyAuth: []
-      description: Inspect, diff, branch, commit, stash, apply patches, and generate
+      description: 'Inspect, diff, branch, commit, stash, apply patches, and generate
         PR-ready summaries with structured inputs and outputs.
+
+
+        Dangerous operations require explicit confirmation using confirm: true or
+        an accepted confirmation string. Unconfirmed dangerous operations return confirmation_required
+        in the response body with status 403.'
   /package:
     post:
       operationId: packageManager
@@ -870,6 +918,17 @@ paths:
                   maximum: 3600
                 dry_run:
                   type: boolean
+                confirm:
+                  type: boolean
+                  default: false
+                  description: Set true only after explicit user approval for dangerous
+                    operations such as background process launch, delete/restore overwrite,
+                    package install/remove/update/upgrade, git checkout/reset/rebase/push,
+                    or app launch/kill.
+                confirmation:
+                  type: string
+                  description: Alternative explicit confirmation string. Accepted
+                    examples include confirmed, approved, i understand, and yes-i-understand.
       responses:
         '200':
           description: Package operation result
@@ -914,8 +973,13 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       security:
       - ApiKeyAuth: []
-      description: Install, remove, audit, freeze, sync, lock, and inspect dependencies
+      description: 'Install, remove, audit, freeze, sync, lock, and inspect dependencies
         across common package managers.
+
+
+        Dangerous operations require explicit confirmation using confirm: true or
+        an accepted confirmation string. Unconfirmed dangerous operations return confirmation_required
+        in the response body with status 403.'
   /apps:
     post:
       operationId: appControl
@@ -987,6 +1051,17 @@ paths:
                   type: string
                   maxLength: 128
                   description: Filter apps by name substring (for 'list')
+                confirm:
+                  type: boolean
+                  default: false
+                  description: Set true only after explicit user approval for dangerous
+                    operations such as background process launch, delete/restore overwrite,
+                    package install/remove/update/upgrade, git checkout/reset/rebase/push,
+                    or app launch/kill.
+                confirmation:
+                  type: string
+                  description: Alternative explicit confirmation string. Accepted
+                    examples include confirmed, approved, i understand, and yes-i-understand.
       responses:
         '200':
           description: App control or window management output
@@ -1059,6 +1134,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+      description: 'Dangerous operations require explicit confirmation using confirm:
+        true or an accepted confirmation string. Unconfirmed dangerous operations
+        return confirmation_required in the response body with status 403.'
   /apps/capabilities:
     get:
       operationId: getAppCapabilities
@@ -1288,6 +1366,8 @@ paths:
                       rollback:
                         type: object
                         additionalProperties: true
+                  description: 'Operations may include endpoint payloads; dangerous
+                    nested payloads must carry confirm: true or confirmation.'
       responses:
         '200':
           description: Batch processing result
@@ -1324,9 +1404,13 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       security:
       - ApiKeyAuth: []
-      description: Coordinates multi-step workflows across existing endpoints without
+      description: 'Coordinates multi-step workflows across existing endpoints without
         adding new endpoints. Supports sequential, parallel, transaction, and dry-run
         modes.
+
+
+        Rollback or nested operations that perform dangerous actions must include
+        confirmation fields inside the nested payload, for example {''action'':''delete'',''confirm'':true}.'
   /gpts:
     post:
       operationId: manageGPTs
@@ -1543,6 +1627,75 @@ paths:
           description: Forbidden
         '422':
           description: Validation Error
+  /health:
+    get:
+      operationId: get_health
+      summary: Lightweight service health check
+      description: Unauthenticated lightweight health check for load balancers, smoke
+        tests, and deployment verification.
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  service:
+                    type: string
+                    example: gpt-api
+                  timestamp:
+                    type: string
+                    format: date-time
+  /healthz:
+    get:
+      operationId: get_healthz
+      summary: Lightweight service health check
+      description: Unauthenticated lightweight health check for load balancers, smoke
+        tests, and deployment verification.
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  service:
+                    type: string
+                    example: gpt-api
+                  timestamp:
+                    type: string
+                    format: date-time
+  /api/health:
+    get:
+      operationId: get_api_health
+      summary: Lightweight service health check
+      description: Unauthenticated lightweight health check for load balancers, smoke
+        tests, and deployment verification.
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  service:
+                    type: string
+                    example: gpt-api
+                  timestamp:
+                    type: string
+                    format: date-time
 components:
   schemas:
     ErrorResponse:
