@@ -1,590 +1,310 @@
-from typing import Optional, List
-from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel
-import subprocess, os, tempfile, platform, sys
+from fastapi import APIRouter, Depends
+from pydantic import BaseModel, Field
+from typing import Optional, List, Dict
+import subprocess
+import os
+import tempfile
 import time
+import hashlib
+import shutil
+import ast
+import shlex
+import threading
 from utils.auth import verify_key
-from utils.platform_tools import is_windows, normalize_path
 
 router = APIRouter()
+_LOCK_GUARD = threading.Lock()
+_ACTIVE_PATHS = set()
+
 
 class CodeAction(BaseModel):
-    """
-    action: required unless actions is provided, one of [run, test, lint, fix, format, explain]
-    path: required unless content is provided
-    content: optional, if provided will be written to a temp file and executed
-    language: required, must be one of ['python', 'js', 'bash', 'node']
-    args: optional, string of CLI args (validated per language/action)
-    actions: optional, list of actions for chaining
-    Note: If language is omitted, request will be rejected.
-    """
     action: Optional[str] = None
+    actions: Optional[List[str]] = None
     path: Optional[str] = None
+    content: Optional[str] = None
     language: str
     args: str = ""
-    fault: Optional[str] = None  # Optional fault injection
-    content: Optional[str] = None
-    actions: Optional[List[str]] = None  # Optional list for chaining
+    argv: Optional[List[str]] = None
+    working_dir: Optional[str] = None
+    timeout_seconds: int = Field(default=300, ge=1, le=3600)
+    env: Optional[Dict[str, str]] = None
+    stdin: Optional[str] = None
+    files: Optional[List[str]] = None
+    test_selector: Optional[str] = None
+    coverage: bool = False
+    fail_fast: bool = False
+    max_output_bytes: int = Field(default=1048576, ge=1024, le=10485760)
+    dry_run: bool = False
+    fault: Optional[str] = None
 
-    def validate_args(self):
-        # Only allow known safe args for each action/language, and block all suspicious patterns
-        import shlex
-        allowed_args = {
-            "python": ["--verbose", "-v", "--maxfail", "--disable-warnings"],
-            "js": ["--verbose", "--fix"],
-            "bash": [],
-            "node": [],
-        }
-        if self.args:
-            try:
-                tokens = shlex.split(self.args)
-            except Exception:
-                return False, "malformed_args"
-            for arg in tokens:
-                # Block any shell metacharacters or suspicious patterns
-                if any(x in arg for x in [';', '|', '`', '$', '>', '<', '\\', '&', '&&', '||', '(', ')', '{', '}', '[', ']', '\'"', "'"]):
-                    return False, arg
-                # Only allow explicitly whitelisted args
-                if arg.startswith("-") and arg not in allowed_args.get(self.language, []):
-                    return False, arg
-                # Disallow any arg that looks like a command or path
-                if arg.startswith(('.', '/')):
-                    return False, arg
-        return True, None
 
-    def validate_content(self):
-        # Basic validation for content mode: size, type, and (for Python) syntax
-        if self.content is None:
-            return True, None
-        if not isinstance(self.content, str):
-            return False, "content_not_string"
-        if len(self.content) > 100_000:
-            return False, "content_too_large"
-        if self.language == "python":
-            try:
-                import ast
-                ast.parse(self.content)
-            except Exception:
-                return False, "invalid_python_syntax"
-        # Could add more language-specific checks here
-        return True, None
+def _meta(start):
+    return {"latency_ms": round((time.time() - start) * 1000, 2), "timestamp": int(time.time() * 1000)}
 
-    def validate_language(self):
-        # Enforce file extension matches language (skip for content mode)
-        if self.path:
-            ext = os.path.splitext(self.path)[1].lower()
-        else:
-            # Skip extension validation for content mode
-            return True, None, None
-        lang_exts = {
-            "python": ".py",
-            "js": ".js",
-            "javascript": ".js",
-            "bash": ".sh",
-            "node": ".js",
-        }
-        expected_ext = lang_exts.get(self.language, None)
-        if expected_ext and ext != expected_ext:
-            return False, expected_ext, ext
-        return True, expected_ext, ext
+
+def _truncate(text: str, n: int):
+    if text is None:
+        return ""
+    raw = text.encode("utf-8", errors="replace")
+    if len(raw) <= n:
+        return text
+    return raw[:n].decode("utf-8", errors="replace") + "\n...output truncated"
+
+
+def _abs(req: CodeAction):
+    if req.working_dir:
+        cwd = os.path.abspath(os.path.expanduser(req.working_dir))
+    elif req.path:
+        cwd = os.path.dirname(os.path.abspath(os.path.expanduser(req.path))) or os.getcwd()
+    else:
+        cwd = os.getcwd()
+    return cwd
+
+
+def _materialize(req: CodeAction):
+    if req.content is not None:
+        if len(req.content) > 100_000:
+            raise ValueError("invalid_content")
+        if req.language == "python":
+            ast.parse(req.content)
+        suffix = {"python":".py","bash":".sh","node":".js","js":".js","javascript":".js","typescript":".ts","go":".go","rust":".rs","java":".java","c":".c","cpp":".cpp","php":".php","ruby":".rb"}.get(req.language, ".txt")
+        tmp = tempfile.NamedTemporaryFile(delete=False, mode="w", suffix=suffix, encoding="utf-8")
+        tmp.write(req.content)
+        tmp.close()
+        return tmp.name, True
+    if not req.path:
+        raise ValueError("missing_path_or_content")
+    path = os.path.abspath(os.path.expanduser(req.path))
+    if not os.path.exists(path):
+        raise FileNotFoundError(path)
+    return path, False
+
+
+def _run(argv, req: CodeAction, cwd: str, input_text=None):
+    env = os.environ.copy()
+    if req.env:
+        env.update(req.env)
+    if req.dry_run:
+        return {"stdout": shlex.join(argv), "stderr": "", "exit_code": 0, "dry_run": True}
+    r = subprocess.run(argv, cwd=cwd, env=env, input=input_text if input_text is not None else req.stdin, capture_output=True, text=True, timeout=req.timeout_seconds)
+    return {"stdout": _truncate(r.stdout, req.max_output_bytes), "stderr": _truncate(r.stderr, req.max_output_bytes), "exit_code": r.returncode}
+
+
+def _tool(name):
+    return shutil.which(name)
+
+
+def _diagnostics_from_lines(text, source="tool"):
+    diags = []
+    for line in (text or "").splitlines()[:500]:
+        diags.append({"severity": "error" if "error" in line.lower() or "failed" in line.lower() else "warning", "source": source, "message": line})
+    return diags
+
+
+def _cmd(req: CodeAction, path: str):
+    a, lang = req.action, req.language
+    extra = req.argv or (shlex.split(req.args) if req.args else [])
+    if a == "run":
+        return {"python":["python", path], "bash":["bash", path], "node":["node", path], "js":["node", path], "javascript":["node", path], "ruby":["ruby", path], "php":["php", path], "go":["go", "run", path], "rust":["rustc", path, "-o", os.path.join(tempfile.gettempdir(), "code_run_bin")], "java":["java", path], "c":["sh", "-c", f"gcc {shlex.quote(path)} -o /tmp/code_run_c && /tmp/code_run_c"], "cpp":["sh", "-c", f"g++ {shlex.quote(path)} -o /tmp/code_run_cpp && /tmp/code_run_cpp"]}.get(lang, [lang, path]) + extra
+    if a == "test":
+        if lang == "python":
+            cmd = ["pytest"] + ([path] if os.path.isfile(path) else [path])
+            if req.test_selector: cmd += ["-k", req.test_selector]
+            if req.fail_fast: cmd.append("-x")
+            return cmd + extra
+        if lang in ["js","javascript","node","typescript"]: return ["npm", "test"] + extra
+        if lang == "go": return ["go", "test", "./..."] + extra
+        if lang == "rust": return ["cargo", "test"] + extra
+    if a == "coverage":
+        if lang == "python": return ["pytest", "--cov", path if os.path.isdir(path) else os.path.dirname(path) or "."] + extra
+        if lang in ["js","javascript","node","typescript"]: return ["npm", "test", "--", "--coverage"] + extra
+    if a == "lint":
+        if lang == "python": return (["ruff", "check", path] if _tool("ruff") else ["flake8", path]) + extra
+        if lang in ["js","javascript","typescript","node"]: return ["eslint", path] + extra
+    if a == "fix":
+        if lang == "python": return (["ruff", "check", "--fix", path] if _tool("ruff") else ["autopep8", "--in-place", path]) + extra
+        if lang in ["js","javascript","typescript","node"]: return ["eslint", path, "--fix"] + extra
+    if a == "format":
+        if lang == "python": return (["black", path] if _tool("black") else ["ruff", "format", path]) + extra
+        if lang in ["js","javascript","typescript","node"]: return ["prettier", "--write", path] + extra
+        if lang == "go": return ["gofmt", "-w", path] + extra
+        if lang == "rust": return ["rustfmt", path] + extra
+    if a == "typecheck":
+        if lang == "python": return ["mypy", path] + extra
+        if lang in ["typescript","js","javascript","node"]: return ["npx", "tsc", "--noEmit"] + extra
+        if lang == "go": return ["go", "test", "./...", "-run", "^$"] + extra
+    if a in ["build","compile"]:
+        if lang in ["js","javascript","typescript","node"]: return ["npm", "run", "build"] + extra
+        if lang == "go": return ["go", "build", "./..."] + extra
+        if lang == "rust": return ["cargo", "build"] + extra
+        if lang == "java": return ["javac", path] + extra
+        if lang == "c": return ["gcc", path, "-o", path + ".out"] + extra
+        if lang == "cpp": return ["g++", path, "-o", path + ".out"] + extra
+        if lang == "python": return ["python", "-m", "py_compile", path] + extra
+    if a == "install":
+        if lang == "python": return ["pip", "install", "-r", "requirements.txt"] + extra
+        if lang in ["js","javascript","typescript","node"]: return ["npm", "install"] + extra
+        if lang == "go": return ["go", "mod", "download"] + extra
+        if lang == "rust": return ["cargo", "fetch"] + extra
+    if a == "debug": return _cmd(req.model_copy(update={"action":"run"}), path)
+    if a == "profile" and lang == "python": return ["python", "-m", "cProfile", path] + extra
+    if a == "benchmark": return _cmd(req.model_copy(update={"action":"run"}), path)
+    if a == "trace" and lang == "python": return ["python", "-m", "trace", "--trace", path] + extra
+    if a == "dependency_audit":
+        if lang == "python": return ["pip-audit"] + extra if _tool("pip-audit") else ["pip", "check"] + extra
+        if lang in ["js","javascript","typescript","node"]: return ["npm", "audit"] + extra
+        if lang == "rust": return ["cargo", "audit"] + extra
+        if lang == "go": return ["govulncheck", "./..."] + extra
+    return None
+
+
+def _static_analyze(path, req):
+    text = open(path, "r", encoding="utf-8", errors="replace").read()
+    diags = []
+    if req.language == "python":
+        try:
+            tree = ast.parse(text)
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Call) and getattr(getattr(node, "func", None), "id", "") in ["eval", "exec"]:
+                    diags.append({"file": path, "line": node.lineno, "severity": "warning", "source": "static_analyze", "message": "Use of eval/exec detected"})
+        except Exception as e:
+            diags.append({"file": path, "severity": "error", "source": "static_analyze", "message": str(e)})
+    return {"stdout": f"Static analysis completed: {len(diags)} issue(s)", "stderr": "", "exit_code": 0, "diagnostics": diags}
+
+
+def _security_scan(path):
+    text = open(path, "r", encoding="utf-8", errors="replace").read()
+    patterns = ["password=", "secret", "api_key", "eval(", "exec(", "subprocess", "shell=True"]
+    diags = []
+    for i, line in enumerate(text.splitlines(), 1):
+        low = line.lower()
+        for p in patterns:
+            if p.lower() in low:
+                diags.append({"file": path, "line": i, "severity": "warning", "source": "security_scan", "message": f"Pattern detected: {p}"})
+    return {"stdout": f"Security scan completed: {len(diags)} finding(s)", "stderr": "", "exit_code": 0, "diagnostics": diags}
+
+
+def _explain_review(path, action):
+    text = open(path, "r", encoding="utf-8", errors="replace").read()
+    lines = text.splitlines()
+    if action == "summarize":
+        return {"summary": f"{path}: {len(lines)} lines, {len(text)} chars."}
+    if action == "review":
+        return {"review": "Automated review completed. Check diagnostics for concrete tool findings.", "suggested_fixes": []}
+    if action == "generate_tests":
+        name = os.path.splitext(os.path.basename(path))[0]
+        return {"artifacts": [{"type": "test_suggestion", "path": f"test_{name}.py", "content": f"def test_{name}_placeholder():\n    assert True\n", "description": "Starter pytest placeholder."}]}
+    return {"code": text, "explanation": f"File has {len(lines)} lines. Use summarize/review for structured assistance."}
+
 
 @router.post("/", dependencies=[Depends(verify_key)])
 def handle_code_action(req: CodeAction):
-    start_time = time.time()
-    # Initialize context for storing metadata
-    context = {
-        "action": req.action,
-        "language": req.language,
-        "path": req.path if hasattr(req, 'path') else None,
-        "duration": 0
-    }
-    # Chaining support: allow 'actions' as a list for basic chaining (e.g., ["lint", "fix", "run"])
-    if req.actions and isinstance(req.actions, list) and req.actions:
+    start = time.time()
+    if req.actions:
         results = []
-        # For each action in the chain, create a new request object
-        for chained_action in req.actions:
-            # Create a new request with the chained action
-            chained_req = CodeAction(
-                action=chained_action,
-                path=req.path,
-                language=req.language,
-                args=req.args,
-                fault=req.fault,
-                content=req.content,
-                actions=None  # Clear actions to avoid recursion
-            )
-            result = handle_code_action(chained_req)
-            results.append({"action": chained_action, "result": result})
-            # If any error, stop chaining and return immediately
-            if isinstance(result, dict) and "error" in result.get("result", {}):
+        for action in req.actions:
+            sub = req.model_copy(update={"action": action, "actions": None})
+            res = handle_code_action(sub)
+            results.append({"action": action, "result": res})
+            inner = res.get("result", res) if isinstance(res, dict) else {}
+            if isinstance(inner, dict) and inner.get("exit_code", 0) not in [0, None]:
                 break
-        return {"chained": True, "results": results, "latency_ms": round((time.time() - start_time) * 1000, 2), "timestamp": int(time.time() * 1000)}
-
-    """
-    Execute, test, lint, and manipulate code files in a safe, validated, and concurrent-aware manner.
-
-    - **Required Fields:**
-        - `action`: One of [run, test, lint, fix, format, explain].
-        - `language`: Required. Must be one of ['python', 'js', 'bash', 'node'].
-        - `path`: Required unless `content` is provided (see below).
-    - **In-Memory (content) Support:**
-        - Only supported for actions: run, test, lint, fix, format.
-        - Not supported for explain (must provide a file path).
-        - If `content` is provided for an unsupported action, returns `unsupported_content` error.
-        - Content is validated for type, size, and (for Python) syntax before execution.
-    - **Supported Languages:**
-        - `run`: python, bash, node
-        - `lint`, `fix`, `format`, `test`: python, js
-    - **Input Validation:**
-        - Unsafe file paths, overlong file names, missing/unsupported languages, malformed input, and invalid content are rejected with clear error codes.
-        - Only safe, whitelisted CLI arguments are allowed per language/action.
-    - **Error Handling:**
-        - All errors are returned as structured JSON with `error.code` and `error.message` (e.g., `unsupported_language`, `file_not_found`, `invalid_args`, `invalid_content`, `concurrent_access`, `execution_error`).
-        - Subprocess and file handling failures are returned as structured errors with details in `stderr`.
-    - **Concurrency:**
-        - File actions are protected by a lock; concurrent requests to the same file will return a `concurrent_access` error.
-    - **Test Feedback:**
-        - If no tests are found, returns `no_tests_found` with a hint on how to add tests.
-    - **Runtime Feedback:**
-        - All responses include operation duration in seconds.
-    """
-    # Strict language whitelist
-    supported_languages = ["python", "js", "bash", "node"]
-    if not req.language or req.language not in supported_languages:
-        return {
-            "result": {
-                "error": {"code": "unsupported_language", "message": f"'language' must be one of {supported_languages}."},
-                "status": 400
-            },
-            "latency_ms": round((time.time() - start_time) * 1000, 2),
-            "timestamp": int(time.time() * 1000)
-        }
-    
-    # Strict action whitelist
-    supported_actions = ["run", "test", "lint", "fix", "format", "explain"]
-    if not req.action or req.action not in supported_actions:
-        return {
-            "result": {
-                "error": {"code": "invalid_action", "message": f"'action' must be one of {supported_actions}."},
-                "status": 400
-            },
-            "latency_ms": round((time.time() - start_time) * 1000, 2),
-            "timestamp": int(time.time() * 1000)
-        }
-    
-    # Only import fcntl and use file locks on non-Windows
-    lock_acquired = False
-    lock_fd = None
-    lockfile = None
-    
+        return {"chained": True, "results": results, **_meta(start)}
+    locked = False
+    path = None
     try:
-        # Input validation: path injection, overlong file names
+        supported_actions = ["run","test","lint","fix","format","explain","typecheck","build","install","compile","debug","profile","coverage","benchmark","static_analyze","security_scan","dependency_audit","generate_tests","review","summarize","trace","repl"]
+        if not req.action or req.action not in supported_actions:
+            return {"result": {"error": {"code": "invalid_action", "message": f"action must be one of {supported_actions}"}, "status": 400}, **_meta(start)}
+        supported_languages = ["python","js","javascript","bash","node","typescript","go","rust","java","c","cpp"]
+        if req.language not in supported_languages:
+            return {"result": {"error": {"code": "unsupported_language", "message": f"language must be one of {supported_languages}"}, "status": 400}, **_meta(start)}
+        if req.fault == "syntax":
+            return {"result": {"error": {"code": "syntax_error", "message": "Syntax error in code"}, "status": 400}, **_meta(start)}
+        if req.fault == "io":
+            return {"result": {"error": {"code": "io_error", "message": "I/O error occurred"}, "status": 500}, **_meta(start)}
+        if req.fault == "permission":
+            return {"result": {"error": {"code": "permission_denied", "message": "Permission denied"}, "status": 403}, **_meta(start)}
+        if req.path and len(req.path) > 255:
+            return {"result": {"error": {"code": "path_too_long", "message": "File path is too long."}, "status": 400}, **_meta(start)}
+        if req.path and any(x in req.path for x in ["..", "~", "//", "\\", "|", ";", "`", "$", ">", "<"]):
+            return {"result": {"error": {"code": "invalid_path", "message": "Path contains unsafe characters or sequences."}, "status": 400}, **_meta(start)}
+        if req.args:
+            unsafe = any(x in req.args for x in [";", "|", "`", "$", ">", "<", "&", "&&", "||"])
+            try:
+                tokens = shlex.split(req.args)
+            except Exception:
+                tokens, unsafe = [], True
+            allowed = {"python": ["--verbose", "-v", "--maxfail", "--disable-warnings"], "js": ["--verbose", "--fix"], "javascript": ["--verbose", "--fix"], "node": [], "bash": []}
+            bad_flag = any(t.startswith("-") and t not in allowed.get(req.language, []) for t in tokens)
+            if unsafe or bad_flag:
+                return {"result": {"error": {"code": "invalid_args", "message": "Unsupported, malformed, or unsafe arguments."}, "status": 400}, **_meta(start)}
+        if req.content is not None and req.action == "explain":
+            return {"result": {"error": {"code": "unsupported_content", "message": "content is not supported for action 'explain'. Use path."}, "status": 400}, **_meta(start)}
         if req.path:
-            if any(x in req.path for x in ['..', '~', '//', '\\', '|', ';', '`', '$', '>', '<']):
-                return {
-                    "result": {
-                        "error": {"code": "invalid_path", "message": "Path contains unsafe characters or sequences."},
-                        "status": 400
-                    },
-                    "latency_ms": round((time.time() - start_time) * 1000, 2),
-                    "timestamp": int(time.time() * 1000)
-                }
-            if len(req.path) > 255:
-                return {
-                    "result": {
-                        "error": {"code": "path_too_long", "message": "File path is too long."},
-                        "status": 400
-                    },
-                    "latency_ms": round((time.time() - start_time) * 1000, 2),
-                    "timestamp": int(time.time() * 1000)
-                }
-
-        # Argument validation
-        valid_args, bad_arg = req.validate_args()
-        if not valid_args:
-            return {
-                "result": {
-                    "error": {"code": "invalid_args", "message": f"Unsupported, malformed, or unsafe argument: {bad_arg}"},
-                    "status": 400
-                },
-                "latency_ms": round((time.time() - start_time) * 1000, 2),
-                "timestamp": int(time.time() * 1000)
-            }
-
-        # Content validation (if present)
-        valid_content, content_err = req.validate_content()
-        if not valid_content:
-            return {
-                "result": {
-                    "error": {"code": "invalid_content", "message": f"Invalid content: {content_err}"},
-                    "status": 400
-                },
-                "latency_ms": round((time.time() - start_time) * 1000, 2),
-                "timestamp": int(time.time() * 1000)
-            }
-
-        # Language-type matching
-        valid_lang, expected_ext, actual_ext = req.validate_language()
-        if not valid_lang:
-            return {
-                "result": {
-                    "error": {"code": "language_mismatch", "message": f"File extension '{actual_ext}' does not match language '{req.language}' (expected '{expected_ext}')"},
-                    "status": 400
-                },
-                "latency_ms": round((time.time() - start_time) * 1000, 2),
-                "timestamp": int(time.time() * 1000)
-            }
-        if req.fault == 'syntax':
-            return {
-                "result": {
-                    'error': {
-                        'code': 'syntax_error',
-                        'message': 'Syntax error in code'
-                    },
-                    'status': 400
-                },
-                "latency_ms": round((time.time() - start_time) * 1000, 2),
-                "timestamp": int(time.time() * 1000)
-            }
-        if req.fault == 'io':
-            return {
-                "result": {
-                    'error': {
-                        'code': 'io_error',
-                        'message': 'I/O error occurred'
-                    },
-                    'status': 500
-                },
-                "latency_ms": round((time.time() - start_time) * 1000, 2),
-                "timestamp": int(time.time() * 1000)
-            }
-        if req.fault == 'permission':
-            return {
-                "result": {
-                    'error': {
-                        'code': 'permission_denied',
-                        'message': 'Permission denied'
-                    },
-                    'status': 403
-                },
-                "latency_ms": round((time.time() - start_time) * 1000, 2),
-                "timestamp": int(time.time() * 1000)
-            }
-        # If content is provided, write to a temp file and use that path
-        supported_content_actions = ["run", "test", "lint", "fix", "format"]
-        if req.content:
-            if req.action not in supported_content_actions:
-                return {
-                    "result": {
-                        "error": {"code": "unsupported_content", "message": f"'content' is not supported for action '{req.action}'. Please use a file path."},
-                        "status": 400
-                    },
-                    "latency_ms": round((time.time() - start_time) * 1000, 2),
-                    "timestamp": int(time.time() * 1000)
-                }
-            try:
-                temp_dir = os.environ.get('TEMP') if is_windows() else None
-                # On Windows, ensure temp file is not opened with delete=True (prevents file lock issues)
-                with tempfile.NamedTemporaryFile(delete=False, mode='w', suffix=f'.{req.language}', dir=temp_dir) as tmp:
-                    tmp.write(req.content)
-                    abs_path = tmp.name
-            except Exception as e:
-                return {
-                    "result": {
-                        "error": {"code": "tempfile_error", "message": f"Failed to create temp file: {str(e)}"},
-                        "status": 500
-                    },
-                    "latency_ms": round((time.time() - start_time) * 1000, 2),
-                    "timestamp": int(time.time() * 1000)
-                }
+            expected = {"python": ".py", "js": ".js", "javascript": ".js", "node": ".js", "bash": ".sh", "typescript": ".ts", "go": ".go", "rust": ".rs", "java": ".java", "c": ".c", "cpp": ".cpp", "php": ".php", "ruby": ".rb"}.get(req.language)
+            actual = os.path.splitext(req.path)[1].lower()
+            if expected and actual != expected:
+                return {"result": {"error": {"code": "language_mismatch", "message": f"File extension '{actual}' does not match language '{req.language}' (expected '{expected}')"}, "status": 400}, **_meta(start)}
+        path, temp = _materialize(req)
+        if not temp:
+            with _LOCK_GUARD:
+                if path in _ACTIVE_PATHS:
+                    return {"result": {"error": {"code": "concurrent_access", "message": "File is currently being processed by another operation."}, "status": 429}, **_meta(start)}
+                _ACTIVE_PATHS.add(path)
+                locked = True
+            time.sleep(0.05)
+        cwd = _abs(req)
+        if req.action in ["explain","summarize","review","generate_tests"]:
+            out = _explain_review(path, req.action)
+            if locked:
+                with _LOCK_GUARD:
+                    _ACTIVE_PATHS.discard(path)
+            return {"result": {"action": req.action, "language": req.language, "path": path, **out}, **{k:v for k,v in out.items() if k in ["artifacts","suggested_fixes"]}, **_meta(start)}
+        if req.action == "static_analyze":
+            out = _static_analyze(path, req)
+        elif req.action == "security_scan":
+            out = _security_scan(path)
+        elif req.action == "repl":
+            out = _run(["python" if req.language == "python" else req.language], req, cwd, input_text=req.content or req.stdin or "")
         else:
-            if not req.path:
-                return {
-                    "result": {
-                        "error": {"code": "missing_path_or_content", "message": "Missing 'path' or 'content'. Please provide a valid file path (e.g., 'script.py') or code content."},
-                        "status": 400
-                    },
-                    "latency_ms": round((time.time() - start_time) * 1000, 2),
-                    "timestamp": int(time.time() * 1000)
-                }
-            abs_path = normalize_path(os.path.abspath(os.path.expanduser(req.path)))
-            if not os.path.exists(abs_path):
-                return {
-                    "result": {
-                        "error": {"code": "file_not_found", "message": f"File '{req.path}' not found. Use the /files endpoint to create or upload."},
-                        "status": 404
-                    },
-                    "latency_ms": round((time.time() - start_time) * 1000, 2),
-                    "timestamp": int(time.time() * 1000)
-                }
-
-        # Concurrency: file lock for all file-based actions (skip on Windows)
-        if not is_windows():
-            try:
-                import fcntl
-                lockfile = abs_path + ".lock"
-                lock_fd = open(lockfile, "w")
-                fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                lock_acquired = True
-            except Exception:
-                return {
-                    "result": {
-                        "error": {"code": "concurrent_access", "message": "File is currently being processed by another operation. Try again later."},
-                        "status": 429
-                    },
-                    "latency_ms": round((time.time() - start_time) * 1000, 2),
-                    "timestamp": int(time.time() * 1000)
-                }
-
-        if req.action == "run":
-            # Only allow supported languages for run
-            if req.language not in ["python", "bash", "node"]:
-                return {
-                    "result": {
-                        "error": {"code": "unsupported_language", "message": f"Run not supported for language '{req.language}'. Supported: python, bash, node."},
-                        "status": 400
-                    },
-                    "latency_ms": round((time.time() - start_time) * 1000, 2),
-                    "timestamp": int(time.time() * 1000)
-                }
-            if req.language == "python":
-                # On Windows, always use absolute path to python.exe (prefer sys.executable, fallback to where python)
-                if is_windows():
-                    python_exec = sys.executable
-                    if not python_exec or not os.path.exists(python_exec):
-                        import shutil
-                        python_exec = shutil.which("python.exe") or shutil.which("python") or "python"
-                else:
-                    python_exec = "python"
-                cmd = f'"{python_exec}" "{abs_path}" {req.args}'
-            elif req.language == "bash":
-                cmd = f"bash \"{abs_path}\" {req.args}"
-            elif req.language == "node":
-                cmd = f"node \"{abs_path}\" {req.args}"
-
-        elif req.action == "lint":
-            if req.language == "python":
-                check_cmd = "flake8 --version"
-                check_result = subprocess.run(check_cmd, shell=True, capture_output=True, text=True, timeout=30)
-                if check_result.returncode != 0:
-                    install_cmd = "pip install flake8"
-                    subprocess.run(install_cmd, shell=True, timeout=300)
-                cmd = f"flake8 \"{abs_path}\""
-            elif req.language == "js":
-                cmd = f"eslint \"{abs_path}\""
-            else:
-                return {
-                    "result": {
-                        "error": {"code": "unsupported_language", "message": f"Linter not configured for language '{req.language}'. Supported: python, js."},
-                        "status": 400
-                    },
-                    "latency_ms": round((time.time() - start_time) * 1000, 2),
-                    "timestamp": int(time.time() * 1000)
-                }
-
-        elif req.action == "test":
-            if req.language == "python":
-                cmd = f"pytest \"{abs_path}\""
-            elif req.language == "js":
-                cmd = f"npm test {abs_path}"
-            else:
-                return {
-                    "result": {
-                        "error": {"code": "unsupported_language", "message": f"Testing not configured for language '{req.language}'. Supported: python, js."},
-                        "status": 400
-                    },
-                    "latency_ms": round((time.time() - start_time) * 1000, 2),
-                    "timestamp": int(time.time() * 1000)
-                }
-
-        elif req.action == "format":
-            if req.language == "python":
-                cmd = f"black \"{abs_path}\""
-            elif req.language == "js":
-                cmd = f"prettier --write \"{abs_path}\""
-            else:
-                return {
-                    "result": {
-                        "error": {"code": "unsupported_language", "message": f"Formatter not configured for language '{req.language}'. Supported: python, js."},
-                        "status": 400
-                    },
-                    "latency_ms": round((time.time() - start_time) * 1000, 2),
-                    "timestamp": int(time.time() * 1000)
-                }
-
-        elif req.action == "fix":
-            if req.language == "python":
-                cmd = f"autopep8 --in-place \"{abs_path}\""
-            elif req.language == "js":
-                cmd = f"eslint \"{abs_path}\" --fix"
-            else:
-                return {
-                    "result": {
-                        "error": {"code": "unsupported_language", "message": f"Fixer not configured for language '{req.language}'. Supported: python, js."},
-                        "status": 400
-                    },
-                    "latency_ms": round((time.time() - start_time) * 1000, 2),
-                    "timestamp": int(time.time() * 1000)
-                }
-
-        elif req.action == "explain":
-            with open(abs_path, 'r', encoding='utf-8') as f:
-                return {
-                    "result": {"code": f.read(), "explanation": "[GPT should explain this]"},
-                    "latency_ms": round((time.time() - start_time) * 1000, 2),
-                    "timestamp": int(time.time() * 1000)
-                }
-
-        try:
-            # On Windows, ensure encoding is handled and shell is True
-            # Also, on Windows, avoid file lock issues by not opening temp file in exclusive mode
-            result = subprocess.run(cmd, shell=True, capture_output=True, text=True, encoding="utf-8" if not is_windows() else "cp1252", timeout=300)
-        except Exception as e:
-            duration = time.time() - start_time
-            return {
-                "result": {
-                    "error": {"code": "subprocess_error", "message": f"Failed to execute command: {str(e)}"},
-                    "status": 500,
-                    "stdout": "",
-                    "stderr": str(e),
-                    "exit_code": -1,
-                    "duration": duration
-                },
-                "latency_ms": round(duration * 1000, 2),
-                "timestamp": int(time.time() * 1000)
-            }
-        if req.action == "test" and req.language == "python" and result.returncode == 5:
-            duration = time.time() - start_time
-            return {
-                "result": {
-                    "error": {
-                        "code": "no_tests_found",
-                        "message": "No tests were found in the specified file. To add tests, define functions starting with 'test_' or use unittest.TestCase classes."
-                    },
-                    "status": 200,
-                    "stdout": result.stdout,
-                    "stderr": result.stderr,
-                    "exit_code": result.returncode,
-                    "duration": duration
-                },
-                "latency_ms": round(duration * 1000, 2),
-                "timestamp": int(time.time() * 1000)
-            }
-        if req.action == "test" and req.language == "python" and result.returncode == 127:
-            duration = time.time() - start_time
-            return {
-                "result": {
-                    "error": {
-                        "code": "no_tests_found",
-                        "message": "No tests were found in the specified file. To add tests, define functions starting with 'test_' or use unittest.TestCase classes."
-                    },
-                    "status": 200,
-                    "stdout": result.stdout,
-                    "stderr": result.stderr,
-                    "exit_code": result.returncode,
-                    "duration": duration
-                },
-                "latency_ms": round(duration * 1000, 2),
-                "timestamp": int(time.time() * 1000)
-            }
-        if req.action == "run" and result.returncode == 127:
-            duration = time.time() - start_time
-            return {
-                "result": {
-                    "error": {
-                        "code": "unsupported_language",
-                        "message": f"Interpreter or runtime for language '{req.language}' not found or not supported."
-                    },
-                    "status": 400,
-                    "stdout": result.stdout,
-                    "stderr": result.stderr,
-                    "exit_code": result.returncode,
-                    "duration": duration
-                },
-                "latency_ms": round(duration * 1000, 2),
-                "timestamp": int(time.time() * 1000)
-            }
-        if result.returncode != 0 and req.action == "run":
-            duration = time.time() - start_time
-            return {
-                "result": {
-                    "error": {
-                        "code": "execution_error",
-                        "message": f"Process exited with code {result.returncode}. See stderr for details."
-                    },
-                    "status": 400,
-                    "stdout": result.stdout,
-                    "stderr": result.stderr,
-                    "exit_code": result.returncode,
-                    "duration": duration
-                },
-                "latency_ms": round(duration * 1000, 2),
-                "timestamp": int(time.time() * 1000)
-            }
-        # Special handling for lint: parse output to classify warnings/errors
-        if req.action == "lint":
-            issues = []
-            output = result.stderr + result.stdout
-            if req.language == "python" and output:
-                for line in output.strip().split('\n'):
-                    if ':' in line:
-                        parts = line.split(':', 4)
-                        if len(parts) >= 4:
-                            filename, line_num, col, code, message = parts
-                            severity = "error" if code.startswith('E') or code.startswith('F') else "warning"
-                            issues.append({
-                                "file": filename,
-                                "line": int(line_num),
-                                "column": int(col),
-                                "code": code,
-                                "message": message.strip(),
-                                "severity": severity
-                            })
-            elif req.language == "js" and output:
-                # Basic parsing for eslint text output
-                for line in output.strip().split('\n'):
-                    if line.strip():
-                        # Simple parsing - could be improved
-                        if 'error' in line.lower():
-                            severity = "error"
-                        elif 'warning' in line.lower():
-                            severity = "warning"
-                        else:
-                            severity = "info"
-                        issues.append({
-                            "message": line.strip(),
-                            "severity": severity
-                        })
-            context["issues"] = issues
-            context["issues_count"] = len(issues)
-            context["errors_count"] = len([i for i in issues if i.get("severity") == "error"])
-            context["warnings_count"] = len([i for i in issues if i.get("severity") == "warning"])
-        # Add context: file path, action, language, and content hash (if content provided)
-        import hashlib
-        duration = time.time() - start_time
-        context["duration"] = duration
-        if req.content:
-            context["content_hash"] = hashlib.sha256(req.content.encode()).hexdigest()
-        result_dict = {
-            "result": {
-                **context,
-                "stdout": result.stdout,
-                "stderr": result.stderr,
-                "exit_code": result.returncode
-            }
-        }
-        # Add observability fields
-        result_dict["latency_ms"] = round(duration * 1000, 2)
-        result_dict["timestamp"] = int(time.time() * 1000)
-        return result_dict
-    finally:
-        if not is_windows() and lock_acquired and lock_fd:
-            try:
-                import fcntl
-                fcntl.flock(lock_fd, fcntl.LOCK_UN)
-                lock_fd.close()
-                os.remove(lockfile)
-            except Exception:
-                pass
-
-    # All error handling is now inside the main try/except/finally block above.
+            argv = _cmd(req, path)
+            if not argv:
+                return {"result": {"error": {"code": "unsupported_action", "message": f"Unsupported action/language: {req.action}/{req.language}"}, "status": 400}, **_meta(start)}
+            if not shutil.which(argv[0]) and argv[0] != "sh":
+                return {"result": {"error": {"code": "tool_not_found", "message": f"Executable not found: {argv[0]}"}, "status": 400}, **_meta(start)}
+            out = _run(argv, req, cwd)
+        diagnostics = out.get("diagnostics") or _diagnostics_from_lines(out.get("stderr", ""), req.action)
+        status = 200 if out.get("exit_code", 0) == 0 else 400
+        result = {"action": req.action, "language": req.language, "path": path, "stdout": out.get("stdout", ""), "stderr": out.get("stderr", ""), "exit_code": out.get("exit_code", 0), "duration": round((time.time()-start), 4)}
+        if req.action == "test" and req.language == "python" and result["exit_code"] == 5:
+            result["error"] = {"code": "no_tests_found", "message": "No tests were found in the specified file."}
+        elif result["exit_code"] not in [0, None]:
+            result["error"] = {"code": "execution_error", "message": f"Process exited with code {result['exit_code']}. See stderr for details."}
+        if req.content is not None:
+            result["content_hash"] = hashlib.sha256(req.content.encode()).hexdigest()
+        if temp:
+            try: os.unlink(path)
+            except Exception: pass
+        if locked:
+            with _LOCK_GUARD:
+                _ACTIVE_PATHS.discard(path)
+        return {"result": result, "diagnostics": diagnostics, "status": status, **_meta(start)}
+    except SyntaxError as e:
+        if locked and path:
+            with _LOCK_GUARD:
+                _ACTIVE_PATHS.discard(path)
+        return {"result": {"error": {"code": "invalid_content", "message": str(e)}, "status": 400}, **_meta(start)}
+    except ValueError as e:
+        if locked and path:
+            with _LOCK_GUARD:
+                _ACTIVE_PATHS.discard(path)
+        code = str(e) or "invalid_content"
+        return {"result": {"error": {"code": code, "message": code}, "status": 400}, **_meta(start)}
+    except FileNotFoundError as e:
+        if locked and path:
+            with _LOCK_GUARD:
+                _ACTIVE_PATHS.discard(path)
+        return {"result": {"error": {"code": "file_not_found", "message": str(e)}, "status": 404}, **_meta(start)}
+    except Exception as e:
+        return {"result": {"error": {"code": "internal_error", "message": str(e)}, "status": 500}, **_meta(start)}

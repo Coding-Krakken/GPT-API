@@ -2682,7 +2682,7 @@ components:
           title: Category
           description: 'Allowlisted category: repo, workspace, patch, test, quality,
             diagnostics, policy, tasks, github, env. Unsupported categories such as
-            shell/files/git/package are blocked.'
+            operator-tool APIs are blocked.'
       additionalProperties: true
       type: object
       required:
