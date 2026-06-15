@@ -13,9 +13,10 @@ def test_health_routes_are_available_without_auth(client):
 
 
 def test_duplicate_slash_paths_are_normalized(client, auth_headers):
-    response = client.post("/agent//coding-task", headers=auth_headers, json={})
-    assert response.status_code == 422
-    assert response.json()["error"]["code"] == "validation_error"
+    for path in ["http://testserver//agent/coding-task", "/agent//coding-task"]:
+        response = client.post(path, headers=auth_headers, json={})
+        assert response.status_code == 422, path
+        assert response.json()["error"]["code"] == "validation_error"
 
 
 def test_no_redirect_for_core_action_routes(client):

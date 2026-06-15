@@ -60,13 +60,10 @@ async def record_request_metrics(request: Request, call_next):
 @app.middleware("http")
 async def normalize_duplicate_slashes(request: Request, call_next):
     path = request.scope.get("path", "") or ""
-    raw_path = request.scope.get("raw_path", b"") or b""
-    raw_text = raw_path.decode("ascii", errors="ignore")
-    candidate = raw_text or path
-    if "//" in candidate or "//" in path:
-        normalized = re.sub(r"/+", "/", candidate)
-        request.scope["path"] = normalized.split("?", 1)[0]
-        request.scope["raw_path"] = normalized.encode("ascii", errors="ignore")
+    if "//" in path:
+        normalized_path = re.sub(r"/+", "/", path)
+        request.scope["path"] = normalized_path
+        request.scope["raw_path"] = normalized_path.encode("ascii", errors="ignore")
     return await call_next(request)
 
 

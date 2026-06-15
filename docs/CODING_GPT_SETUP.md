@@ -268,3 +268,22 @@ Examples:
   }
 }
 ```
+
+
+## Maintainer documentation and verification
+
+Phase 21 and Phase 22 are documented in:
+
+```text
+docs/PHASE21_22_DOCUMENTATION_AND_VERIFICATION.md
+```
+
+Use the Phase 22 smoke matrix before release or when troubleshooting endpoint/schema drift:
+
+```bash
+python3 scripts/smoke_local.py
+BASE_URL=http://127.0.0.1:8000 API_KEY=[REDACTED] python3 scripts/smoke_local.py --live
+./scripts/release_gate.sh
+```
+
+The core expectations are: no trailing slash in schema server URLs, no 307 redirects on core slashless action endpoints, health endpoints available on port 8000, duplicate slashes normalized, protected routes enforcing `x-api-key`, and documented coding endpoints returning validation/auth responses rather than 404s.
