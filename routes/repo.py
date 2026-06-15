@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from utils.auth import verify_key
 from utils.policy import PolicyError
 from utils import repo_intel
+from utils import validation_workflow
 
 router = APIRouter(dependencies=[Depends(verify_key)])
 
@@ -16,6 +17,11 @@ router = APIRouter(dependencies=[Depends(verify_key)])
 class RepoOverviewRequest(BaseModel):
     repo_path: str
     max_depth: int = 4
+
+
+class RepoPreflightRequest(BaseModel):
+    repo_path: str
+    changed_files: list[str] | None = None
 
 
 class RepoSearchRequest(BaseModel):
@@ -50,7 +56,36 @@ def _wrap(fn, *args, **kwargs):
 
 @router.post("/overview")
 def repo_overview(req: RepoOverviewRequest):
-    return _wrap(repo_intel.overview, req.repo_path, req.max_depth)
+    out = _wrap(repo_intel.overview, req.repo_path, req.max_depth)
+    if out.get("status") == 200:
+        preflight = validation_workflow.git_preflight(req.repo_path)
+        changed = (preflight.get("modifiedFiles") or []) + (preflight.get("untrackedFiles") or [])
+        out["repoPreflight"] = preflight
+        out["suggestedChecks"] = validation_workflow.discover_suggested_checks(req.repo_path)
+        out["securityReview"] = validation_workflow.security_review(req.repo_path, changed)
+        out["typeSafety"] = validation_workflow.type_safety_warnings(req.repo_path, changed)
+    return out
+
+
+@router.post("/preflight")
+def repo_preflight(req: RepoPreflightRequest):
+    start = time.time()
+    try:
+        preflight = validation_workflow.git_preflight(req.repo_path)
+        changed = req.changed_files or ((preflight.get("modifiedFiles") or []) + (preflight.get("untrackedFiles") or []))
+        return {
+            "repoPreflight": preflight,
+            "suggestedChecks": validation_workflow.discover_suggested_checks(req.repo_path),
+            "securityReview": validation_workflow.security_review(req.repo_path, changed),
+            "typeSafety": validation_workflow.type_safety_warnings(req.repo_path, changed),
+            "status": 200,
+            "latency_ms": round((time.time() - start) * 1000, 2),
+            "timestamp": int(time.time() * 1000),
+        }
+    except PolicyError as exc:
+        return {"error": {"code": exc.code, "message": exc.message}, "status": 400}
+    except Exception as exc:
+        return {"error": {"code": "internal_error", "message": str(exc)}, "status": 500}
 
 
 @router.post("/search")

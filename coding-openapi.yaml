@@ -25,6 +25,30 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /repo/preflight:
+    post:
+      summary: Repo Preflight
+      operationId: repo_preflight_repo_preflight_post
+      description: Return git state, suggested checks, security checklist, and type-safety
+        hints before review or validation.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RepoPreflightRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /repo/search:
     post:
       summary: Repo Search
@@ -2872,6 +2896,19 @@ components:
           type: integer
           title: Timeout Seconds
           default: 120
+        validationMode:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Validation Mode
+          description: Use clean-worktree to validate from a temporary clean worktree
+            when the checkout is dirty.
+        target_ref:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Target Ref
+          description: Optional commit/ref for clean-worktree validation.
       type: object
       required:
       - workspace_path
@@ -3539,6 +3576,19 @@ components:
           type: integer
           title: Timeout Seconds
           default: 120
+        validationMode:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Validation Mode
+          description: Use clean-worktree to validate from a temporary clean worktree
+            when the checkout is dirty.
+        target_ref:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Target Ref
+          description: Optional commit/ref for clean-worktree validation.
       type: object
       required:
       - workspace_path
@@ -4193,6 +4243,22 @@ components:
       - workspace_path
       - patch
       title: PatchRecordedRequest
+    RepoPreflightRequest:
+      properties:
+        repo_path:
+          type: string
+          title: Repo Path
+        changed_files:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Changed Files
+      type: object
+      required:
+      - repo_path
+      title: RepoPreflightRequest
   securitySchemes:
     ApiKeyAuth:
       type: apiKey

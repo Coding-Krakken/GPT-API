@@ -7,6 +7,7 @@ from pathlib import Path
 from utils.policy import ensure_under_allowed_root
 from utils.safe_subprocess import run_checked
 from utils import eval_telemetry
+from utils.validation_workflow import git_preflight, run_validation_command
 
 
 def discover(workspace_path: str) -> dict:
@@ -68,24 +69,29 @@ def parse_failures(stdout: str, stderr: str) -> list[dict]:
     return failures[:50]
 
 
-def run_discovered(workspace_path: str, command_name: str, timeout_seconds: int = 120) -> dict:
+def run_discovered(workspace_path: str, command_name: str, timeout_seconds: int = 120, validation_mode: str | None = None, target_ref: str | None = None) -> dict:
     cmd = command_by_name(workspace_path, command_name)
     if not cmd:
         return {"error": {"code": "command_not_discovered", "message": "Only discovered commands may be executed."}, "status": 400}
     from pathlib import Path
     root = ensure_under_allowed_root(workspace_path)
     cwd = root if cmd.get("cwd", ".") == "." else root / cmd.get("cwd")
-    result = run_checked(cmd["argv"], cwd, timeout=timeout_seconds)
-    eval_telemetry.log_event("tests_run", workspace_path=workspace_path, command_name=command_name, argv=cmd["argv"], passed=result["passed"], exit_code=result["exit_code"], timeout=result.get("timeout", False))
+    result = run_validation_command(name=command_name, argv=cmd["argv"], cwd=cwd, timeout_seconds=timeout_seconds, validation_mode=validation_mode, target_ref=target_ref)
+    stdout = result.get("stdout_tail", "")
+    stderr = result.get("stderr_tail", "")
+    passed = result["status"] == "passed"
+    eval_telemetry.log_event("tests_run", workspace_path=workspace_path, command_name=command_name, argv=cmd["argv"], passed=passed, exit_code=result["exitCode"], timeout=result.get("reason") == "timeout", validation_status=result["status"], scope=result["scope"])
     return {
         "command_name": command_name,
         "argv": cmd["argv"],
-        "passed": result["passed"],
-        "exit_code": result["exit_code"],
-        "stdout_tail": result["stdout"][-8000:],
-        "stderr_tail": result["stderr"][-8000:],
-        "failures": parse_failures(result["stdout"], result["stderr"]),
-        "timeout": result.get("timeout", False),
+        "passed": passed,
+        "exit_code": result["exitCode"],
+        "stdout_tail": stdout,
+        "stderr_tail": stderr,
+        "failures": parse_failures(stdout, stderr),
+        "timeout": result.get("reason") == "timeout",
+        "repoPreflight": result.get("preflight") or git_preflight(workspace_path),
+        "validationResult": result,
     }
 
 

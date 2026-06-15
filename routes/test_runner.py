@@ -20,6 +20,8 @@ class RunTestRequest(BaseModel):
     workspace_path: str
     command_name: str
     timeout_seconds: int = 120
+    validationMode: str | None = None
+    target_ref: str | None = None
 
 
 def _wrap(fn, *args):
@@ -41,4 +43,4 @@ def test_discover(req: WorkspacePathRequest):
 
 @router.post("/run")
 def test_run(req: RunTestRequest):
-    return _wrap(test_discovery.run_discovered, req.workspace_path, req.command_name, req.timeout_seconds)
+    return _wrap(test_discovery.run_discovered, req.workspace_path, req.command_name, req.timeout_seconds, req.validationMode, req.target_ref)

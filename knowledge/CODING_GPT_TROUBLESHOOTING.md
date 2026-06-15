@@ -32,3 +32,7 @@ Use unauthenticated `GET /health`, `GET /healthz`, and `GET /api/health` to dist
 ## Patch policy failures
 
 `blocked_patch_path` means the diff touches a protected path such as `.env`, secrets, credentials, an unsafe absolute path, or a traversal path. `invalid_unified_diff` means the patch is malformed or wrapped in prose/Markdown fences. Do not bypass these errors with shell, broad file, or unrestricted git endpoints.
+
+## Interactive validation blockers
+
+If lint/build/test output contains an interactive prompt, do not report it as a code failure. Mark the check as blocked tooling/configuration. For Next.js `next lint` setup prompts, recommend adding explicit ESLint config and using `eslint . --max-warnings=0` in CI.
