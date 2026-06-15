@@ -19,6 +19,7 @@ class QualityCheckRequest(BaseModel):
 
 
 @router.post("/check")
+@router.post("/run")
 def quality_check(req: QualityCheckRequest):
     start = time.time()
     try:

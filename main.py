@@ -1,7 +1,8 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 from dotenv import load_dotenv
+from datetime import datetime, timezone
 import importlib
 import pathlib
 import re
@@ -78,6 +79,36 @@ app.include_router(evals.router, prefix="/evals")
 @app.get("/debug/routes")
 def list_routes():
     return [r.path for r in app.routes]
+
+
+@app.get("/health", include_in_schema=False)
+@app.get("/healthz", include_in_schema=False)
+@app.get("/api/health", include_in_schema=False)
+def health():
+    return {
+        "status": "ok",
+        "service": "gpt-api",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@app.api_route(
+    "/api/{path:path}",
+    methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"],
+    include_in_schema=False,
+)
+def unsupported_api_namespace(path: str):
+    return JSONResponse(
+        status_code=404,
+        content={
+            "error": {
+                "code": "unsupported_namespace",
+                "message": "This service is GPT-API, not the application /api backend.",
+                "path": f"/api/{path}",
+            },
+            "status": 404,
+        },
+    )
 
 
 @app.get("/openapi.yaml", response_class=PlainTextResponse, include_in_schema=False)
