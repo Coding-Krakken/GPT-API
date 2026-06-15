@@ -1,38 +1,26 @@
 openapi: 3.1.0
 info:
   title: Chief of Staff Dispatch API
-  description: |
-    MANDATORY PIPELINE RULES — read before using:
-
-    1. CALL dispatchToAgent for EVERY incoming user request. This is NOT optional.
-    2. After each call, inspect the JSON response for the "must_continue" field.
-    3. If must_continue == true: IMMEDIATELY call dispatchToAgent again with
-         to   = response.next_required_dispatch
-         prompt = (structured handoff with agent output summary)
-       Do NOT output any text. Do NOT pause. Dispatch immediately.
-    4. Repeat until response.pipeline_complete == true.
-    5. ONLY THEN output a final summary to the user.
-
-    The "instruction" field in every response gives the EXACT next action.
-    Follow it literally. Never deviate.
+  description: "MANDATORY PIPELINE RULES — read before using:\n\n1. CALL dispatchToAgent\
+    \ for EVERY incoming user request. This is NOT optional.\n2. After each call,\
+    \ inspect the JSON response for the \"must_continue\" field.\n3. If must_continue\
+    \ == true: IMMEDIATELY call dispatchToAgent again with\n     to   = response.next_required_dispatch\n\
+    \     prompt = (structured handoff with agent output summary)\n   Do NOT output\
+    \ any text. Do NOT pause. Dispatch immediately.\n4. Repeat until response.pipeline_complete\
+    \ == true.\n5. ONLY THEN output a final summary to the user.\n\nThe \"instruction\"\
+    \ field in every response gives the EXACT next action.\nFollow it literally. Never\
+    \ deviate.\n"
   version: 2.0.0
 servers:
-  - url: https://unscrutinized-immotile-jermaine.ngrok-free.dev
+- url: https://unscrutinized-immotile-jermaine.ngrok-free.dev
 paths:
   /dispatch/:
     post:
       operationId: dispatchToAgent
       summary: REQUIRED — route task to specialist agent, then chain to next stage
-      description: |
-        Call this for EVERY message. Dispatches to a specialist agent and returns
-        the agent's full output plus explicit pipeline guidance.
-
-        AFTER RECEIVING A RESPONSE:
-        - Check "must_continue". If true → call dispatchToAgent again immediately.
-        - Use "next_required_dispatch" as the "to" value.
-        - Include the previous agent's output (from "agent_output") in the prompt.
-        - Use the same "issue" number throughout the entire pipeline run.
-        - The "instruction" field contains the exact next-step text — follow it.
+      description: Dispatch each user request to the required specialist agent. Inspect
+        must_continue, next_required_dispatch, and instruction, then chain dispatches
+        until pipeline_complete is true.
       requestBody:
         required: true
         content:
@@ -40,49 +28,57 @@ paths:
             schema:
               type: object
               required:
-                - to
-                - prompt
-                - issue
-                - from_agent
+              - to
+              - prompt
+              - issue
+              - from_agent
               properties:
                 to:
                   type: string
-                  description: |
-                    Target agent ID. Pipeline order:
-                      product-owner → solution-architect → tech-lead →
-                      backend-engineer → qa-test-engineer → security-engineer →
-                      quality-director
-
-                    Start with "product-owner" for all new feature/build requests.
-                    Start with "qa-test-engineer" for bug fixes.
-                    Start with "tech-lead" for refactors.
-                    Use "solution-architect" for architecture/design decisions.
-                  example: "product-owner"
+                  description: "Target agent ID. Pipeline order:\n  product-owner\
+                    \ → solution-architect → tech-lead →\n  backend-engineer → qa-test-engineer\
+                    \ → security-engineer →\n  quality-director\n\nStart with \"product-owner\"\
+                    \ for all new feature/build requests.\nStart with \"qa-test-engineer\"\
+                    \ for bug fixes.\nStart with \"tech-lead\" for refactors.\nUse\
+                    \ \"solution-architect\" for architecture/design decisions.\n"
+                  example: product-owner
                 prompt:
                   type: string
-                  description: |
-                    Structured handoff in this format:
+                  description: 'Structured handoff in this format:
+
                     "[Issue#N] [To:<agent>] [From:00-chief-of-staff]
+
                     Request: <original user request>
+
                     Previous stage output: <agent_output from last response, verbatim>
+
                     Acceptance criteria:
+
                     - <what must be true when done>"
+
+                    '
                 issue:
                   type: integer
-                  description: |
-                    Issue tracking number. RULES:
-                    - For a NEW task: use the NEXT available integer (increment from last).
-                    - For a CONTINUING pipeline: use the EXACT SAME issue number from the first call.
+                  description: 'Issue tracking number. RULES:
+
+                    - For a NEW task: use the NEXT available integer (increment from
+                    last).
+
+                    - For a CONTINUING pipeline: use the EXACT SAME issue number from
+                    the first call.
+
                     - Never change the issue number mid-pipeline.
+
+                    '
                   example: 112
                 from_agent:
                   type: string
                   description: Always set to "00-chief-of-staff"
-                  example: "00-chief-of-staff"
+                  example: 00-chief-of-staff
       security:
-        - ApiKeyAuth: []
+      - ApiKeyAuth: []
       responses:
-        "200":
+        '200':
           description: Agent completed. Inspect must_continue and follow the instruction.
           content:
             application/json:
@@ -94,7 +90,8 @@ paths:
                     description: true if the agent completed successfully
                   issue:
                     type: integer
-                    description: Issue number (auto-assigned if not provided; use this for all subsequent calls)
+                    description: Issue number (auto-assigned if not provided; use
+                      this for all subsequent calls)
                   dispatched_to:
                     type: string
                     description: Agent that was called
@@ -103,7 +100,7 @@ paths:
                     description: Complete text output from the agent (full, not truncated)
                   pipeline_stage_number:
                     type: integer
-                    description: "Current stage number (1-based, out of pipeline_total_stages)"
+                    description: Current stage number (1-based, out of pipeline_total_stages)
                   pipeline_total_stages:
                     type: integer
                     description: Total number of stages in the pipeline (7)
@@ -115,23 +112,33 @@ paths:
                   next_required_dispatch:
                     type: string
                     nullable: true
-                    description: |
-                      The agent you MUST call next. Null only when pipeline_complete is true.
+                    description: 'The agent you MUST call next. Null only when pipeline_complete
+                      is true.
+
                       IMMEDIATELY call dispatchToAgent with to = this value.
+
+                      '
                   must_continue:
                     type: boolean
-                    description: |
-                      TRUE means you MUST call dispatchToAgent again RIGHT NOW.
+                    description: 'TRUE means you MUST call dispatchToAgent again RIGHT
+                      NOW.
+
                       FALSE means the pipeline is complete — output final summary.
+
+                      '
                   pipeline_complete:
                     type: boolean
-                    description: true only when quality-director has approved all work
+                    description: true only when quality-director has approved all
+                      work
                   instruction:
                     type: string
-                    description: |
-                      EXACT next-step instruction for you to follow literally.
+                    description: 'EXACT next-step instruction for you to follow literally.
+
                       Example: "Stage 2/7 complete. IMMEDIATELY call dispatchToAgent
-                      with to='tech-lead' — NO text output, dispatch NOW."
+
+                      with to=''tech-lead'' — NO text output, dispatch NOW."
+
+                      '
                   conversation_url:
                     type: string
                     description: URL of the agent's ChatGPT conversation
@@ -143,23 +150,26 @@ paths:
                   latency_ms:
                     type: number
                     description: Wall-clock time for the dispatch in milliseconds
-        "400":
+        '400':
           description: Missing required fields
-        "504":
+        '504':
           description: Agent timed out
-        "500":
+        '500':
           description: Dispatch failed — retry the same stage
-
   /files/:
     post:
       operationId: writeFile
       summary: Write (or read/delete) a file in the repository
-      description: |
-        Persist artifacts — YAML models, markdown docs, code — to the repo on disk.
+      description: 'Persist artifacts — YAML models, markdown docs, code — to the
+        repo on disk.
+
         Use action "write" to create or overwrite a file at the given path.
-        Called by the pipeline to save agent-produced files that weren't auto-detected.
+
+        Called by the pipeline to save agent-produced files that weren''t auto-detected.
+
+        '
       security:
-        - ApiKeyAuth: []
+      - ApiKeyAuth: []
       requestBody:
         required: true
         content:
@@ -167,12 +177,16 @@ paths:
             schema:
               type: object
               required:
-                - action
-                - path
+              - action
+              - path
               properties:
                 action:
                   type: string
-                  enum: [read, write, delete, list]
+                  enum:
+                  - read
+                  - write
+                  - delete
+                  - list
                   description: Operation to perform
                 path:
                   type: string
@@ -181,7 +195,7 @@ paths:
                   type: string
                   description: File content (required for action=write)
       responses:
-        "200":
+        '200':
           description: File operation completed
           content:
             application/json:
@@ -195,7 +209,6 @@ paths:
                   content:
                     type: string
                     description: File content (for action=read)
-
 components:
   schemas: {}
   securitySchemes:

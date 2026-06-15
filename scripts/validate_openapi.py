@@ -78,6 +78,28 @@ def validate_security(name: str, data: dict[str, Any]) -> None:
         raise ValidationFailure(f"{name}: ApiKeyAuth must be apiKey header x-api-key")
 
 
+
+def validate_action_import_constraints(name: str, data: dict[str, Any]) -> None:
+    for path, item in (data.get("paths") or {}).items():
+        if not isinstance(item, dict):
+            continue
+        for method, operation in item.items():
+            if method.lower() not in {"get", "put", "post", "delete", "options", "head", "patch", "trace"}:
+                continue
+            if not isinstance(operation, dict):
+                continue
+            desc = operation.get("description") or ""
+            if len(desc) > 300:
+                op_id = operation.get("operationId", "<missing>")
+                raise ValidationFailure(f"{name}: {method.upper()} {path} operationId {op_id} description length {len(desc)} exceeds 300")
+            for status, response in (operation.get("responses") or {}).items():
+                if not isinstance(response, dict):
+                    continue
+                schema = (((response.get("content") or {}).get("application/json") or {}).get("schema") or {})
+                if schema.get("type") == "object" and not schema.get("properties") and schema.get("additionalProperties") is not True:
+                    op_id = operation.get("operationId", "<missing>")
+                    raise ValidationFailure(f"{name}: {method.upper()} {path} operationId {op_id} response {status} object schema missing properties")
+
 def validate_semantic_if_available(name: str, data: dict[str, Any]) -> str:
     try:
         from openapi_spec_validator import validate  # type: ignore
@@ -127,6 +149,7 @@ def validate_file(path: Path, live: set[tuple[str, str]] | None, check_live_rout
     validate_server_urls(path.name, data)
     validate_operation_ids(path.name, data)
     validate_security(path.name, data)
+    validate_action_import_constraints(path.name, data)
     semantic = validate_semantic_if_available(path.name, data)
     if check_live_routes and live is not None:
         validate_paths_match_live_routes(path.name, data, live)

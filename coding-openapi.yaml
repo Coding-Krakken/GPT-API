@@ -2612,6 +2612,21 @@ paths:
             application/json:
               schema:
                 type: object
+                properties:
+                  status:
+                    type: string
+                  timestamp:
+                    type: string
+                    format: date-time
+                  window_seconds:
+                    type: integer
+                  requests:
+                    type: object
+                    additionalProperties: true
+                  latency:
+                    type: object
+                    additionalProperties: true
+                additionalProperties: true
         '403':
           description: Forbidden
         '422':
@@ -2629,6 +2644,20 @@ paths:
             application/json:
               schema:
                 type: object
+                properties:
+                  status:
+                    type: string
+                  timestamp:
+                    type: string
+                    format: date-time
+                  tunnels:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                  web_addr:
+                    type: string
+                additionalProperties: true
         '403':
           description: Forbidden
         '422':
