@@ -121,6 +121,11 @@ def run_validation_command(
     mode = validation_mode or "workspace"
     run_cwd = cwd_path
     temp_worktree: Path | None = None
+    repo_root = Path(preflight["repoRoot"]) if preflight.get("repoRoot") else cwd_path
+    try:
+        relative_cwd = cwd_path.relative_to(repo_root)
+    except ValueError:
+        relative_cwd = Path(".")
     scope = "dirty-worktree" if preflight.get("isDirty") else "clean-head"
 
     if mode == "clean-worktree":
@@ -133,7 +138,9 @@ def run_validation_command(
             add = _run_git(Path(preflight["repoRoot"]), ["worktree", "add", "--detach", str(temp_worktree), str(ref)], timeout=60)
             if add.returncode != 0:
                 return validation_result(name, command, "blocked", add.returncode, int((time.time()-start)*1000), "dirty-worktree", "Clean validation requested but temporary worktree creation failed.", "High", stdout=add.stdout, stderr=add.stderr, preflight=preflight)
-            run_cwd = temp_worktree
+            run_cwd = temp_worktree / relative_cwd
+            if not run_cwd.exists():
+                return validation_result(name, command, "blocked", None, int((time.time()-start)*1000), "temp-worktree", "Clean validation target cwd does not exist in temporary worktree.", "High", reason="missing_temp_cwd", preflight=preflight)
             scope = "temp-worktree"
         else:
             scope = "clean-head"
@@ -147,7 +154,7 @@ def run_validation_command(
         duration = int((time.time() - start) * 1000)
         reason = _contains_interactive_prompt(cp.stdout, cp.stderr)
         if reason:
-            return validation_result(name, command, "blocked", cp.returncode, duration, scope, reason, "High", reason=reason, recommendation=_recommendation(reason, command), stdout_tail=cp.stdout[-4000:], stderr_tail=cp.stderr[-4000:], preflight=preflight)
+            return validation_result(name, command, "blocked_interactive", cp.returncode, duration, scope, reason, "High", reason=reason, recommendation=_recommendation(reason, command), stdout_tail=cp.stdout[-4000:], stderr_tail=cp.stderr[-4000:], preflight=preflight)
         status = "passed" if cp.returncode == 0 else "failed"
         summary = "Command completed successfully." if cp.returncode == 0 else "Command completed with a non-zero exit code."
         return validation_result(name, command, status, cp.returncode, duration, scope, summary, "Medium" if scope == "dirty-worktree" else "High", stdout_tail=cp.stdout[-8000:], stderr_tail=cp.stderr[-8000:], preflight=preflight)

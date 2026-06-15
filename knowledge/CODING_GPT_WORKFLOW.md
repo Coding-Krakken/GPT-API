@@ -52,6 +52,6 @@ For backend readiness, verify `GET /health`, `GET /healthz`, and `GET /api/healt
 
 ## Reviewability and validation rigor
 
-Start repository work with `/repo/preflight`. Use its `repoPreflight`, `suggestedChecks`, `securityReview`, and `typeSafety` sections to plan validation and final reporting. If `repoPreflight.isDirty` is true, label validation as dirty-worktree unless `validationMode: clean-worktree` succeeds.
+Start repository work with `/repo/preflight`. Patch endpoints also return preflight, security review, and type-safety metadata; include those in final reports when patching. Use its `repoPreflight`, `suggestedChecks`, `securityReview`, and `typeSafety` sections to plan validation and final reporting. If `repoPreflight.isDirty` is true, label validation as dirty-worktree unless `validationMode: clean-worktree` succeeds.
 
-Use `/test/run` and `/quality/check` results as structured validation records. Final reports should group checks as passed, failed, blocked, and not run, and should quote blocker reasons such as `blocked_interactive` or timeout. Mocked route tests raise confidence less than smoke/integration tests against real DB/filesystem/queue/network/OCR/auth boundaries.
+Use `/test/run` and `/quality/check` results as structured validation records. Final reports should group checks as passed, failed, blocked, and not run, and should quote blocker reasons such as `blocked_interactive`, `not_run`, or timeout. Mocked route tests raise confidence less than smoke/integration tests against real DB/filesystem/queue/network/OCR/auth boundaries.

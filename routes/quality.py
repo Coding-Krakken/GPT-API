@@ -27,7 +27,21 @@ def quality_check(req: QualityCheckRequest):
     try:
         results = []
         preflight = git_preflight(req.workspace_path)
-        for cmd in quality_commands(req.workspace_path):
+        commands = quality_commands(req.workspace_path)
+        if not commands:
+            not_run = {
+                "name": "quality",
+                "command": "",
+                "status": "not_run",
+                "exitCode": None,
+                "durationMs": 0,
+                "scope": "dirty-worktree" if preflight.get("isDirty") else "clean-head",
+                "summary": "No quality commands were discovered.",
+                "confidenceImpact": "High",
+                "preflight": preflight,
+            }
+            return {"passed": False, "results": [], "notRun": [not_run], "repoPreflight": preflight, "status": 200, "latency_ms": round((time.time() - start) * 1000, 2), "timestamp": int(time.time() * 1000)}
+        for cmd in commands:
             result = run_validation_command(name=cmd["name"], argv=cmd["argv"], cwd=req.workspace_path, timeout_seconds=req.timeout_seconds, validation_mode=req.validationMode, target_ref=req.target_ref)
             results.append({"name": cmd["name"], "argv": cmd["argv"], "passed": result["status"] == "passed", "exit_code": result["exitCode"], "stdout_tail": result.get("stdout_tail", ""), "stderr_tail": result.get("stderr_tail", ""), "validationResult": result})
         return {"passed": all(r["passed"] for r in results), "results": results, "repoPreflight": preflight, "status": 200, "latency_ms": round((time.time() - start) * 1000, 2), "timestamp": int(time.time() * 1000)}

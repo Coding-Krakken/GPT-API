@@ -62,7 +62,7 @@ def test_validation_command_blocks_interactive_prompt(tmp_path, monkeypatch):
         timeout_seconds=20,
     )
 
-    assert result["status"] == "blocked"
+    assert result["status"] == "blocked_interactive"
     assert result["reason"] == "Next.js lint attempted interactive ESLint setup."
     assert "eslint . --max-warnings=0" in result["recommendation"]
     assert result["scope"] == "clean-head"
@@ -90,3 +90,82 @@ def test_clean_validation_mode_uses_temp_worktree(client, auth_headers, tmp_path
     assert body["repoPreflight"]["isDirty"] is True
     assert body["validationResult"]["scope"] == "temp-worktree"
     assert body["validationResult"]["status"] == "passed"
+
+
+def test_clean_validation_mode_preserves_nested_cwd(tmp_path, monkeypatch):
+    monkeypatch.setenv("REPO_ALLOWED_ROOTS", str(tmp_path))
+    repo = tmp_path / "repo"
+    nested = repo / "apps" / "web"
+    nested.mkdir(parents=True)
+    _init_git_repo(repo)
+    (nested / "marker.txt").write_text("ok\n", encoding="utf-8")
+    subprocess.run(["git", "add", "."], cwd=repo, check=True)
+    subprocess.run(["git", "commit", "-m", "nested"], cwd=repo, check=True, capture_output=True)
+    (repo / "dirty.txt").write_text("dirty\n", encoding="utf-8")
+
+    result = run_validation_command(
+        name="cwd-check",
+        argv=["python", "-c", "import os; print(os.getcwd())"],
+        cwd=nested,
+        validation_mode="clean-worktree",
+        timeout_seconds=30,
+    )
+
+    assert result["status"] == "passed"
+    assert result["scope"] == "temp-worktree"
+    assert result["stdout_tail"].strip().endswith("/apps/web")
+
+
+def test_interactive_prompt_uses_blocked_interactive_status(tmp_path, monkeypatch):
+    monkeypatch.setenv("REPO_ALLOWED_ROOTS", str(tmp_path))
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _init_git_repo(repo)
+
+    result = run_validation_command(
+        name="lint",
+        argv=["python", "-c", "print('Would you like to continue?')"],
+        cwd=repo,
+        timeout_seconds=20,
+    )
+
+    assert result["status"] == "blocked_interactive"
+    assert result["reason"] == "Command emitted an interactive prompt and is not CI-safe."
+
+
+def test_quality_check_without_commands_is_not_run(client, auth_headers, tmp_path, monkeypatch):
+    monkeypatch.setenv("REPO_ALLOWED_ROOTS", str(tmp_path))
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _init_git_repo(repo)
+
+    body = client.post("/quality/check", headers=auth_headers, json={"workspace_path": str(repo)}).json()
+
+    assert body["passed"] is False
+    assert body["notRun"][0]["status"] == "not_run"
+    assert body["notRun"][0]["summary"] == "No quality commands were discovered."
+
+
+def test_patch_preview_includes_preflight_and_security_review(client, auth_headers, tmp_path, monkeypatch):
+    monkeypatch.setenv("REPO_ALLOWED_ROOTS", str(tmp_path))
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _init_git_repo(repo)
+    (repo / "export.csv").write_text("a,b\n", encoding="utf-8")
+    subprocess.run(["git", "add", "."], cwd=repo, check=True)
+    subprocess.run(["git", "commit", "-m", "csv"], cwd=repo, check=True, capture_output=True)
+    patch = """diff --git a/export.csv b/export.csv
+--- a/export.csv
++++ b/export.csv
+@@ -1 +1,2 @@
+ a,b
++=SUM(1,2),x
+"""
+
+    body = client.post("/patch/preview", headers=auth_headers, json={"workspace_path": str(repo), "patch": patch}).json()
+
+    assert body["status"] == 200
+    assert "repoPreflight" in body
+    assert "securityReview" in body
+    assert body["securityReview"]["securityReviewRequired"] is True
+    assert "CSV/formula injection" in body["securityReview"]["checklist"]

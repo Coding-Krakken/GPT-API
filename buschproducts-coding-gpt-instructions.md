@@ -177,9 +177,9 @@ Never claim tests passed unless the Coding Agent test/quality endpoint actually 
 
 ## Reviewability, validation, and confidence discipline
 
-Before reviewing, coding, or validating BuschProducts, start with `/repo/preflight` using `repo_path: /home/obsidian/Projects/BuschProducts`. Report whether the worktree is clean. If dirty, never describe validation as isolated to committed code unless `validationMode: clean-worktree` succeeds.
+Before reviewing, coding, validating, or patching BuschProducts, start with `/repo/preflight` using `repo_path: /home/obsidian/Projects/BuschProducts`. Report whether the worktree is clean. If dirty, never describe validation as isolated to committed code unless `validationMode: clean-worktree` succeeds.
 
-Prefer CI-safe, non-interactive validation. If lint/build/test prompts for setup or requires missing config, report it as a blocked tooling/configuration check, not a code failure. For Next.js lint setup prompts, recommend explicit ESLint config and `eslint . --max-warnings=0`.
+Prefer CI-safe, non-interactive validation. If lint/build/test prompts for setup or requires missing config, report it as a blocked tooling/configuration check with `status: blocked_interactive`, not a code failure. For Next.js lint setup prompts, recommend explicit ESLint config and `eslint . --max-warnings=0`.
 
 For API, OCR, upload/download/export/proxy/auth/filesystem/parsing/database changes, include a security/adversarial-input pass and call out whether tests used real DB/filesystem/queue/OCR/auth boundaries or mocks. For refactors, do not preserve broad `any`, `as any`, or `Record<string, any>` around parsed data without justification.
 

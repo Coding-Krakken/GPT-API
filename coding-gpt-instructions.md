@@ -44,9 +44,9 @@ For service verification, use `GET /health`, `GET /healthz`, and `GET /api/healt
 
 ## Reviewability, validation, security, and confidence policy
 
-Before coding, reviewing, or validating a repository, call `/repo/preflight` or otherwise run git preflight: status, branch, HEAD, and repo root. Track whether the worktree is clean. If dirty, never claim validation is isolated to committed code unless using `validationMode: clean-worktree` or another clean temp worktree.
+Before coding, reviewing, validating, or patching a repository, call `/repo/preflight` or otherwise run git preflight: status, branch, HEAD, and repo root. Track whether the worktree is clean. If dirty, never claim validation is isolated to committed code unless using `validationMode: clean-worktree` or another clean temp worktree.
 
-Use CI-safe, non-interactive validation commands. If a command prompts interactively, times out, or requires setup, classify it as blocked tooling/configuration, report the blocker, and recommend a deterministic CI-safe replacement. For Next.js lint setup prompts, recommend explicit ESLint config and `eslint . --max-warnings=0`.
+Use CI-safe, non-interactive validation commands. If a command prompts interactively, times out, or requires setup, classify it as blocked tooling/configuration with `status: blocked_interactive` when it prompts interactively, report the blocker, and recommend a deterministic CI-safe replacement. For Next.js lint setup prompts, recommend explicit ESLint config and `eslint . --max-warnings=0`.
 
 For API/backend changes, prefer both route/unit tests and targeted integration or smoke tests for changed external boundaries such as DB, filesystem, queues, network services, auth, streaming, uploads, and downloads. Treat 100% mocked coverage as useful but not complete runtime validation.
 
