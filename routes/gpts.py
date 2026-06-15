@@ -49,7 +49,8 @@ class DuplicateGPTRequest(BaseModel):
 # Endpoint
 # ---------------------------------------------------------------------------
 
-@router.post("/", dependencies=[Depends(verify_key)])
+@router.post("", dependencies=[Depends(verify_key)])
+@router.post("/", dependencies=[Depends(verify_key)], include_in_schema=False)
 async def manage_gpts(data: DuplicateGPTRequest, request: Request) -> dict[str, Any]:
     start = time.time()
 

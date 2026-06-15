@@ -10,6 +10,7 @@ import shutil
 import ast
 import shlex
 import threading
+from utils.audit import redact_text
 from utils.auth import verify_key
 
 router = APIRouter()
@@ -26,7 +27,7 @@ class CodeAction(BaseModel):
     args: str = ""
     argv: Optional[List[str]] = None
     working_dir: Optional[str] = None
-    timeout_seconds: int = Field(default=300, ge=1, le=3600)
+    timeout_seconds: int = Field(default=120, ge=1, le=3600)
     env: Optional[Dict[str, str]] = None
     stdin: Optional[str] = None
     files: Optional[List[str]] = None
@@ -45,11 +46,11 @@ def _meta(start):
 def _truncate(text: str, n: int):
     if text is None:
         return ""
+    text = redact_text(text) or ""
     raw = text.encode("utf-8", errors="replace")
     if len(raw) <= n:
         return text
     return raw[:n].decode("utf-8", errors="replace") + "\n...output truncated"
-
 
 def _abs(req: CodeAction):
     if req.working_dir:
@@ -307,5 +308,10 @@ def handle_code_action(req: CodeAction):
             with _LOCK_GUARD:
                 _ACTIVE_PATHS.discard(path)
         return {"result": {"error": {"code": "file_not_found", "message": str(e)}, "status": 404}, **_meta(start)}
+    except subprocess.TimeoutExpired as e:
+        if locked and path:
+            with _LOCK_GUARD:
+                _ACTIVE_PATHS.discard(path)
+        return {"result": {"error": {"code": "timeout", "message": str(e), "hint": "Use a shorter command, increase timeout_seconds deliberately, or use /shell action=start for long-running work."}, "status": 408}, **_meta(start)}
     except Exception as e:
         return {"result": {"error": {"code": "internal_error", "message": str(e)}, "status": 500}, **_meta(start)}

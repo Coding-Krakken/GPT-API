@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
   title: GPT Super-Agent Universal Control API
-  description: Universal FastAPI-based control API for GPT agents to perform system operations (file, shell, code, package,
-    git, apps, refactor, monitor, batch, etc.).
+  description: Universal FastAPI-based control API for GPT agents to perform system
+    operations (file, shell, code, package, git, apps, refactor, monitor, batch, etc.).
   version: 4.0.0
 servers:
 - url: https://gpt-api.ngrok.app
@@ -99,8 +99,9 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       security:
       - ApiKeyAuth: []
-      description: Run commands synchronously, start background jobs, inspect job status/logs, or stop jobs. Prefer typed
-        endpoints when available; use /shell as a controlled escape hatch.
+      description: Run commands synchronously, start background jobs, inspect job
+        status/logs, or stop jobs. Prefer typed endpoints when available; use /shell
+        as a controlled escape hatch.
   /dispatch:
     post:
       operationId: dispatchToAgent
@@ -124,7 +125,8 @@ paths:
               properties:
                 to:
                   type: string
-                  description: Target agent ID (e.g. "tech-lead", "product-owner", "qa-test-engineer")
+                  description: Target agent ID (e.g. "tech-lead", "product-owner",
+                    "qa-test-engineer")
                   example: tech-lead
                 prompt:
                   type: string
@@ -134,12 +136,14 @@ paths:
                   description: GitHub issue number for task-state tracking
                 from_agent:
                   type: string
-                  description: "Dispatching agent ID \u2014 marks it as completed in task state"
+                  description: Dispatching agent ID — marks it as completed in task
+                    state
                   example: 00-chief-of-staff
                 dry_run:
                   type: boolean
                   default: false
-                  description: If true, returns the docker exec command without running it
+                  description: If true, returns the docker exec command without running
+                    it
                 max_wait_seconds:
                   type: integer
                   default: 420
@@ -171,16 +175,17 @@ paths:
     post:
       operationId: manageFiles
       summary: Read, write, patch, inspect, and safely manipulate files or directories
-      description: Unified file interface for single or batched operations, including hash-guarded writes, line-range edits,
-        glob/tree discovery, snapshots, and restore operations.
+      description: Unified file interface for single or batched operations, including
+        hash-guarded writes, line-range edits, glob/tree discovery, snapshots, and
+        restore operations.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              description: Single file operation or batch of file operations. If operations is present, top-level action/path
-                are ignored.
+              description: Single file operation or batch of file operations. If operations
+                is present, top-level action/path are ignored.
               properties:
                 action:
                   type: string
@@ -354,8 +359,9 @@ paths:
     post:
       operationId: codeOps
       summary: Run, test, lint, format, analyze, debug, and review code
-      description: Coding-focused operation endpoint. Supports file-based and content-based execution with structured diagnostics,
-        artifacts, coverage summaries, and safe execution controls.
+      description: Coding-focused operation endpoint. Supports file-based and content-based
+        execution with structured diagnostics, artifacts, coverage summaries, and
+        safe execution controls.
       requestBody:
         required: true
         content:
@@ -575,8 +581,8 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       security:
       - ApiKeyAuth: []
-      description: Reports OS, resources, user/session info, workspace roots, installed runtimes, package managers, and coding
-        tool availability.
+      description: Reports OS, resources, user/session info, workspace roots, installed
+        runtimes, package managers, and coding tool availability.
   /monitor:
     get:
       operationId: monitorHealthCheck
@@ -593,7 +599,8 @@ paths:
                     type: string
     post:
       operationId: liveMonitor
-      summary: Monitor resources, processes, jobs, logs, ports, filesystem, and test activity
+      summary: Monitor resources, processes, jobs, logs, ports, filesystem, and test
+        activity
       requestBody:
         required: false
         content:
@@ -792,12 +799,13 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       security:
       - ApiKeyAuth: []
-      description: Inspect, diff, branch, commit, stash, apply patches, and generate PR-ready summaries with structured inputs
-        and outputs.
+      description: Inspect, diff, branch, commit, stash, apply patches, and generate
+        PR-ready summaries with structured inputs and outputs.
   /package:
     post:
       operationId: packageManager
-      summary: Manage project and system packages, lockfiles, audits, and dependency environments
+      summary: Manage project and system packages, lockfiles, audits, and dependency
+        environments
       requestBody:
         required: true
         content:
@@ -906,11 +914,13 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       security:
       - ApiKeyAuth: []
-      description: Install, remove, audit, freeze, sync, lock, and inspect dependencies across common package managers.
+      description: Install, remove, audit, freeze, sync, lock, and inspect dependencies
+        across common package managers.
   /apps:
     post:
       operationId: appControl
-      summary: Launch, kill, or manipulate desktop and third-party applications, or manage windows
+      summary: Launch, kill, or manipulate desktop and third-party applications, or
+        manage windows
       requestBody:
         required: true
         content:
@@ -930,13 +940,15 @@ paths:
                   - maximize
                   - move
                   - resize
-                  description: 'Action to perform. ''list_windows'' enumerates all open windows (platform-specific). ''focus'',
-                    ''minimize'', ''maximize'', ''move'', ''resize'' are GUI actions.
+                  description: 'Action to perform. ''list_windows'' enumerates all
+                    open windows (platform-specific). ''focus'', ''minimize'', ''maximize'',
+                    ''move'', ''resize'' are GUI actions.
 
                     '
                 app:
                   type: string
-                  description: Application name (for launch/kill/focus, or as window match hint)
+                  description: Application name (for launch/kill/focus, or as window
+                    match hint)
                 args:
                   type: string
                   description: Arguments to pass to the app (for launch)
@@ -948,7 +960,8 @@ paths:
                   description: Process ID to match (for GUI actions)
                 window_index:
                   type: integer
-                  description: Index of window to act on if multiple match (default 0)
+                  description: Index of window to act on if multiple match (default
+                    0)
                 x:
                   type: integer
                   description: X position (for move/resize)
@@ -1200,12 +1213,13 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       security:
       - ApiKeyAuth: []
-      description: Mass refactoring endpoint with dry-run previews, scoped file selection, semantic modes, diffs, and risk
-        reporting.
+      description: Mass refactoring endpoint with dry-run previews, scoped file selection,
+        semantic modes, diffs, and risk reporting.
   /batch:
     post:
       operationId: bulkActions
-      summary: Run multiple endpoint operations with dependencies, failure policy, and optional rollback semantics
+      summary: Run multiple endpoint operations with dependencies, failure policy,
+        and optional rollback semantics
       requestBody:
         required: true
         content:
@@ -1310,14 +1324,17 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       security:
       - ApiKeyAuth: []
-      description: Coordinates multi-step workflows across existing endpoints without adding new endpoints. Supports sequential,
-        parallel, transaction, and dry-run modes.
+      description: Coordinates multi-step workflows across existing endpoints without
+        adding new endpoints. Supports sequential, parallel, transaction, and dry-run
+        modes.
   /gpts:
     post:
       operationId: manageGPTs
       summary: Duplicate and configure a custom ChatGPT GPT via browser automation
-      description: Uses Playwright to duplicate or update a GPT editor page, configure name, description, instructions, API-key
-        Action auth, and optionally create the GPT. Session credentials may come from the request body or environment variables.
+      description: Uses Playwright to duplicate or update a GPT editor page, configure
+        name, description, instructions, API-key Action auth, and optionally create
+        the GPT. Session credentials may come from the request body or environment
+        variables.
       security:
       - ApiKeyAuth: []
       requestBody:
@@ -1351,11 +1368,13 @@ paths:
                   description: Full system instructions for the duplicated GPT
                 action_name:
                   type: string
-                  description: Label of the Action entry to configure in the Actions section
+                  description: Label of the Action entry to configure in the Actions
+                    section
                   default: unscrutinized-immotile-jermaine.ngrok-free.dev
                 action_api_key:
                   type: string
-                  description: API key to set for the Action's authentication (falls back to ACTION_API_KEY env var)
+                  description: API key to set for the Action's authentication (falls
+                    back to ACTION_API_KEY env var)
                 action_api_auth_type:
                   type: string
                   enum:
@@ -1365,10 +1384,12 @@ paths:
                   default: bearer
                 user_data_dir:
                   type: string
-                  description: Path to a persistent Chromium profile directory for session reuse
+                  description: Path to a persistent Chromium profile directory for
+                    session reuse
                 session_token:
                   type: string
-                  description: ChatGPT session cookie value (__Secure-next-auth.session-token or .0 part)
+                  description: ChatGPT session cookie value (__Secure-next-auth.session-token
+                    or .0 part)
                 session_token_1:
                   type: string
                   description: ChatGPT session cookie .1 part (when token is split)
@@ -1379,7 +1400,8 @@ paths:
                 create:
                   type: boolean
                   default: true
-                  description: Click the Create button to publish the GPT (false = leave as draft)
+                  description: Click the Create button to publish the GPT (false =
+                    leave as draft)
                 max_wait_seconds:
                   type: integer
                   default: 180
@@ -1425,6 +1447,102 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /script/run:
+    post:
+      operationId: runScript
+      summary: Run a large script from request content
+      description: Writes provided script content to a temporary file and executes
+        it with bounded timeout, output capping, and secret redaction. Use this instead
+        of oversized /shell commands.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - content
+              properties:
+                language:
+                  type: string
+                  enum:
+                  - bash
+                  - sh
+                  - python
+                  - node
+                  - js
+                  - javascript
+                  default: bash
+                content:
+                  type: string
+                  minLength: 1
+                  maxLength: 1000000
+                working_dir:
+                  type: string
+                timeout_seconds:
+                  type: integer
+                  minimum: 1
+                  maximum: 3600
+                  default: 120
+                env:
+                  type: object
+                  additionalProperties:
+                    type: string
+                stdin:
+                  type: string
+                argv:
+                  type: array
+                  items:
+                    type: string
+                capture:
+                  type: boolean
+                  default: true
+                max_output_bytes:
+                  type: integer
+                  minimum: 1024
+                  maximum: 10485760
+                  default: 1048576
+                dry_run:
+                  type: boolean
+                  default: false
+                keep_script:
+                  type: boolean
+                  default: false
+      responses:
+        '200':
+          description: Script execution result
+        '403':
+          description: Missing or invalid API key
+        '422':
+          description: Validation error
+      security:
+      - ApiKeyAuth: []
+  /metrics:
+    get:
+      summary: Metrics Snapshot
+      operationId: metrics_metrics_get
+      security:
+      - ApiKeyAuth: []
+      parameters:
+      - name: window_seconds
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Window Seconds
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+        '403':
+          description: Forbidden
+        '422':
+          description: Validation Error
 components:
   schemas:
     ErrorResponse:

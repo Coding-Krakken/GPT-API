@@ -2583,6 +2583,50 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /diagnostics/performance:
+    get:
+      summary: Diagnostics Performance
+      operationId: diagnostics_performance_diagnostics_performance_get
+      security:
+      - ApiKeyAuth: []
+      parameters:
+      - name: window_seconds
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          default: 900
+          title: Window Seconds
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+        '403':
+          description: Forbidden
+        '422':
+          description: Validation Error
+  /diagnostics/ngrok:
+    get:
+      summary: Diagnostics Ngrok
+      operationId: diagnostics_ngrok_diagnostics_ngrok_get
+      security:
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+        '403':
+          description: Forbidden
+        '422':
+          description: Validation Error
 components:
   schemas:
     RepoReadContextRequest:

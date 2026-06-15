@@ -21,8 +21,9 @@ fi
 PID=$(lsof -ti :8000) && kill -9 "$PID" && echo "[x] Killed process on port 8000 (PID=$PID)" || echo "[i] Nothing was using port 8000"
 sleep 2
 
-# Start ngrok and track PID
-ngrok start --all > logs/ngrok.log 2>&1 &
+# Start ngrok and track PID. Force stdout logging so tunnel lifecycle and
+# errors are visible to diagnostics instead of leaving an empty log file.
+ngrok start --all --log=stdout >> logs/ngrok.log 2>&1 &
 echo $! > /run/ngrok.pid
 sleep 5
 

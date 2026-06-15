@@ -288,7 +288,8 @@ def _build_docker_cmd(data: DispatchRequest, issue: int) -> list[str]:
 # Endpoint
 # ---------------------------------------------------------------------------
 
-@router.post("/", dependencies=[Depends(verify_key)])
+@router.post("", dependencies=[Depends(verify_key)])
+@router.post("/", dependencies=[Depends(verify_key)], include_in_schema=False)
 async def dispatch_to_agent(data: DispatchRequest, request: Request):
     start = time.time()
 

@@ -9,7 +9,7 @@ import os
 import time
 import uuid
 from utils.auth import verify_key
-from utils.audit import log_api_action
+from utils.audit import log_api_action, redact_text
 from utils.platform_tools import is_windows, translate_command_for_windows
 
 router = APIRouter()
@@ -17,18 +17,14 @@ JOBS: Dict[str, dict] = {}
 
 
 def redact_secrets(text: str) -> str:
-    if not text:
-        return text
-    for pat in [r"(API_KEY\s*=\s*)\S+", r"(OPENAI_API_KEY\s*=\s*)\S+", r"(sk-[a-zA-Z0-9]{20,})"]:
-        text = re.sub(pat, r"\1[REDACTED]", text)
-    return text
+    return redact_text(text) or ""
 
 
 class ShellCommand(BaseModel):
     action: str = "run"
     command: str = ""
     job_id: Optional[str] = None
-    timeout_seconds: int = Field(default=300, ge=1, le=3600)
+    timeout_seconds: int = Field(default=120, ge=1, le=3600)
     run_as_sudo: bool = False
     background: bool = False
     fault: Optional[str] = None
@@ -112,7 +108,7 @@ async def run_shell_command(data: ShellCommand, request: Request):
         if not data.command.strip():
             return finish({"result": {"error": {"code": "missing_command", "message": "Command cannot be empty"}, "status": 400}, **_meta(start, 400)}, 400)
         if len(data.command) > 4096:
-            return finish({"result": {"error": {"code": "command_too_long", "message": "Command exceeds maximum allowed length (4096 characters)."}, "status": 400}, **_meta(start, 400)}, 400)
+            return finish({"result": {"error": {"code": "command_too_long", "message": "Command exceeds maximum allowed length (4096 characters).", "recommended_alternatives": ["write a script with /files then execute it", "use /code with content for Python/JS/Bash", "use /script/run for large scripts", "use /batch for multiple smaller operations"]}, "status": 400}, **_meta(start, 400)}, 400)
         cmd = _prepare_command(data)
         env = os.environ.copy()
         if data.env:

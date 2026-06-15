@@ -1,4 +1,6 @@
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request, HTTPException
+from fastapi.exceptions import RequestValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 from dotenv import load_dotenv
@@ -6,11 +8,15 @@ from datetime import datetime, timezone
 import importlib
 import pathlib
 import re
+import uuid
 from routes import (
     shell, files, code, system, monitor, git, package, apps, refactor, batch,
     repo, workspace, patch, test_runner, quality, policy, coding_agent, tasks,
-    github, diagnostics, env, coding_dispatch, evals,
+    github, diagnostics, env, coding_dispatch, evals, script,
 )
+from utils.auth import verify_key
+from utils.metrics import metrics_registry
+from utils.errors import error_response, fastapi_http_exception_handler, http_exception_handler, validation_exception_handler, unhandled_exception_handler
 
 load_dotenv()
 
@@ -18,6 +24,10 @@ _REPO_ROOT = pathlib.Path(__file__).resolve().parent
 
 app = FastAPI()
 app.router.redirect_slashes = False
+app.add_exception_handler(HTTPException, fastapi_http_exception_handler)
+app.add_exception_handler(StarletteHTTPException, http_exception_handler)
+app.add_exception_handler(RequestValidationError, validation_exception_handler)
+app.add_exception_handler(Exception, unhandled_exception_handler)
 
 app.add_middleware(
     CORSMiddleware,
@@ -28,11 +38,35 @@ app.add_middleware(
 
 
 @app.middleware("http")
+async def attach_request_id(request: Request, call_next):
+    request.state.request_id = request.headers.get("x-request-id") or f"req_{uuid.uuid4().hex[:16]}"
+    response = await call_next(request)
+    response.headers["x-request-id"] = request.state.request_id
+    return response
+
+
+@app.middleware("http")
+async def record_request_metrics(request: Request, call_next):
+    start_time = metrics_registry.start_request()
+    status_code = 500
+    try:
+        response = await call_next(request)
+        status_code = response.status_code
+        return response
+    finally:
+        metrics_registry.finish_request(request.method, request.scope.get("path", request.url.path), status_code, start_time)
+
+
+@app.middleware("http")
 async def normalize_duplicate_slashes(request: Request, call_next):
-    path = request.scope.get("path", "")
-    if "//" in path:
-        request.scope["path"] = re.sub(r"/+", "/", path)
-        request.scope["raw_path"] = request.scope["path"].encode("ascii", errors="ignore")
+    path = request.scope.get("path", "") or ""
+    raw_path = request.scope.get("raw_path", b"") or b""
+    raw_text = raw_path.decode("ascii", errors="ignore")
+    candidate = raw_text or path
+    if "//" in candidate or "//" in path:
+        normalized = re.sub(r"/+", "/", candidate)
+        request.scope["path"] = normalized.split("?", 1)[0]
+        request.scope["raw_path"] = normalized.encode("ascii", errors="ignore")
     return await call_next(request)
 
 
@@ -57,6 +91,7 @@ app.include_router(package.router, prefix="/package")
 app.include_router(apps.router, prefix="/apps")
 app.include_router(refactor.router, prefix="/refactor")
 app.include_router(batch.router, prefix="/batch")
+app.include_router(script.router, prefix="/script")
 _include_optional_route("gpts", "/gpts")
 _include_optional_route("dispatch", "/dispatch")
 
@@ -92,22 +127,23 @@ def health():
     }
 
 
+@app.get("/metrics", dependencies=[Depends(verify_key)])
+def metrics(window_seconds: int | None = None):
+    return metrics_registry.snapshot(window_seconds=window_seconds)
+
+
 @app.api_route(
     "/api/{path:path}",
     methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"],
     include_in_schema=False,
 )
-def unsupported_api_namespace(path: str):
-    return JSONResponse(
+def unsupported_api_namespace(request: Request, path: str):
+    return error_response(
+        request=request,
         status_code=404,
-        content={
-            "error": {
-                "code": "unsupported_namespace",
-                "message": "This service is GPT-API, not the application /api backend.",
-                "path": f"/api/{path}",
-            },
-            "status": 404,
-        },
+        code="unsupported_namespace",
+        message="This service is GPT-API, not the application /api backend.",
+        extra_error_fields={"path": f"/api/{path}"},
     )
 
 
