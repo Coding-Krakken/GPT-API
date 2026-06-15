@@ -285,6 +285,7 @@ def _do_file_op(op: FileOp):
         return {"error": {"code": "internal_error", "message": str(e)}, "status": 500}
 
 
+@router.post("", dependencies=[Depends(verify_key)])
 @router.post("/", dependencies=[Depends(verify_key)])
 def handle_file_operation(req: FileRequest):
     start = time.time()

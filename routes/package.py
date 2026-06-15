@@ -89,6 +89,7 @@ def _cmd(req: PackageRequest):
     raise ValueError("Unsupported manager/action")
 
 
+@router.post("", dependencies=[Depends(verify_key)])
 @router.post("/", dependencies=[Depends(verify_key)])
 async def package_post(request: Request):
     start = time.time()

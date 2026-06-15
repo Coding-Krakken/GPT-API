@@ -197,6 +197,7 @@ def _explain_review(path, action):
     return {"code": text, "explanation": f"File has {len(lines)} lines. Use summarize/review for structured assistance."}
 
 
+@router.post("", dependencies=[Depends(verify_key)])
 @router.post("/", dependencies=[Depends(verify_key)])
 def handle_code_action(req: CodeAction):
     start = time.time()

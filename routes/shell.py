@@ -66,6 +66,7 @@ def _prepare_command(data: ShellCommand) -> str:
     return cmd
 
 
+@router.post("", dependencies=[Depends(verify_key)])
 @router.post("/", dependencies=[Depends(verify_key)])
 async def run_shell_command(data: ShellCommand, request: Request):
     start = time.time()

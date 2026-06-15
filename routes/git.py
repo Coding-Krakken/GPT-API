@@ -104,6 +104,7 @@ def _cmd_for(req: GitRequest, repo: str):
     raise ValueError(f"Unsupported action: {action}")
 
 
+@router.post("", dependencies=[Depends(verify_key)])
 @router.post("/", dependencies=[Depends(verify_key)])
 def handle_git_command(req: GitRequest):
     start = time.time()

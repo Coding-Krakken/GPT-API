@@ -33,6 +33,7 @@ def _get_cached_env():
 router = APIRouter()
 
 @router.get("/capabilities", dependencies=[Depends(verify_key)])
+@router.post("/capabilities", dependencies=[Depends(verify_key)], include_in_schema=False)
 def get_app_capabilities():
     """
     Returns a dictionary of supported /apps features for the current OS/session.
@@ -115,6 +116,7 @@ class AppRequest(BaseModel):
     # Special action for window enumeration
     # action: 'list_windows' returns all open windows (Linux/X11 only for now)
 
+@router.post("", dependencies=[Depends(verify_key)])
 @router.post("/", dependencies=[Depends(verify_key)])
 def handle_app_action(req: AppRequest, response: Response):
     gui_env, full_env = _get_cached_env()

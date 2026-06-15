@@ -26,6 +26,7 @@ class MonitorRequest(BaseModel):
     filter: Optional[str] = None
 
 
+@router.get("", summary="Monitor health check")
 @router.get("/", summary="Monitor health check")
 def monitor_health():
     return {"result": "Monitor endpoint is live."}
@@ -40,6 +41,7 @@ def _tail_file(path: str, n: int):
         return f.readlines()[-n:]
 
 
+@router.post("", summary="Monitor metrics or subscribe to events", dependencies=[Depends(verify_key)])
 @router.post("/", summary="Monitor metrics or subscribe to events", dependencies=[Depends(verify_key)])
 def monitor_system(req: MonitorRequest):
     start = time.time()

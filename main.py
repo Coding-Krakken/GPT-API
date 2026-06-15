@@ -1,9 +1,10 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import PlainTextResponse
 from dotenv import load_dotenv
 import importlib
 import pathlib
+import re
 from routes import (
     shell, files, code, system, monitor, git, package, apps, refactor, batch,
     repo, workspace, patch, test_runner, quality, policy, coding_agent, tasks,
@@ -15,6 +16,7 @@ load_dotenv()
 _REPO_ROOT = pathlib.Path(__file__).resolve().parent
 
 app = FastAPI()
+app.router.redirect_slashes = False
 
 app.add_middleware(
     CORSMiddleware,
@@ -22,6 +24,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def normalize_duplicate_slashes(request: Request, call_next):
+    path = request.scope.get("path", "")
+    if "//" in path:
+        request.scope["path"] = re.sub(r"/+", "/", path)
+        request.scope["raw_path"] = request.scope["path"].encode("ascii", errors="ignore")
+    return await call_next(request)
 
 
 def _include_optional_route(module_name: str, prefix: str) -> None:

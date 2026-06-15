@@ -23,7 +23,10 @@ def _version(cmd):
         return {"available": True, "path": exe, "error": str(e)}
 
 
+@router.get("", dependencies=[Depends(verify_key)])
 @router.get("/", dependencies=[Depends(verify_key)])
+@router.post("", dependencies=[Depends(verify_key)], include_in_schema=False)
+@router.post("/", dependencies=[Depends(verify_key)], include_in_schema=False)
 def get_system_info():
     start = time.time()
     try:

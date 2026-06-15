@@ -46,6 +46,7 @@ def _replace(content: str, data: dict):
     return content.replace(search, replace), content.count(search)
 
 
+@router.post("", dependencies=[Depends(verify_key)])
 @router.post("/", dependencies=[Depends(verify_key)])
 async def refactor_code(request: Request):
     start = time.time()
