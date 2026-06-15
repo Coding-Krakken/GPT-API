@@ -1620,13 +1620,29 @@ paths:
                   top_endpoints:
                     type: array
                     items:
-                      type: array
-                      items: {}
+                      type: object
+                      properties:
+                        path:
+                          type: string
+                        count:
+                          type: integer
+                      required:
+                      - path
+                      - count
+                      additionalProperties: false
                   top_routes:
                     type: array
                     items:
-                      type: array
-                      items: {}
+                      type: object
+                      properties:
+                        route:
+                          type: string
+                        count:
+                          type: integer
+                      required:
+                      - route
+                      - count
+                      additionalProperties: false
                   error_count:
                     type: integer
                   redirect_count:
@@ -1637,12 +1653,50 @@ paths:
                     type: integer
                   latency_ms:
                     type: object
-                    additionalProperties: true
+                    properties:
+                      count:
+                        type: integer
+                      min:
+                        anyOf:
+                        - type: number
+                        - type: 'null'
+                      p50:
+                        anyOf:
+                        - type: number
+                        - type: 'null'
+                      p95:
+                        anyOf:
+                        - type: number
+                        - type: 'null'
+                      p99:
+                        anyOf:
+                        - type: number
+                        - type: 'null'
+                      max:
+                        anyOf:
+                        - type: number
+                        - type: 'null'
+                      avg:
+                        anyOf:
+                        - type: number
+                        - type: 'null'
+                    additionalProperties: false
                   top_slowest:
                     type: array
                     items:
                       type: object
-                      additionalProperties: true
+                      properties:
+                        timestamp_ms:
+                          type: integer
+                        method:
+                          type: string
+                        path:
+                          type: string
+                        status_code:
+                          type: integer
+                        latency_ms:
+                          type: number
+                      additionalProperties: false
                   timestamp_ms:
                     type: integer
                 additionalProperties: true
