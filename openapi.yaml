@@ -1582,8 +1582,6 @@ paths:
     get:
       summary: Metrics Snapshot
       operationId: metrics_metrics_get
-      security:
-      - ApiKeyAuth: []
       parameters:
       - name: window_seconds
         in: query
@@ -1603,33 +1601,55 @@ paths:
                 properties:
                   status:
                     type: string
-                    description: Request status, usually ok.
-                  timestamp:
-                    type: string
-                    format: date-time
-                    description: UTC timestamp for the metrics snapshot.
+                  started_at_ms:
+                    type: integer
+                  uptime_seconds:
+                    type: number
                   window_seconds:
                     anyOf:
                     - type: integer
                     - type: 'null'
-                    description: Optional aggregation window in seconds.
-                  requests:
+                  active_requests:
+                    type: integer
+                  total_requests:
+                    type: integer
+                  status_counts:
+                    type: object
+                    additionalProperties:
+                      type: integer
+                  top_endpoints:
+                    type: array
+                    items:
+                      type: array
+                      items: {}
+                  top_routes:
+                    type: array
+                    items:
+                      type: array
+                      items: {}
+                  error_count:
+                    type: integer
+                  redirect_count:
+                    type: integer
+                  auth_failures:
+                    type: integer
+                  validation_failures:
+                    type: integer
+                  latency_ms:
                     type: object
                     additionalProperties: true
-                    description: Request counters and status/path aggregates.
-                  latency:
-                    type: object
-                    additionalProperties: true
-                    description: Latency summary metrics.
-                  system:
-                    type: object
-                    additionalProperties: true
-                    description: Optional host resource metrics.
+                  top_slowest:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                  timestamp_ms:
+                    type: integer
                 additionalProperties: true
-        '403':
-          description: Forbidden
         '422':
           description: Validation Error
+      description: Unauthenticated metrics snapshot for smoke tests and operational
+        visibility.
   /health:
     get:
       operationId: get_health

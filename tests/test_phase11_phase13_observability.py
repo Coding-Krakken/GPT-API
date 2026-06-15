@@ -7,7 +7,7 @@ from pathlib import Path
 
 def test_metrics_endpoint_records_requests(client, auth_headers):
     client.get("/health")
-    response = client.get("/metrics", headers=auth_headers)
+    response = client.get("/metrics")
     assert response.status_code == 200
     payload = response.json()
     assert payload["status"] == "ok"

@@ -133,7 +133,7 @@ core slashless endpoints do not redirect
 duplicate slashes do not produce 404s
 protected endpoints enforce auth
 representative typed coding endpoints are present
-metrics endpoint is protected and responds with auth
+metrics endpoint is available without auth and also responds with auth
 ```
 
 ### Live matrix against a running service

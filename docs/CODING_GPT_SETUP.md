@@ -286,4 +286,4 @@ BASE_URL=http://127.0.0.1:8000 API_KEY=[REDACTED] python3 scripts/smoke_local.py
 ./scripts/release_gate.sh
 ```
 
-The core expectations are: no trailing slash in schema server URLs, no 307 redirects on core slashless action endpoints, health endpoints available on port 8000, duplicate slashes normalized, protected routes enforcing `x-api-key`, and documented coding endpoints returning validation/auth responses rather than 404s.
+The core expectations are: no trailing slash in schema server URLs, no 307 redirects on core slashless action endpoints, health endpoints available on port 8000, duplicate slashes normalized, protected routes enforcing `x-api-key`, with health and metrics available for unauthenticated smoke checks, and documented coding endpoints returning validation/auth responses rather than 404s.

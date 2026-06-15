@@ -117,7 +117,7 @@ def run_matrix(client: InProcessClient | LiveClient) -> list[str]:
     passed.append("/openapi.yaml")
 
     status, _, _ = client.get("/metrics")
-    assert_status("/metrics without auth", status, {403})
+    assert_status("/metrics unauthenticated", status, {200})
     status, _, _ = client.get("/metrics", auth=True)
     assert_status("/metrics with auth", status, {200})
     passed.append("/metrics")

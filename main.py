@@ -124,7 +124,7 @@ def health():
     }
 
 
-@app.get("/metrics", dependencies=[Depends(verify_key)])
+@app.get("/metrics")
 def metrics(window_seconds: int | None = None):
     return metrics_registry.snapshot(window_seconds=window_seconds)
 
