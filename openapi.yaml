@@ -5,7 +5,7 @@ info:
     operations (file, shell, code, package, git, apps, refactor, monitor, batch, etc.).
   version: 4.0.0
 servers:
-- url: https://gpt-api.ngrok.app
+- url: https://unscrutinized-immotile-jermaine.ngrok-free.dev
 paths:
   /shell:
     post:
