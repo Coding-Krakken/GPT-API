@@ -110,14 +110,9 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       security:
       - ApiKeyAuth: []
-      description: 'Run commands synchronously, start background jobs, inspect job
-        status/logs, or stop jobs. Prefer typed endpoints when available; use /shell
-        as a controlled escape hatch.
-
-
-        Dangerous operations require explicit confirmation using confirm: true or
-        an accepted confirmation string. Unconfirmed dangerous operations return confirmation_required
-        in the response body with status 403.'
+      description: 'Run commands or manage background shell jobs. Dangerous operations
+        require confirm: true or a supported confirmation string; otherwise they return
+        confirmation_required with status 403.'
   /dispatch:
     post:
       operationId: dispatchToAgent
@@ -191,14 +186,9 @@ paths:
     post:
       operationId: manageFiles
       summary: Read, write, patch, inspect, and safely manipulate files or directories
-      description: 'Unified file interface for single or batched operations, including
-        hash-guarded writes, line-range edits, glob/tree discovery, snapshots, and
-        restore operations.
-
-
-        Dangerous operations require explicit confirmation using confirm: true or
-        an accepted confirmation string. Unconfirmed dangerous operations return confirmation_required
-        in the response body with status 403.'
+      description: 'Read, write, patch, inspect, snapshot, and restore files. Dangerous
+        operations require confirm: true or a supported confirmation string; otherwise
+        they return confirmation_required with status 403.'
       requestBody:
         required: true
         content:
@@ -842,13 +832,9 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       security:
       - ApiKeyAuth: []
-      description: 'Inspect, diff, branch, commit, stash, apply patches, and generate
-        PR-ready summaries with structured inputs and outputs.
-
-
-        Dangerous operations require explicit confirmation using confirm: true or
-        an accepted confirmation string. Unconfirmed dangerous operations return confirmation_required
-        in the response body with status 403.'
+      description: 'Inspect, diff, branch, commit, stash, apply patches, and summarize
+        repos. Dangerous operations require confirm: true or a supported confirmation
+        string.'
   /package:
     post:
       operationId: packageManager
@@ -973,13 +959,8 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       security:
       - ApiKeyAuth: []
-      description: 'Install, remove, audit, freeze, sync, lock, and inspect dependencies
-        across common package managers.
-
-
-        Dangerous operations require explicit confirmation using confirm: true or
-        an accepted confirmation string. Unconfirmed dangerous operations return confirmation_required
-        in the response body with status 403.'
+      description: 'Install, remove, audit, freeze, sync, lock, and inspect dependencies.
+        Dangerous operations require confirm: true or a supported confirmation string.'
   /apps:
     post:
       operationId: appControl
@@ -1404,13 +1385,9 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       security:
       - ApiKeyAuth: []
-      description: 'Coordinates multi-step workflows across existing endpoints without
-        adding new endpoints. Supports sequential, parallel, transaction, and dry-run
-        modes.
-
-
-        Rollback or nested operations that perform dangerous actions must include
-        confirmation fields inside the nested payload, for example {''action'':''delete'',''confirm'':true}.'
+      description: 'Run multi-step workflows. Any nested or rollback payload that
+        performs a dangerous action must include confirm: true or a supported confirmation
+        string.'
   /gpts:
     post:
       operationId: manageGPTs
@@ -1623,6 +1600,32 @@ paths:
             application/json:
               schema:
                 type: object
+                properties:
+                  status:
+                    type: string
+                    description: Request status, usually ok.
+                  timestamp:
+                    type: string
+                    format: date-time
+                    description: UTC timestamp for the metrics snapshot.
+                  window_seconds:
+                    anyOf:
+                    - type: integer
+                    - type: 'null'
+                    description: Optional aggregation window in seconds.
+                  requests:
+                    type: object
+                    additionalProperties: true
+                    description: Request counters and status/path aggregates.
+                  latency:
+                    type: object
+                    additionalProperties: true
+                    description: Latency summary metrics.
+                  system:
+                    type: object
+                    additionalProperties: true
+                    description: Optional host resource metrics.
+                additionalProperties: true
         '403':
           description: Forbidden
         '422':
