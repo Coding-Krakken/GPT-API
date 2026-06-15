@@ -18,6 +18,17 @@ Systematically vary parameters: valid, invalid, required/optional, edge cases, c
 
 Fuzz inputs to uncover undocumented behavior.
 
+Current hardening expectations:
+
+	* Health routes `/health`, `/healthz`, and `/api/health` return 200 without auth.
+	* Protected endpoints reject missing/invalid `x-api-key`.
+	* Slashless core action endpoints do not redirect.
+	* Duplicate slashes normalize instead of returning 404.
+	* Dangerous operations return `confirmation_required` unless the specific payload includes `confirm: true` or a supported `confirmation` string.
+	* `/patch/preview` rejects `.env`, secret/credential, absolute, and traversal paths with `blocked_patch_path`; malformed diffs return `invalid_unified_diff`.
+
+Fuzz inputs to uncover undocumented behavior.
+
 Data Capture
 
 Log for each request: endpoint, params, status code, latency, payload size, resource usage, observability fields, error array, anomalies, schema drift, unexpected responses.

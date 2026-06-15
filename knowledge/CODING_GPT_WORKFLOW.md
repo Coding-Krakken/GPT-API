@@ -41,3 +41,11 @@ Final user-facing answers should include:
 - policy/risk status
 - PR dry-run or PR URL if created
 - honest blockers
+
+## Current safety and verification behavior
+
+Dangerous operations require explicit confirmation. Use `confirm: true` only after explicit user approval, or use a supported `confirmation` string such as `confirmed`, `approved`, `i understand`, or `yes-i-understand`. This applies to guarded operations including shell background/sudo/destructive commands, file delete or restore overwrite, git checkout/reset/rebase/push/clean, package install/remove/update/upgrade/sync, app launch/kill, and nested `/batch` rollback payloads that perform those actions.
+
+Use `/patch/preview` before applying patches. Submit a real unified diff without Markdown fences. Blocked paths such as `.env`, secrets, credentials, unsafe absolute paths, and traversal paths return `blocked_patch_path`; malformed patches return `invalid_unified_diff`. Treat either response as a blocker.
+
+For backend readiness, verify `GET /health`, `GET /healthz`, and `GET /api/health`, then run `python3 scripts/smoke_local.py`. For live verification, set `BASE_URL` and `API_KEY` and run `python3 scripts/smoke_local.py --live`. Core slashless endpoints must not redirect, and duplicate slashes should normalize rather than produce 404s.

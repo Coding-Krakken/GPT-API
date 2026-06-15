@@ -69,3 +69,17 @@ Phase 13 is complete when it produces:
 - optional approved baseline promotion
 - release bundle archive
 - Markdown and JSON reports
+
+## Current release verification
+
+For the GPT-API backend itself, release verification includes:
+
+```bash
+python3 scripts/validate_openapi.py
+python3 scripts/smoke_local.py
+BASE_URL=http://127.0.0.1:8000 API_KEY=[REDACTED] python3 scripts/smoke_local.py --live
+./scripts/release_gate.sh
+pytest -q
+```
+
+Evaluation suites should include cases for the current hardening behavior: `confirmation_required` for unconfirmed dangerous operations, successful execution when `confirm: true` is present, `blocked_patch_path` for protected patch targets, health routes returning 200, slashless action endpoints avoiding redirects, and duplicate slashes normalizing instead of returning 404.

@@ -25,3 +25,7 @@ POST /test/run
 { "workspace_path": "/tmp/workspace", "command_name": "npm test" }
 
 No payload wrapper is required or expected.
+
+## Related current contracts
+
+Dispatcher endpoints remain deprecated for Custom GPT usage. When testing typed endpoints, remember the current backend contracts: protected endpoints require `x-api-key`; dangerous operations require `confirm: true` or a supported `confirmation` string; health routes `/health`, `/healthz`, and `/api/health` are unauthenticated; and patch preview rejects blocked paths with `blocked_patch_path`.

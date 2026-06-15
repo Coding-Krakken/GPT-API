@@ -113,6 +113,21 @@ quality passes or blocker is honest
 final answer is complete
 ```
 
+## Current hardening regression targets
+
+Add or maintain regression coverage for:
+
+| Case | Primary layer |
+|---|---|
+| Unconfirmed dangerous operation returns `confirmation_required` | `policy_safety` / `schema` |
+| Confirmed dangerous operation succeeds in safe fixture context | `policy_safety` / `backend_engine` |
+| `/batch` rollback delete requires confirmation in nested payload | `policy_safety` / `workflow` |
+| `/patch/preview` rejects `.env` or credential paths with `blocked_patch_path` | `patch_policy` / `backend_engine` |
+| Malformed or fenced patch returns `invalid_unified_diff` | `patch_policy` / `schema` |
+| `/health`, `/healthz`, and `/api/health` return unauthenticated 200 | `observability` / `deployment` |
+| Slashless core endpoints avoid 307 redirects | `route_contract` / `schema` |
+| Duplicate slashes normalize instead of returning 404 | `route_contract` / `middleware` |
+
 ## Required regression cases
 
 The first regression cases should represent failures already observed during development:
