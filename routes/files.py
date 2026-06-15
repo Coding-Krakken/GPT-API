@@ -9,6 +9,7 @@ import glob as globlib
 import difflib
 from pathlib import Path
 from utils.auth import verify_key
+from utils.operation_policy import block_if_confirmation_required, confirmation_present, error_payload, file_danger_reasons
 
 router = APIRouter()
 
@@ -34,6 +35,8 @@ class FileOp(BaseModel):
     overwrite: bool = True
     backup: bool = False
     expected_hash: Optional[str] = None
+    confirm: bool = False
+    confirmation: Optional[str] = None
     glob: Optional[str] = None
     include_hidden: bool = False
     max_depth: Optional[int] = None
@@ -54,6 +57,8 @@ class FileRequest(BaseModel):
     overwrite: bool = True
     backup: bool = False
     expected_hash: Optional[str] = None
+    confirm: bool = False
+    confirmation: Optional[str] = None
     glob: Optional[str] = None
     include_hidden: bool = False
     max_depth: Optional[int] = None
@@ -209,6 +214,11 @@ def _do_file_op(op: FileOp):
             if not os.path.isdir(path):
                 return {"error": {"code": "not_a_directory", "message": "Path is not a directory."}, "status": 400}
             return {"items": _tree(path, op.include_hidden, op.max_depth, op.limit), "status": 200}
+        target_exists = bool(target and os.path.exists(target))
+        reasons = file_danger_reasons(action, recursive=op.recursive, overwrite_target_exists=target_exists)
+        decision = block_if_confirmation_required(area="files", operation=action, reasons=reasons, confirmed=confirmation_present(op.confirmation, explicit_confirm=op.confirm))
+        if not decision.allowed:
+            return error_payload(decision)
         if action in ["write", "append", "prepend", "replace_range", "insert_before", "insert_after", "delete_range", "patch"]:
             if os.path.exists(path) and not op.overwrite and action == "write":
                 return {"error": {"code": "exists", "message": "File exists and overwrite=false"}, "status": 409}

@@ -1,6 +1,10 @@
 from fastapi import APIRouter, Depends, Request
 from typing import Dict, Any, List
 from utils.auth import verify_key
+from utils.operation_policy import (
+    block_if_confirmation_required, confirmation_present, error_payload,
+    shell_danger_reasons, package_danger_reasons, refactor_danger_reasons,
+)
 import time
 import asyncio
 import subprocess
@@ -33,6 +37,10 @@ def _run_shell_payload(payload):
     cmd = payload.get("command")
     if not cmd:
         return {"error": {"code": "missing_command", "message": "Missing command"}, "status": 400}
+    reasons = shell_danger_reasons(cmd, run_as_sudo=bool(payload.get("run_as_sudo")), background=False)
+    decision = block_if_confirmation_required(area="batch.shell", operation="run", reasons=reasons, confirmed=confirmation_present(payload.get("confirmation"), explicit_confirm=bool(payload.get("confirm", False))))
+    if not decision.allowed:
+        return error_payload(decision)
     if payload.get("dry_run"):
         return {"stdout": cmd, "stderr": "", "exit_code": 0, "dry_run": True, "status": 200}
     r = subprocess.run(cmd, shell=True, cwd=payload.get("working_dir"), input=payload.get("stdin"), capture_output=True, text=True, timeout=min(int(payload.get("timeout_seconds") or 300), 3600))
@@ -58,6 +66,10 @@ def _execute_sync(endpoint: str, payload: Dict[str, Any]):
         from routes.package import PackageRequest, _cmd
         req = PackageRequest(**payload)
         argv = _cmd(req)
+        reasons = package_danger_reasons(req.manager, req.action, global_install=req.global_)
+        decision = block_if_confirmation_required(area="batch.package", operation=req.action, reasons=reasons, confirmed=confirmation_present(getattr(req, "confirmation", None), explicit_confirm=bool(getattr(req, "confirm", False))))
+        if not decision.allowed:
+            return error_payload(decision)
         if req.dry_run:
             import shlex
             return {"stdout": shlex.join(argv), "stderr": "", "exit_code": 0, "dry_run": True, "status": 200}
@@ -71,6 +83,10 @@ def _execute_sync(endpoint: str, payload: Dict[str, Any]):
         replace = payload.get("replace", "")
         mode = payload.get("mode", "literal")
         dry = payload.get("dry_run", False) or payload.get("preview", False) or not payload.get("apply", False)
+        reasons = refactor_danger_reasons(apply=bool(payload.get("apply", False)), dry_run=bool(payload.get("dry_run", False)), preview=bool(payload.get("preview", False)))
+        decision = block_if_confirmation_required(area="batch.refactor", operation=mode, reasons=reasons, confirmed=confirmation_present(payload.get("confirmation"), explicit_confirm=bool(payload.get("confirm", False))))
+        if not decision.allowed:
+            return error_payload(decision)
         results, diffs = [], []
         for f in files:
             p = os.path.abspath(os.path.expanduser(f))

@@ -6,6 +6,7 @@ import os
 import time
 import shlex
 from utils.auth import verify_key
+from utils.operation_policy import block_if_confirmation_required, confirmation_present, error_payload, git_danger_reasons
 
 router = APIRouter()
 
@@ -25,6 +26,8 @@ class GitRequest(BaseModel):
     max_commits: int = Field(default=20, ge=1, le=1000)
     timeout_seconds: int = Field(default=300, ge=1, le=3600)
     debug: bool = False
+    confirm: bool = False
+    confirmation: Optional[str] = None
 
 
 ACTIONS = {"init","status","diff","add","commit","branch","checkout","merge","rebase","pull","push","log","show","stash","tag","reset","restore","blame","worktree","clean","apply_patch","create_pr_summary","clone","remote","fetch","config"}
@@ -123,6 +126,10 @@ def handle_git_command(req: GitRequest):
             r = _run(["git", "-C", repo, "rev-parse", "--is-inside-work-tree"], timeout=30)
             if r.returncode != 0:
                 return {"error": {"code": "not_a_git_repo", "message": r.stderr.strip() or f"Not a git repository: {repo}"}, "status": 400}
+        reasons = git_danger_reasons(req.action)
+        decision = block_if_confirmation_required(area="git", operation=req.action, reasons=reasons, confirmed=confirmation_present(req.confirmation, explicit_confirm=req.confirm))
+        if not decision.allowed:
+            return error_payload(decision)
         if req.action in ["commit", "push"] and not _identity_ok(repo):
             return {"error": {"code": "missing_identity", "message": "Git user.name and user.email must be set for commit/push."}, "status": 400}
         if req.action == "apply_patch":

@@ -1,0 +1,19 @@
+[Unit]
+Description=GPT API FastAPI service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/root/GPT-API
+EnvironmentFile=-/root/GPT-API/.env
+ExecStart=/root/GPT-API/.venv/bin/python /root/GPT-API/cli.py
+Restart=always
+RestartSec=5
+KillSignal=SIGTERM
+TimeoutStopSec=30
+StandardOutput=append:/root/GPT-API/logs/gpt-cli.log
+StandardError=append:/root/GPT-API/logs/gpt-cli.log
+
+[Install]
+WantedBy=multi-user.target

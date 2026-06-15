@@ -12,6 +12,7 @@ import shlex
 import threading
 from utils.audit import redact_text
 from utils.auth import verify_key
+from utils.operation_policy import block_if_confirmation_required, confirmation_present, error_payload, code_danger_reasons
 
 router = APIRouter()
 _LOCK_GUARD = threading.Lock()
@@ -37,6 +38,8 @@ class CodeAction(BaseModel):
     max_output_bytes: int = Field(default=1048576, ge=1024, le=10485760)
     dry_run: bool = False
     fault: Optional[str] = None
+    confirm: bool = False
+    confirmation: Optional[str] = None
 
 
 def _meta(start):
@@ -227,6 +230,10 @@ def handle_code_action(req: CodeAction):
             return {"result": {"error": {"code": "io_error", "message": "I/O error occurred"}, "status": 500}, **_meta(start)}
         if req.fault == "permission":
             return {"result": {"error": {"code": "permission_denied", "message": "Permission denied"}, "status": 403}, **_meta(start)}
+        reasons = code_danger_reasons(req.action)
+        decision = block_if_confirmation_required(area="code", operation=req.action or "", reasons=reasons, confirmed=confirmation_present(req.confirmation, explicit_confirm=req.confirm))
+        if not decision.allowed:
+            return {"result": error_payload(decision), **_meta(start)}
         if req.path and len(req.path) > 255:
             return {"result": {"error": {"code": "path_too_long", "message": "File path is too long."}, "status": 400}, **_meta(start)}
         if req.path and any(x in req.path for x in ["..", "~", "//", "\\", "|", ";", "`", "$", ">", "<"]):

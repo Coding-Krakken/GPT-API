@@ -5,6 +5,7 @@ import re
 import difflib
 import shutil
 from utils.auth import verify_key
+from utils.operation_policy import block_if_confirmation_required, confirmation_present, error_payload, refactor_danger_reasons
 
 router = APIRouter()
 
@@ -66,6 +67,10 @@ async def refactor_code(request: Request):
             return {"error": {"code": "not_implemented", "message": f"Mode {mode} requires language-specific AST engine not configured."}, "status": 400}
         files = _discover(data.get("scope"), data.get("files"))
         dry_run = bool(data.get("dry_run", False) or data.get("preview", False))
+        reasons = refactor_danger_reasons(apply=bool(data.get("apply", False)), dry_run=dry_run, preview=bool(data.get("preview", False)))
+        decision = block_if_confirmation_required(area="refactor", operation=mode, reasons=reasons, confirmed=confirmation_present(data.get("confirmation"), explicit_confirm=bool(data.get("confirm", False))))
+        if not decision.allowed:
+            return error_payload(decision)
         backup = bool(data.get("backup", False))
         max_matches = int(data.get("max_matches") or 100000)
         results = []

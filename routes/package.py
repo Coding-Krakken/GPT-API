@@ -7,6 +7,7 @@ import os
 import shutil
 import shlex
 from utils.auth import verify_key
+from utils.operation_policy import block_if_confirmation_required, confirmation_present, error_payload, package_danger_reasons
 
 router = APIRouter()
 
@@ -24,6 +25,8 @@ class PackageRequest(BaseModel):
     lockfile: Optional[str] = None
     timeout_seconds: int = Field(default=600, ge=1, le=3600)
     dry_run: bool = False
+    confirm: bool = False
+    confirmation: Optional[str] = None
 
     class Config:
         populate_by_name = True
@@ -106,6 +109,10 @@ async def package_post(request: Request):
         if not data.get("action") or data.get("action") not in ACTIONS:
             raise HTTPException(status_code=400, detail="Unsupported action")
         req = PackageRequest(**data)
+        reasons = package_danger_reasons(req.manager, req.action, global_install=req.global_)
+        decision = block_if_confirmation_required(area="package", operation=req.action, reasons=reasons, confirmed=confirmation_present(req.confirmation, explicit_confirm=req.confirm))
+        if not decision.allowed:
+            return error_payload(decision)
         argv = _cmd(req)
         exe = shutil.which(argv[0])
         if not exe:

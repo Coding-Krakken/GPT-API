@@ -4,6 +4,7 @@ from pydantic import BaseModel
 import subprocess, os, platform, time, threading, psutil
 from utils.platform_tools import is_windows
 from utils.auth import verify_key
+from utils.operation_policy import block_if_confirmation_required, confirmation_present, error_payload, app_danger_reasons
 from utils.gui_env import detect_gui_environment, ensure_x11_or_fail, get_install_guidance, log_full_gui_env
 import random
 
@@ -113,6 +114,8 @@ class AppRequest(BaseModel):
     height: Optional[int] = None
     pid: Optional[int] = None  # For direct PID matching
     window_index: Optional[int] = 0  # For multi-window selection (default: first match)
+    confirm: bool = False
+    confirmation: Optional[str] = None
     # Special action for window enumeration
     # action: 'list_windows' returns all open windows (Linux/X11 only for now)
 
@@ -276,6 +279,11 @@ def handle_app_action(req: AppRequest, response: Response):
                     "uptime_sec": uptime
                 })
         return {"result": {"apps": apps}, "env": full_env, "timestamp": _now_ts(), "latency_ms": int((time.time() - start_time) * 1000)}
+
+    reasons = app_danger_reasons(action)
+    decision = block_if_confirmation_required(area="apps", operation=action, reasons=reasons, confirmed=confirmation_present(req.confirmation, explicit_confirm=req.confirm))
+    if not decision.allowed:
+        return error_payload(decision)
 
     if action == "launch":
         if not req.app:

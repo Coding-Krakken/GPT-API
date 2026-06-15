@@ -73,3 +73,6 @@ out/
 
 # Route backup files
 routes/*.bak.*
+
+# Runtime PID files
+run/

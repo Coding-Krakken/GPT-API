@@ -11,6 +11,7 @@ import uuid
 from utils.auth import verify_key
 from utils.audit import log_api_action, redact_text
 from utils.platform_tools import is_windows, translate_command_for_windows
+from utils.operation_policy import block_if_confirmation_required, confirmation_present, error_payload, shell_danger_reasons
 
 router = APIRouter()
 JOBS: Dict[str, dict] = {}
@@ -36,6 +37,8 @@ class ShellCommand(BaseModel):
     max_output_bytes: int = Field(default=1048576, ge=1024, le=10485760)
     allowed_exit_codes: List[int] = [0]
     dry_run: bool = False
+    confirm: bool = False
+    confirmation: Optional[str] = None
 
 
 def _meta(start: float, status: int = 200):
@@ -109,6 +112,10 @@ async def run_shell_command(data: ShellCommand, request: Request):
             return finish({"result": {"error": {"code": "missing_command", "message": "Command cannot be empty"}, "status": 400}, **_meta(start, 400)}, 400)
         if len(data.command) > 4096:
             return finish({"result": {"error": {"code": "command_too_long", "message": "Command exceeds maximum allowed length (4096 characters).", "recommended_alternatives": ["write a script with /files then execute it", "use /code with content for Python/JS/Bash", "use /script/run for large scripts", "use /batch for multiple smaller operations"]}, "status": 400}, **_meta(start, 400)}, 400)
+        reasons = shell_danger_reasons(data.command, run_as_sudo=data.run_as_sudo, background=(action == "start"))
+        decision = block_if_confirmation_required(area="shell", operation=action, reasons=reasons, confirmed=confirmation_present(data.confirmation, explicit_confirm=data.confirm))
+        if not decision.allowed:
+            return finish(error_payload(decision), 403)
         cmd = _prepare_command(data)
         env = os.environ.copy()
         if data.env:
