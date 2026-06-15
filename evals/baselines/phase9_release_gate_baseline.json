@@ -1,0 +1,21 @@
+{
+  "phase": 9,
+  "name": "Coding GPT release gate baseline",
+  "repo_path": "/home/obsidian/Elevate_test",
+  "required_command": "python evals/run_release_gate.py --repo-path /home/obsidian/Elevate_test",
+  "required_checks": [
+    "core_schema_under_30_operations",
+    "core_schema_has_expected_server",
+    "api_key_auth_scheme_present",
+    "api_key_security_requirement_is_list",
+    "instructions_under_8000_chars",
+    "instructions_under_8000_bytes",
+    "release_gate_suite_passed",
+    "regression_suite_passed"
+  ],
+  "minimum_scores": {
+    "agent_readiness_warning_threshold": 80,
+    "backend_warning_threshold": 80
+  },
+  "blocking_policy": "Any blocker check failure prevents release. Warning checks are reported but non-blocking."
+}

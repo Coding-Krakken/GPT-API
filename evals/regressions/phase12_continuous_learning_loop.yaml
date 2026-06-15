@@ -1,0 +1,7 @@
+id: "phase12_continuous_learning_loop"
+title: "Continuous learning loop must produce enforceable ship/no-ship decision"
+source: "phase12_implementation"
+failure_layer: "evaluation_system"
+runner: "phase3_regression_create"
+symptom: "Improvements could be shipped without a release gate, regression coverage, baseline comparison, or explicit ship decision."
+expected_behavior: "Run the continuous learning cycle before shipping improvements; require release gate pass, known regression coverage, clean/pushed git when required, and no unacceptable baseline regression."

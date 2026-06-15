@@ -1,0 +1,12 @@
+id: "phase3_manual_test_regression"
+title: "Phase 3 manual regression creation test"
+source: "manual_phase3_evals_test"
+failure_layer: "evals_api"
+runner: "phase3_regression_create"
+symptom: "Manual test regression fixture creation needed validation."
+expected_behavior: "Regression file is created safely under evals/regressions."
+created_at: 1781016249226
+details_json: |
+  {
+    "safe": true
+  }

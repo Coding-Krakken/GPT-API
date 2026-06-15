@@ -1,181 +1,146 @@
-from fastapi import APIRouter, HTTPException, Depends, Response, Request
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, Request
+from pydantic import BaseModel, Field
+from typing import Optional, Dict, List
+import asyncio
 import subprocess
 import shutil
 import re
 import os
 import time
-import platform
+import uuid
 from utils.auth import verify_key
-from utils.audit import log_api_action
-from utils.platform_tools import is_windows, normalize_path, translate_command_for_windows
+from utils.audit import log_api_action, redact_text
+from utils.platform_tools import is_windows, translate_command_for_windows
+from utils.operation_policy import block_if_confirmation_required, confirmation_present, error_payload, shell_danger_reasons
 
 router = APIRouter()
+JOBS: Dict[str, dict] = {}
+
 
 def redact_secrets(text: str) -> str:
-    # Redact common API key patterns
-    patterns = [
-        r"(API_KEY\s*=\s*)\S+",
-        r"(OPENAI_API_KEY\s*=\s*)\S+",
-        r"(sk-[a-zA-Z0-9]{20,})"
-    ]
-    for pat in patterns:
-        text = re.sub(pat, r"\1[REDACTED]", text)
-    return text
+    return redact_text(text) or ""
+
 
 class ShellCommand(BaseModel):
-    command: str
+    action: str = "run"
+    command: str = ""
+    job_id: Optional[str] = None
+    timeout_seconds: int = Field(default=120, ge=1, le=3600)
     run_as_sudo: bool = False
     background: bool = False
-    fault: str = None  # Optional fault injection
-    shell: str = None  # Default shell is auto-detected
+    fault: Optional[str] = None
+    shell: Optional[str] = None
+    working_dir: Optional[str] = None
+    env: Optional[Dict[str, str]] = None
+    stdin: Optional[str] = None
+    capture: bool = True
+    max_output_bytes: int = Field(default=1048576, ge=1024, le=10485760)
+    allowed_exit_codes: List[int] = [0]
+    dry_run: bool = False
+    confirm: bool = False
+    confirmation: Optional[str] = None
 
+
+def _meta(start: float, status: int = 200):
+    return {"status": status, "latency_ms": round((time.time() - start) * 1000, 2), "timestamp": int(time.time() * 1000)}
+
+
+def _truncate(text: str, max_bytes: int) -> str:
+    raw = (text or "").encode("utf-8", errors="replace")
+    if len(raw) <= max_bytes:
+        return text or ""
+    return raw[:max_bytes].decode("utf-8", errors="replace") + "\n...output truncated"
+
+
+def _shell_executable(shell: Optional[str]) -> Optional[str]:
+    if shell:
+        return (shutil.which(shell) or shell) if is_windows() and not os.path.isabs(shell) else shell
+    return (shutil.which("powershell.exe") or shutil.which("cmd.exe")) if is_windows() else "/bin/bash"
+
+
+def _prepare_command(data: ShellCommand) -> str:
+    cmd = translate_command_for_windows(data.command) if is_windows() else data.command
+    if data.run_as_sudo and not is_windows():
+        cmd = f"sudo {cmd}"
+    return cmd
+
+
+@router.post("", dependencies=[Depends(verify_key)])
 @router.post("/", dependencies=[Depends(verify_key)])
 async def run_shell_command(data: ShellCommand, request: Request):
     start = time.time()
-    if not data.command or not data.command.strip():
-        resp = {
-            "result": {
-                "error": {"code": "missing_command", "message": "Command cannot be empty or whitespace."},
-                "status": 400
-            },
-            "latency_ms": round((time.time() - start) * 1000, 2),
-            "timestamp": int(time.time() * 1000)
-        }
-        log_api_action(request, "/shell", "run_shell_command", 400, str(resp))
+
+    def finish(resp: dict, status: int = 200):
+        log_api_action(request, "/shell", "run_shell_command", status, str(resp))
         return resp
-    # Enforce max command length (4096 chars, as in OpenAPI schema)
-    if len(data.command) > 4096:
-        resp = {
-                "result": {
-                    "error": {"code": "command_too_long", "message": "Command exceeds maximum allowed length (4096 characters)."},
-                    "status": 400
-                },
-                "latency_ms": round((time.time() - start) * 1000, 2),
-                "timestamp": int(time.time() * 1000)
-            }
-        log_api_action(request, "/shell", "run_shell_command", 400, str(resp))
-        return resp
-    payload_size = len(data.command) if data.command else 0
+
     try:
-        if data.fault == 'permission':
-            resp = {
-                "result": {
-                    "error": {"code": "permission_denied", "message": "Permission denied"},
-                    "status": 403
-                },
-                "latency_ms": round((time.time() - start) * 1000, 2),
-                "timestamp": int(time.time() * 1000)
-            }
-            log_api_action(request, "/shell", "run_shell_command", 403, str(resp))
-            return resp
-        if data.fault == 'io':
-            resp = {
-                "result": {
-                    "error": {"code": "io_error", "message": "I/O error occurred"},
-                    "status": 500
-                },
-                "latency_ms": round((time.time() - start) * 1000, 2),
-                "timestamp": int(time.time() * 1000)
-            }
-            log_api_action(request, "/shell", "run_shell_command", 500, str(resp))
-            return resp
-
-
-        # Windows compatibility: auto-detect shell and translate commands
-        shell_executable = data.shell
-        if not shell_executable:
-            if is_windows():
-                # Prefer PowerShell if available, else fallback to cmd.exe (absolute path)
-                powershell_path = shutil.which("powershell.exe")
-                cmd_path = shutil.which("cmd.exe")
-                shell_executable = powershell_path or cmd_path or os.path.join(os.environ.get("SystemRoot", r"C:\\Windows"), "System32", "cmd.exe")
-            else:
-                shell_executable = "/bin/bash"
-        else:
-            # If shell_executable is not an absolute path on Windows, resolve via PATH
-            if is_windows() and not os.path.isabs(shell_executable):
-                resolved = shutil.which(shell_executable)
-                if resolved:
-                    shell_executable = resolved
-
-        # --- Windows PATH resolution for command itself ---
-        full_command = data.command
-        if is_windows():
-            import shlex
-            # Only resolve the first word (the executable)
-            parts = shlex.split(full_command, posix=False)
-            if parts:
-                exe = parts[0]
-                # Only resolve if not an absolute path and not already quoted
-                if not os.path.isabs(exe) and not (exe.startswith('"') or exe.startswith("'")):
-                    resolved_exe = shutil.which(exe)
-                    if resolved_exe:
-                        parts[0] = resolved_exe
-                        full_command = ' '.join(parts)
-            full_command = translate_command_for_windows(full_command)
-            # Sudo is not supported on Windows
-        elif data.run_as_sudo:
-            full_command = f"sudo {full_command}"
-
-
-        full_command = data.command
-        if is_windows():
-            full_command = translate_command_for_windows(full_command)
-            # Sudo is not supported on Windows
-        elif data.run_as_sudo:
-            full_command = f"sudo {full_command}"
-
-        latency = round((time.time() - start) * 1000, 2)
-        headers = {"X-Payload-Size": str(payload_size), "X-Latency-ms": str(latency)}
-        if data.background:
-            proc = subprocess.Popen(
-                full_command,
-                shell=True,
-                executable=shell_executable,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True
-            )
-            stdout, stderr = proc.communicate()
-            exit_code = proc.returncode
-            resp = {
-                "stdout": redact_secrets(stdout.strip()),
-                "stderr": redact_secrets(stderr.strip()),
-                "exit_code": exit_code,
-                "pid": proc.pid,
-                "status": 200,
-                "latency_ms": round((time.time() - start) * 1000, 2),
-                "timestamp": int(time.time() * 1000)
-            }
-            log_api_action(request, "/shell", "run_shell_command", 200, str(resp))
-            return resp
-        else:
-            result = subprocess.run(
-                full_command,
-                shell=True,
-                executable=shell_executable,
-                capture_output=True,
-                text=True
-            )
-            resp = {
-                "stdout": redact_secrets(result.stdout.strip()),
-                "stderr": redact_secrets(result.stderr.strip()),
-                "exit_code": result.returncode,
-                "status": 200,
-                "latency_ms": round((time.time() - start) * 1000, 2),
-                "timestamp": int(time.time() * 1000)
-            }
-            log_api_action(request, "/shell", "run_shell_command", 200, str(resp))
-            return resp
+        action = (data.action or "run").lower()
+        if data.background and action == "run":
+            action = "start"
+        if data.fault == "permission":
+            return finish({"result": {"error": {"code": "permission_denied", "message": "Permission denied"}, "status": 403}, **_meta(start, 403)}, 403)
+        if data.fault == "io":
+            return finish({"result": {"error": {"code": "io_error", "message": "I/O error occurred"}, "status": 500}, **_meta(start, 500)}, 500)
+        if action in ["status", "stop", "logs"]:
+            if not data.job_id or data.job_id not in JOBS:
+                return finish({"error": {"code": "unknown_job", "message": "Unknown or missing job_id"}, **_meta(start, 404)}, 404)
+            job = JOBS[data.job_id]
+            proc: subprocess.Popen = job["proc"]
+            if action == "status":
+                rc = proc.poll()
+                return finish({"job_id": data.job_id, "pid": proc.pid, "running": rc is None, "exit_code": rc, **_meta(start)}, 200)
+            if action == "stop":
+                if proc.poll() is None:
+                    proc.terminate()
+                    try:
+                        proc.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        proc.kill()
+                return finish({"job_id": data.job_id, "pid": proc.pid, "running": proc.poll() is None, "exit_code": proc.poll(), **_meta(start)}, 200)
+            stdout = stderr = ""
+            if proc.poll() is not None and job.get("capture"):
+                try:
+                    out, err = proc.communicate(timeout=1)
+                    stdout, stderr = out or "", err or ""
+                except Exception:
+                    pass
+            return finish({"job_id": data.job_id, "pid": proc.pid, "stdout": redact_secrets(_truncate(stdout, data.max_output_bytes)), "stderr": redact_secrets(_truncate(stderr, data.max_output_bytes)), "exit_code": proc.poll(), **_meta(start)}, 200)
+        if action not in ["run", "start"]:
+            return finish({"result": {"error": {"code": "unsupported_action", "message": f"Unsupported shell action: {action}"}, "status": 400}, **_meta(start, 400)}, 400)
+        if not data.command.strip():
+            return finish({"result": {"error": {"code": "missing_command", "message": "Command cannot be empty"}, "status": 400}, **_meta(start, 400)}, 400)
+        if len(data.command) > 4096:
+            return finish({"result": {"error": {"code": "command_too_long", "message": "Command exceeds maximum allowed length (4096 characters).", "recommended_alternatives": ["write a script with /files then execute it", "use /code with content for Python/JS/Bash", "use /script/run for large scripts", "use /batch for multiple smaller operations"]}, "status": 400}, **_meta(start, 400)}, 400)
+        reasons = shell_danger_reasons(data.command, run_as_sudo=data.run_as_sudo, background=(action == "start"))
+        decision = block_if_confirmation_required(area="shell", operation=action, reasons=reasons, confirmed=confirmation_present(data.confirmation, explicit_confirm=data.confirm))
+        if not decision.allowed:
+            return finish(error_payload(decision), 403)
+        cmd = _prepare_command(data)
+        env = os.environ.copy()
+        if data.env:
+            env.update(data.env)
+        cwd = os.path.abspath(os.path.expanduser(data.working_dir)) if data.working_dir else None
+        if cwd and not os.path.isdir(cwd):
+            return finish({"result": {"error": {"code": "invalid_working_dir", "message": f"Working directory does not exist: {cwd}"}, "status": 400}, **_meta(start, 400)}, 400)
+        if data.dry_run:
+            return finish({"command": cmd, "dry_run": True, **_meta(start)}, 200)
+        shell_exe = _shell_executable(data.shell)
+        if action == "start":
+            proc = subprocess.Popen(cmd, shell=True, executable=shell_exe, cwd=cwd, env=env, stdin=subprocess.PIPE if data.stdin else None, stdout=subprocess.PIPE if data.capture else subprocess.DEVNULL, stderr=subprocess.PIPE if data.capture else subprocess.DEVNULL, text=True, start_new_session=not is_windows())
+            if data.stdin and proc.stdin:
+                try:
+                    proc.stdin.write(data.stdin)
+                    proc.stdin.close()
+                except Exception:
+                    pass
+            job_id = str(uuid.uuid4())
+            JOBS[job_id] = {"proc": proc, "command": cmd, "created": time.time(), "capture": data.capture}
+            return finish({"stdout": "", "stderr": "", "exit_code": 0, "pid": proc.pid, "job_id": job_id, "background": True, **_meta(start)}, 200)
+        result = await asyncio.to_thread(subprocess.run, cmd, shell=True, executable=shell_exe, cwd=cwd, env=env, input=data.stdin, capture_output=data.capture, text=True, timeout=data.timeout_seconds)
+        status = 200 if result.returncode in data.allowed_exit_codes else 400
+        return finish({"stdout": redact_secrets(_truncate(result.stdout or "", data.max_output_bytes)), "stderr": redact_secrets(_truncate(result.stderr or "", data.max_output_bytes)), "exit_code": result.returncode, "command": cmd, **_meta(start, status)}, status)
+    except subprocess.TimeoutExpired as e:
+        return finish({"result": {"error": {"code": "timeout", "message": str(e)}, "status": 408}, **_meta(start, 408)}, 408)
     except Exception as e:
-        resp = {
-            "result": {
-                "error": {"code": "subprocess_error", "message": str(e)},
-                "status": 500
-            },
-            "latency_ms": round((time.time() - start) * 1000, 2),
-            "timestamp": int(time.time() * 1000)
-        }
-        log_api_action(request, "/shell", "run_shell_command", 500, str(resp))
-        return resp
+        return finish({"result": {"error": {"code": "subprocess_error", "message": str(e)}, "status": 500}, **_meta(start, 500)}, 500)

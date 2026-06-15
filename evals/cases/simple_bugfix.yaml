@@ -1,0 +1,13 @@
+{
+  "id": "simple_bugfix",
+  "suite": "coding_task_quality",
+  "suites": ["coding_task_quality", "phase5_full"],
+  "type": "fixture",
+  "title": "Simple one-file bugfix benchmark fixture",
+  "safe_only": true,
+  "runner": "simple_bugfix",
+  "repo_path_default": "generated_temp_fixture",
+  "description": "Creates a temporary fixture Git repo with a one-line bug, applies the expected minimal patch through the safe patch engine, and validates diff/quality behavior.",
+  "expected": {"minimal_patch": true, "changed_files_max": 1, "quality_endpoint_responds": true, "final_answer_complete": true},
+  "score": {"fixture_workspace_created": 20, "patch_preview_applies": 25, "patch_applied": 25, "minimal_one_file_change": 20, "quality_endpoint_responded": 10}
+}

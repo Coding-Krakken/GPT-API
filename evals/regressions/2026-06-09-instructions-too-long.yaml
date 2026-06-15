@@ -1,0 +1,15 @@
+id: "instructions_too_long_20260609"
+title: "Custom GPT instructions exceeded 8000 character limit"
+source: "real_custom_gpt_setup"
+type: "regression"
+failure_layer: "instructions"
+runner: "instructions_too_long"
+symptom: "Custom GPT builder rejected instructions as over 8000 characters."
+expected_behavior: "coding-gpt-instructions.md remains below 8000 characters/bytes; details live in knowledge files."
+fixed_by: "Shortened instructions and created knowledge files."
+created_at: 1781017195000
+details_json: |
+  {
+    "limit_chars": 8000,
+    "instruction_file": "coding-gpt-instructions.md"
+  }

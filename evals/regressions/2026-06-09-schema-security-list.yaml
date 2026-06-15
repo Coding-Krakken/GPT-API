@@ -1,0 +1,15 @@
+id: "schema_security_list_20260609"
+title: "OpenAPI security requirement emitted ApiKeyAuth as blank value"
+source: "custom_gpt_schema_importer"
+type: "regression"
+failure_layer: "schema"
+runner: "schema_security_list"
+symptom: "Custom GPT importer rejected ApiKeyAuth because security requirement was not an explicit empty list."
+expected_behavior: "Security requirements use '- ApiKeyAuth: []' and never '- ApiKeyAuth:' while securitySchemes still defines the ApiKeyAuth object."
+fixed_by: "Schema generator emits explicit YAML list security requirements."
+created_at: 1781017195000
+details_json: |
+  {
+    "required_security_requirement": "- ApiKeyAuth: []",
+    "forbidden_security_requirement": "- ApiKeyAuth:"
+  }

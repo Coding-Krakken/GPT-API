@@ -88,6 +88,18 @@ The API will be available at `http://127.0.0.1:8000`
 - **ReDoc:** `http://127.0.0.1:8000/redoc`
 - **OpenAPI Spec:** `http://127.0.0.1:8000/openapi.json`
 
+
+## Maintainer verification
+
+Before declaring a branch ready, run the local Phase 22 smoke matrix and release gate:
+
+```bash
+python3 scripts/smoke_local.py
+./scripts/release_gate.sh
+```
+
+The detailed documentation, schema, endpoint, health-check, ticket, and verification contract is maintained in [`docs/PHASE21_22_DOCUMENTATION_AND_VERIFICATION.md`](docs/PHASE21_22_DOCUMENTATION_AND_VERIFICATION.md).
+
 ## 📚 API Endpoints
 
 ### 🔐 Authentication

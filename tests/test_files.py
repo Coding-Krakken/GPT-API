@@ -57,7 +57,8 @@ class TestFilesEndpoints:
         """Test deleting a file."""
         payload = {
             "action": "delete",
-            "path": temp_file
+            "path": temp_file,
+            "confirm": True
         }
         response = client.post("/files", headers=auth_headers, json=payload)
         assert response.status_code == 200

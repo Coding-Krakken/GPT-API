@@ -1,0 +1,54 @@
+# GPT-API runtime safety policy. This file documents the guardrails enforced by
+# utils.operation_policy and can be mirrored into deployment-specific config.
+confirmation:
+  accepted_values:
+    - true
+    - approved
+    - confirm
+    - confirmed
+    - i understand
+shell:
+  max_command_length: 4096
+  require_confirmation_for:
+    - sudo
+    - destructive_command
+    - process_kill
+    - service_restart
+    - filesystem_format
+    - background_start
+files:
+  require_confirmation_for:
+    - delete
+    - move_overwrite
+    - restore_overwrite
+    - recursive_delete
+package:
+  require_confirmation_for:
+    - install
+    - remove
+    - update
+    - upgrade
+    - sync
+    - global_install
+    - system_package_manager
+git:
+  require_confirmation_for:
+    - push
+    - clean
+    - reset
+    - checkout
+    - rebase
+    - merge
+    - stash
+apps:
+  require_confirmation_for:
+    - launch
+    - kill
+code:
+  require_confirmation_for:
+    - install
+    - fix
+    - format
+refactor:
+  require_confirmation_for:
+    - apply

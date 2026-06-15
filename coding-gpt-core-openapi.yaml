@@ -1,0 +1,1156 @@
+openapi: 3.1.0
+info:
+  title: GPT-API Coding Agent Core API
+  version: 2.0.0
+paths:
+  /agent/coding-task:
+    post:
+      summary: Coding Task
+      operationId: coding_task_agent_coding_task_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CodingTaskRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /agent/coding-task/next:
+    post:
+      summary: Coding Task Next
+      operationId: coding_task_next_agent_coding_task_next_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CodingTaskNextRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /agent/coding-task/submit:
+    post:
+      summary: Coding Task Submit
+      operationId: coding_task_submit_agent_coding_task_submit_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CodingTaskSubmitRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /agent/coding-task/finalize:
+    post:
+      summary: Coding Task Finalize
+      operationId: coding_task_finalize_agent_coding_task_finalize_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CodingTaskFinalizeRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /agent/coding-task/repair-plan:
+    post:
+      summary: Coding Task Repair Plan
+      operationId: coding_task_repair_plan_agent_coding_task_repair_plan_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CodingTaskRepairPlanRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /agent/coding-task/iteration-summary:
+    post:
+      summary: Coding Task Iteration Summary
+      operationId: coding_task_iteration_summary_agent_coding_task_iteration_summary_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CodingTaskContractReportRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /agent/coding-task/contract-report:
+    post:
+      summary: Coding Task Contract Report
+      operationId: coding_task_contract_report_agent_coding_task_contract_report_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CodingTaskContractReportRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /agent/coding-task/smoke-test:
+    post:
+      summary: Coding Task Smoke Test
+      operationId: coding_task_smoke_test_agent_coding_task_smoke_test_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CodingTaskSmokeTestRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /repo/instructions:
+    post:
+      summary: Repo Instructions
+      operationId: repo_instructions_repo_instructions_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RepoOverviewRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /repo/dependency-graph:
+    post:
+      summary: Repo Dependency Graph
+      operationId: repo_dependency_graph_repo_dependency_graph_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RepoOverviewRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /repo/test-map:
+    post:
+      summary: Repo Test Map
+      operationId: repo_test_map_repo_test_map_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RepoOverviewRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /repo/relevant-context:
+    post:
+      summary: Repo Relevant Context
+      operationId: repo_relevant_context_repo_relevant_context_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RepoRelevantContextRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /repo/search:
+    post:
+      summary: Repo Search
+      operationId: repo_search_repo_search_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RepoSearchRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /repo/read-context:
+    post:
+      summary: Repo Read Context
+      operationId: repo_read_context_repo_read_context_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RepoReadContextRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /repo/symbols:
+    post:
+      summary: Repo Symbols
+      operationId: repo_symbols_repo_symbols_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RepoSymbolsRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /repo/overview:
+    post:
+      summary: Repo Overview
+      operationId: repo_overview_repo_overview_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RepoOverviewRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /repo/preflight:
+    post:
+      summary: Repo Preflight
+      operationId: repo_preflight_repo_preflight_post
+      description: Return git state, suggested checks, security checklist, and type-safety
+        hints before review or validation.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RepoPreflightRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /workspace/status:
+    post:
+      summary: Workspace Status
+      operationId: workspace_status_workspace_status_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkspacePathRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /workspace/diff:
+    post:
+      summary: Workspace Diff
+      operationId: workspace_diff_workspace_diff_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkspacePathRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /workspace/diff-summary:
+    post:
+      summary: Workspace Diff Summary
+      operationId: workspace_diff_summary_workspace_diff_summary_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkspacePathRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /workspace/risk-report:
+    post:
+      summary: Workspace Risk Report
+      operationId: workspace_risk_report_workspace_risk_report_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkspacePathRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /workspace/review-checklist:
+    post:
+      summary: Workspace Review Checklist
+      operationId: workspace_review_checklist_workspace_review_checklist_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkspacePathRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /test/discover:
+    post:
+      summary: Test Discover
+      operationId: test_discover_test_discover_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkspacePathRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /test/run:
+    post:
+      summary: Test Run
+      operationId: test_run_test_run_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RunTestRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /quality/check:
+    post:
+      summary: Quality Check
+      operationId: quality_check_quality_check_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QualityCheckRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /quality/run:
+    post:
+      summary: Quality Run
+      operationId: quality_run_quality_run_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QualityCheckRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /env/discover:
+    post:
+      summary: Env Discover
+      operationId: env_discover_env_discover_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnvRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /env/doctor:
+    post:
+      summary: Env Doctor
+      operationId: env_doctor_env_doctor_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnvRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /env/prepare-dry-run:
+    post:
+      summary: Env Prepare Dry Run
+      operationId: env_prepare_dry_run_env_prepare_dry_run_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnvRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /env/prepare-approved:
+    post:
+      summary: Env Prepare Approved
+      operationId: env_prepare_approved_env_prepare_approved_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnvPrepareApprovedRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /diagnostics/performance:
+    get:
+      summary: Diagnostics Performance
+      operationId: diagnostics_performance_diagnostics_performance_get
+      security:
+      - ApiKeyAuth: []
+      parameters:
+      - name: window_seconds
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          default: 900
+          title: Window Seconds
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  timestamp:
+                    type: string
+                    format: date-time
+                  window_seconds:
+                    type: integer
+                  requests:
+                    type: object
+                    additionalProperties: true
+                  latency:
+                    type: object
+                    additionalProperties: true
+                additionalProperties: true
+        '403':
+          description: Forbidden
+        '422':
+          description: Validation Error
+  /diagnostics/ngrok:
+    get:
+      summary: Diagnostics Ngrok
+      operationId: diagnostics_ngrok_diagnostics_ngrok_get
+      security:
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  timestamp:
+                    type: string
+                    format: date-time
+                  tunnels:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                  web_addr:
+                    type: string
+                additionalProperties: true
+        '403':
+          description: Forbidden
+        '422':
+          description: Validation Error
+components:
+  schemas:
+    RepoReadContextRequest:
+      properties:
+        repo_path:
+          type: string
+          title: Repo Path
+        files:
+          items:
+            type: string
+          type: array
+          title: Files
+        max_bytes_per_file:
+          type: integer
+          title: Max Bytes Per File
+          default: 50000
+      type: object
+      required:
+      - repo_path
+      - files
+      title: RepoReadContextRequest
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+    RunTestRequest:
+      properties:
+        workspace_path:
+          type: string
+          title: Workspace Path
+        command_name:
+          type: string
+          title: Command Name
+        timeout_seconds:
+          type: integer
+          title: Timeout Seconds
+          default: 120
+        validationMode:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Validation Mode
+          description: Use clean-worktree to validate from a temporary clean worktree
+            when the checkout is dirty.
+        target_ref:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Target Ref
+          description: Optional commit/ref for clean-worktree validation.
+      type: object
+      required:
+      - workspace_path
+      - command_name
+      title: RunTestRequest
+    RepoSymbolsRequest:
+      properties:
+        repo_path:
+          type: string
+          title: Repo Path
+        files:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Files
+      type: object
+      required:
+      - repo_path
+      title: RepoSymbolsRequest
+    RepoRelevantContextRequest:
+      properties:
+        repo_path:
+          type: string
+          title: Repo Path
+        task:
+          type: string
+          title: Task
+        diagnostics:
+          anyOf:
+          - items:
+              additionalProperties: true
+              type: object
+            type: array
+          - type: 'null'
+          title: Diagnostics
+        max_files:
+          type: integer
+          title: Max Files
+          default: 12
+      type: object
+      required:
+      - repo_path
+      - task
+      title: RepoRelevantContextRequest
+    CodingTaskRequest:
+      properties:
+        repo_path:
+          type: string
+          title: Repo Path
+        task:
+          type: string
+          title: Task
+        mode:
+          type: string
+          title: Mode
+          default: plan_apply_verify
+        workspace_strategy:
+          type: string
+          title: Workspace Strategy
+          default: git_worktree
+        max_iterations:
+          type: integer
+          title: Max Iterations
+          default: 5
+        approval_policy:
+          type: string
+          title: Approval Policy
+          default: safe_auto
+        create_pr:
+          type: boolean
+          title: Create Pr
+          default: false
+        base_branch:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Base Branch
+        task_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Task Id
+        compact_response:
+          type: boolean
+          title: Compact Response
+          default: true
+      type: object
+      required:
+      - repo_path
+      - task
+      title: CodingTaskRequest
+    RepoOverviewRequest:
+      properties:
+        repo_path:
+          type: string
+          title: Repo Path
+        max_depth:
+          type: integer
+          title: Max Depth
+          default: 4
+      type: object
+      required:
+      - repo_path
+      title: RepoOverviewRequest
+    RepoSearchRequest:
+      properties:
+        repo_path:
+          type: string
+          title: Repo Path
+        query:
+          type: string
+          title: Query
+        globs:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Globs
+        max_results:
+          type: integer
+          title: Max Results
+          default: 50
+      type: object
+      required:
+      - repo_path
+      - query
+      title: RepoSearchRequest
+    CodingTaskNextRequest:
+      properties:
+        task_id:
+          type: string
+          title: Task Id
+      type: object
+      required:
+      - task_id
+      title: CodingTaskNextRequest
+    QualityCheckRequest:
+      properties:
+        workspace_path:
+          type: string
+          title: Workspace Path
+        timeout_seconds:
+          type: integer
+          title: Timeout Seconds
+          default: 120
+        validationMode:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Validation Mode
+          description: Use clean-worktree to validate from a temporary clean worktree
+            when the checkout is dirty.
+        target_ref:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Target Ref
+          description: Optional commit/ref for clean-worktree validation.
+      type: object
+      required:
+      - workspace_path
+      title: QualityCheckRequest
+    CodingTaskSmokeTestRequest:
+      properties:
+        repo_path:
+          type: string
+          title: Repo Path
+        task:
+          type: string
+          title: Task
+          default: Smoke-test all uploadable Coding GPT core endpoints safely.
+        safe_only:
+          type: boolean
+          title: Safe Only
+          default: true
+        approval_policy:
+          type: string
+          title: Approval Policy
+          default: safe_auto
+        max_iterations:
+          type: integer
+          title: Max Iterations
+          default: 1
+      type: object
+      required:
+      - repo_path
+      title: CodingTaskSmokeTestRequest
+    CodingTaskRepairPlanRequest:
+      properties:
+        task_id:
+          type: string
+          title: Task Id
+        max_files:
+          type: integer
+          title: Max Files
+          default: 12
+      type: object
+      required:
+      - task_id
+      title: CodingTaskRepairPlanRequest
+    WorkspacePathRequest:
+      properties:
+        workspace_path:
+          type: string
+          title: Workspace Path
+      type: object
+      required:
+      - workspace_path
+      title: WorkspacePathRequest
+    EnvPrepareApprovedRequest:
+      properties:
+        workspace_path:
+          type: string
+          title: Workspace Path
+        approved:
+          type: boolean
+          title: Approved
+          default: false
+      type: object
+      required:
+      - workspace_path
+      title: EnvPrepareApprovedRequest
+    EnvRequest:
+      properties:
+        workspace_path:
+          type: string
+          title: Workspace Path
+      type: object
+      required:
+      - workspace_path
+      title: EnvRequest
+    CodingTaskFinalizeRequest:
+      properties:
+        task_id:
+          type: string
+          title: Task Id
+        commit:
+          type: boolean
+          title: Commit
+          default: false
+        commit_message:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Commit Message
+        create_pr:
+          type: boolean
+          title: Create Pr
+          default: false
+        pr_title:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Pr Title
+        pr_body:
+          type: string
+          title: Pr Body
+          default: ''
+        user_approved_network_write:
+          type: boolean
+          title: User Approved Network Write
+          default: false
+        enforce_contract:
+          type: boolean
+          title: Enforce Contract
+          default: true
+      type: object
+      required:
+      - task_id
+      title: CodingTaskFinalizeRequest
+    CodingTaskContractReportRequest:
+      properties:
+        task_id:
+          type: string
+          title: Task Id
+      type: object
+      required:
+      - task_id
+      title: CodingTaskContractReportRequest
+    CodingTaskSubmitRequest:
+      properties:
+        task_id:
+          type: string
+          title: Task Id
+        artifact_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Artifact Name
+        artifact:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Artifact
+        patch:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Patch
+        run_tests:
+          type: boolean
+          title: Run Tests
+          default: false
+        run_quality:
+          type: boolean
+          title: Run Quality
+          default: false
+      type: object
+      required:
+      - task_id
+      title: CodingTaskSubmitRequest
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    RepoPreflightRequest:
+      properties:
+        repo_path:
+          type: string
+          title: Repo Path
+        changed_files:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Changed Files
+      type: object
+      required:
+      - repo_path
+      title: RepoPreflightRequest
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+servers:
+- url: https://unscrutinized-immotile-jermaine.ngrok-free.dev
+security:
+- ApiKeyAuth: []

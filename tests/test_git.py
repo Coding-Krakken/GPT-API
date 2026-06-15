@@ -106,7 +106,8 @@ class TestGitEndpoints:
         payload = {
             "action": "checkout",
             "path": temp_git_repo,
-            "args": "-b new_branch"
+            "args": "-b new_branch",
+            "confirm": True
         }
         response = client.post("/git", headers=auth_headers, json=payload)
         assert response.status_code == 200
@@ -278,7 +279,8 @@ class TestGitEndpoints:
         payload = {
             "action": "reset",
             "path": temp_git_repo,
-            "args": "--hard HEAD"
+            "args": "--hard HEAD",
+            "confirm": True
         }
         response = client.post("/git", headers=auth_headers, json=payload)
         assert response.status_code == 200
@@ -316,7 +318,8 @@ class TestGitEndpoints:
         payload = {
             "action": "rebase",
             "path": temp_git_repo,
-            "args": "--continue"
+            "args": "--continue",
+            "confirm": True
         }
         response = client.post("/git", headers=auth_headers, json=payload)
         assert response.status_code == 200

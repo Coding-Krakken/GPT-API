@@ -24,6 +24,7 @@ class TestPackageEndpoints:
         payload = {
             "manager": "pip",
             "action": "install",
+            "confirm": True,
             "package": "requests"
         }
         response = client.post("/package", headers=auth_headers, json=payload)
@@ -38,6 +39,7 @@ class TestPackageEndpoints:
         payload = {
             "manager": "pip",
             "action": "remove",
+            "confirm": True,
             "package": "requests"
         }
         response = client.post("/package", headers=auth_headers, json=payload)
@@ -51,7 +53,8 @@ class TestPackageEndpoints:
         """Test pip update."""
         payload = {
             "manager": "pip",
-            "action": "update"
+            "action": "update",
+            "confirm": True
         }
         response = client.post("/package", headers=auth_headers, json=payload)
         assert response.status_code == 200
@@ -65,6 +68,7 @@ class TestPackageEndpoints:
         payload = {
             "manager": "pip",
             "action": "upgrade",
+            "confirm": True,
             "package": "pip"
         }
         response = client.post("/package", headers=auth_headers, json=payload)
@@ -91,7 +95,8 @@ class TestPackageEndpoints:
         """Test apt update."""
         payload = {
             "manager": "apt",
-            "action": "update"
+            "action": "update",
+            "confirm": True
         }
         response = client.post("/package", headers=auth_headers, json=payload)
         assert response.status_code == 200
@@ -104,7 +109,8 @@ class TestPackageEndpoints:
         """Test apt upgrade."""
         payload = {
             "manager": "apt",
-            "action": "upgrade"
+            "action": "upgrade",
+            "confirm": True
         }
         response = client.post("/package", headers=auth_headers, json=payload)
         assert response.status_code == 200
@@ -130,7 +136,8 @@ class TestPackageEndpoints:
         """Test brew update."""
         payload = {
             "manager": "brew",
-            "action": "update"
+            "action": "update",
+            "confirm": True
         }
         response = client.post("/package", headers=auth_headers, json=payload)
         assert response.status_code == 200
@@ -143,7 +150,8 @@ class TestPackageEndpoints:
         """Test brew upgrade."""
         payload = {
             "manager": "brew",
-            "action": "upgrade"
+            "action": "upgrade",
+            "confirm": True
         }
         response = client.post("/package", headers=auth_headers, json=payload)
         assert response.status_code == 200
@@ -169,7 +177,8 @@ class TestPackageEndpoints:
         """Test pacman update."""
         payload = {
             "manager": "pacman",
-            "action": "update"
+            "action": "update",
+            "confirm": True
         }
         response = client.post("/package", headers=auth_headers, json=payload)
         assert response.status_code == 200
@@ -182,7 +191,8 @@ class TestPackageEndpoints:
         """Test pacman upgrade."""
         payload = {
             "manager": "pacman",
-            "action": "upgrade"
+            "action": "upgrade",
+            "confirm": True
         }
         response = client.post("/package", headers=auth_headers, json=payload)
         assert response.status_code == 200
@@ -208,7 +218,8 @@ class TestPackageEndpoints:
         """Test winget update."""
         payload = {
             "manager": "winget",
-            "action": "update"
+            "action": "update",
+            "confirm": True
         }
         response = client.post("/package", headers=auth_headers, json=payload)
         assert response.status_code == 200
@@ -221,7 +232,8 @@ class TestPackageEndpoints:
         """Test winget upgrade."""
         payload = {
             "manager": "winget",
-            "action": "upgrade"
+            "action": "upgrade",
+            "confirm": True
         }
         response = client.post("/package", headers=auth_headers, json=payload)
         assert response.status_code == 200
@@ -247,7 +259,8 @@ class TestPackageEndpoints:
         """Test npm update."""
         payload = {
             "manager": "npm",
-            "action": "update"
+            "action": "update",
+            "confirm": True
         }
         response = client.post("/package", headers=auth_headers, json=payload)
         assert response.status_code == 200
@@ -260,7 +273,8 @@ class TestPackageEndpoints:
         """Test npm upgrade."""
         payload = {
             "manager": "npm",
-            "action": "upgrade"
+            "action": "upgrade",
+            "confirm": True
         }
         response = client.post("/package", headers=auth_headers, json=payload)
         assert response.status_code == 200

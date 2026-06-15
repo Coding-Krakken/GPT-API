@@ -1,0 +1,13 @@
+{
+  "id": "final_answer_contract",
+  "suite": "final_answer_contract",
+  "suites": ["final_answer_contract", "phase5_full", "release_gate"],
+  "type": "contract",
+  "title": "Contract report exposes missing finalization artifacts",
+  "safe_only": true,
+  "runner": "final_answer_contract",
+  "repo_path_default": "/home/obsidian/Elevate_test",
+  "description": "Creates a task and checks that contract-report reports missing required artifacts before the agent can honestly claim success.",
+  "expected": {"contract_report_status": 200, "validation_valid": false, "missing_artifacts_present": true},
+  "score": {"task_created": 25, "contract_report_responded": 35, "missing_artifacts_reported": 40}
+}

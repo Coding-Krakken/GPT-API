@@ -1,0 +1,13 @@
+{
+  "id": "payload_recovery",
+  "suite": "payload_discipline",
+  "suites": ["payload_discipline", "payload_recovery", "phase5_core", "phase5_full", "release_gate"],
+  "type": "regression",
+  "title": "Dispatcher missing payload recovery",
+  "safe_only": true,
+  "runner": "payload_recovery",
+  "repo_path_default": "/home/obsidian/Elevate_test",
+  "description": "Intentionally calls a dispatcher with an empty payload and verifies the backend returns example_payload so the agent can retry successfully.",
+  "steps": [{"endpoint": "/coding/repo/action", "body": {"action": "instructions", "payload": {}}, "expect": {"status": 400, "error_code": "missing_payload_fields", "example_payload_contains": ["repo_path"]}}, {"endpoint": "/coding/repo/action", "body_from_previous_error_example_payload": true, "expect": {"status": 200}}],
+  "score": {"missing_payload_detected": 30, "example_payload_present": 30, "corrected_retry_succeeds": 40}
+}

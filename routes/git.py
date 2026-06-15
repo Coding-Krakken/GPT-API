@@ -1,210 +1,169 @@
-from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel
-import subprocess, os
-import time
+from fastapi import APIRouter, Depends
+from pydantic import BaseModel, Field
 from typing import List, Optional
+import subprocess
+import os
+import time
+import shlex
 from utils.auth import verify_key
+from utils.operation_policy import block_if_confirmation_required, confirmation_present, error_payload, git_danger_reasons
 
 router = APIRouter()
-
-
-
 
 
 class GitRequest(BaseModel):
     action: Optional[str] = None
     path: Optional[str] = None
     args: str = ""
+    files: Optional[List[str]] = None
+    message: Optional[str] = None
+    branch: Optional[str] = None
+    base: Optional[str] = None
+    remote: Optional[str] = None
+    patch: Optional[str] = None
+    dry_run: bool = False
+    include_untracked: bool = False
+    max_commits: int = Field(default=20, ge=1, le=1000)
+    timeout_seconds: int = Field(default=300, ge=1, le=3600)
     debug: bool = False
-
-    def validate(self, allowed_actions: List[str]):
-        if not self.action or self.action not in allowed_actions:
-            return {
-                "error": {
-                    "code": "invalid_action",
-                    "message": f"Action '{self.action}' is not supported. Allowed: {allowed_actions}"
-                },
-                "status": 400
-            }
-        if not self.path or not isinstance(self.path, str):
-            return {
-                "error": {
-                    "code": "invalid_path", 
-                    "message": "A valid 'path' string is required."
-                },
-                "status": 400
-            }
-        return None
+    confirm: bool = False
+    confirmation: Optional[str] = None
 
 
+ACTIONS = {"init","status","diff","add","commit","branch","checkout","merge","rebase","pull","push","log","show","stash","tag","reset","restore","blame","worktree","clean","apply_patch","create_pr_summary","clone","remote","fetch","config"}
 
+
+def _run(argv, cwd=None, timeout=300, input_text=None):
+    return subprocess.run(argv, cwd=cwd, input=input_text, capture_output=True, text=True, timeout=timeout)
+
+
+def _repo(path):
+    return os.path.abspath(os.path.expanduser(path))
+
+
+def _changed(repo):
+    r = _run(["git", "-C", repo, "status", "--porcelain"], timeout=30)
+    return [line[3:] for line in r.stdout.splitlines() if len(line) > 3]
+
+
+def _identity_ok(repo):
+    name = _run(["git", "-C", repo, "config", "--get", "user.name"], timeout=30).stdout.strip()
+    email = _run(["git", "-C", repo, "config", "--get", "user.email"], timeout=30).stdout.strip()
+    return bool(name and email)
+
+
+def _cmd_for(req: GitRequest, repo: str):
+    qargs = shlex.split(req.args) if req.args else []
+    action = req.action
+    if action == "status":
+        return ["git", "-C", repo, "status", "--short" if req.include_untracked else "--porcelain"] + qargs
+    if action == "diff":
+        cmd = ["git", "-C", repo, "diff"]
+        if req.base:
+            cmd.append(req.base)
+        if req.files:
+            cmd += ["--"] + req.files
+        return cmd + qargs
+    if action == "add":
+        return ["git", "-C", repo, "add"] + (req.files or qargs or ["."])
+    if action == "commit":
+        return ["git", "-C", repo, "commit", "-m", req.message or "Automated commit"] + qargs
+    if action == "branch":
+        return ["git", "-C", repo, "branch"] + ([req.branch] if req.branch else []) + qargs
+    if action == "checkout":
+        return ["git", "-C", repo, "checkout"] + ([req.branch] if req.branch else qargs)
+    if action == "merge":
+        return ["git", "-C", repo, "merge", req.branch or req.base or ""] + qargs
+    if action == "rebase":
+        return ["git", "-C", repo, "rebase", req.base or req.branch or ""] + qargs
+    if action == "pull":
+        return ["git", "-C", repo, "pull"] + ([req.remote] if req.remote else []) + ([req.branch] if req.branch else []) + qargs
+    if action == "push":
+        return ["git", "-C", repo, "push"] + ([req.remote] if req.remote else []) + ([req.branch] if req.branch else []) + qargs
+    if action == "log":
+        return ["git", "-C", repo, "log", f"-{req.max_commits}", "--oneline"] + qargs
+    if action == "show":
+        return ["git", "-C", repo, "show"] + qargs
+    if action == "stash":
+        return ["git", "-C", repo, "stash"] + qargs
+    if action == "tag":
+        return ["git", "-C", repo, "tag"] + qargs
+    if action == "reset":
+        return ["git", "-C", repo, "reset"] + qargs
+    if action == "restore":
+        return ["git", "-C", repo, "restore"] + (req.files or qargs)
+    if action == "blame":
+        return ["git", "-C", repo, "blame"] + (req.files or qargs)
+    if action == "worktree":
+        return ["git", "-C", repo, "worktree"] + qargs
+    if action == "clean":
+        return ["git", "-C", repo, "clean"] + (qargs or ["-fd"])
+    if action == "init":
+        return ["git", "-C", repo, "init"] + qargs
+    if action in ["remote", "fetch", "config"]:
+        return ["git", "-C", repo, action] + qargs
+    if action == "clone":
+        return ["git", "clone"] + qargs + [repo]
+    raise ValueError(f"Unsupported action: {action}")
+
+
+@router.post("", dependencies=[Depends(verify_key)])
 @router.post("/", dependencies=[Depends(verify_key)])
 def handle_git_command(req: GitRequest):
-    """
-    Handle git operations with user-friendly errors, repo validation, and metadata.
-    """
-
     start = time.time()
-    payload_size = None
-    allowed_actions = [
-        "init", "status", "add", "commit", "push", "pull", "clone", "log", "diff", "checkout", "branch", "merge", "reset", "remote", "fetch", "rebase", "tag", "config"
-    ]
+    debug = []
     try:
-        validation_error = req.validate(allowed_actions)
-        if validation_error:
-            return {**validation_error, "timestamp": int(time.time() * 1000)}
-        repo_path = os.path.abspath(os.path.expanduser(req.path))
-        payload_size = len(str(req.model_dump()))
-        debug_info = [] if req.debug else None
-        # If directory does not exist and action is init or clone, create it or allow it
-        if not os.path.exists(repo_path):
-            if req.action == "init":
-                os.makedirs(repo_path, exist_ok=True)
-                if req.debug:
-                    debug_info.append(f"Created directory: {repo_path}")
-            elif req.action == "clone":
-                # For clone, destination should not exist, so allow it
-                if req.debug:
-                    debug_info.append(f"Clone destination: {repo_path}")
-                pass
+        if not req.action or req.action not in ACTIONS:
+            return {"error": {"code": "invalid_action", "message": f"Unsupported git action: {req.action}"}, "status": 400}
+        if not req.path:
+            return {"error": {"code": "invalid_path", "message": "A valid path string is required."}, "status": 400}
+        repo = _repo(req.path)
+        if req.action == "init":
+            os.makedirs(repo, exist_ok=True)
+        elif req.action != "clone" and not os.path.isdir(repo):
+            return {"error": {"code": "invalid_path", "message": f"Repository path does not exist: {repo}"}, "status": 400}
+        if req.action not in ["init", "clone"]:
+            r = _run(["git", "-C", repo, "rev-parse", "--is-inside-work-tree"], timeout=30)
+            if r.returncode != 0:
+                return {"error": {"code": "not_a_git_repo", "message": r.stderr.strip() or f"Not a git repository: {repo}"}, "status": 400}
+        reasons = git_danger_reasons(req.action)
+        decision = block_if_confirmation_required(area="git", operation=req.action, reasons=reasons, confirmed=confirmation_present(req.confirmation, explicit_confirm=req.confirm))
+        if not decision.allowed:
+            return error_payload(decision)
+        if req.action in ["commit", "push"] and not _identity_ok(repo):
+            return {"error": {"code": "missing_identity", "message": "Git user.name and user.email must be set for commit/push."}, "status": 400}
+        if req.action == "apply_patch":
+            if not req.patch:
+                return {"error": {"code": "missing_patch", "message": "patch is required for apply_patch"}, "status": 400}
+            cmd = ["git", "-C", repo, "apply", "--check"]
+            if req.dry_run:
+                r = _run(cmd, timeout=req.timeout_seconds, input_text=req.patch)
             else:
-                if req.debug:
-                    debug_info.append(f"Path does not exist: {repo_path}")
-                return {"error": {"code": "invalid_path", "message": f"Repository path '{repo_path}' does not exist."}, "status": 400, "debug": debug_info}
-        if os.path.exists(repo_path) and not os.path.isdir(repo_path):
-            if req.debug:
-                debug_info.append(f"Not a directory: {repo_path}")
-            return {
-                "error": {
-                    "code": "not_a_directory",
-                    "message": f"Repository path '{repo_path}' is not a directory. To create a new git repository, use 'git init <directory>' or specify a valid repo path."
-                },
-                "status": 400,
-                "debug": debug_info
-            }
-
-        git_dir = os.path.join(repo_path, ".git")
-        has_git = os.path.isdir(git_dir)
-        has_gitignore = os.path.isfile(os.path.join(repo_path, ".gitignore"))
-
-        # Accept directory if it is a git repo, or has .gitignore, or is empty and action is init
-        # For clone, skip all these checks since destination shouldn't exist
-        if req.action != "clone" and not has_git:
-            if req.action == "init":
-                if req.debug:
-                    debug_info.append(f"Allowing init on non-git directory: {repo_path}")
-                pass  # allow init
-            elif has_gitignore:
-                if req.debug:
-                    debug_info.append(f".gitignore exists in: {repo_path}")
-                pass  # allow if .gitignore exists
-            else:
-                files = os.listdir(repo_path)
-                if not files:
-                    if req.debug:
-                        debug_info.append(f"Empty directory, not a git repo: {repo_path}")
-                    return {
-                        "error": {
-                            "code": "not_a_git_repo",
-                            "message": f"Target path '{repo_path}' is empty and not a git repo. Run 'git init' in this directory to initialize a repository. For help, see 'git help init'."
-                        },
-                        "status": 400,
-                        "debug": debug_info
-                    }
+                check = _run(cmd, timeout=req.timeout_seconds, input_text=req.patch)
+                if check.returncode != 0:
+                    r = check
                 else:
-                    if req.debug:
-                        debug_info.append(f"Not a git repo, contents: {files}")
-                    return {
-                        "error": {
-                            "code": "not_a_git_repo",
-                            "message": f"Target path '{repo_path}' is not a git repository. Run 'git init' in this directory to initialize a repository. For help, see 'git help init'."
-                        },
-                        "contents": files,
-                        "status": 400,
-                        "debug": debug_info
-                    }
-
-        def check_git_identity(repo_path):
-            def get_config(key):
-                try:
-                    result = subprocess.run(["git", "-C", repo_path, "config", "--get", key], capture_output=True, text=True)
-                    return result.stdout.strip()
-                except Exception:
-                    return None
-            name = get_config("user.name")
-            email = get_config("user.email")
-            return bool(name and email)
-
-        # Check for identity config BEFORE commit/push (but not for clone since repo doesn't exist yet)
-        if req.action in ["commit", "push"]:
-            if not check_git_identity(repo_path):
-                resp = {
-                    "error": {
-                        "code": "missing_identity",
-                        "message": "Git user.name and user.email must be set for commit/push. Use 'git config user.name' and 'git config user.email' in your repo."
-                    },
-                    "status": 400
-                }
-                if req.debug:
-                    resp["debug"] = debug_info
-                return resp
-
-        cmd = f"git -C \"{repo_path}\" {req.action} {req.args}"
-        if req.action == "clone":
-            # For clone, don't use -C since the directory doesn't exist yet
-            cmd = f"git {req.action} {req.args} \"{repo_path}\""
+                    r = _run(["git", "-C", repo, "apply"], timeout=req.timeout_seconds, input_text=req.patch)
+        elif req.action == "create_pr_summary":
+            base = req.base or "HEAD~1"
+            diff = _run(["git", "-C", repo, "diff", base], timeout=req.timeout_seconds)
+            status = _run(["git", "-C", repo, "status", "--short"], timeout=req.timeout_seconds)
+            return {"summary": f"Changed files:\n{status.stdout}\n\nDiff against {base}:\n{diff.stdout[:12000]}", "diff": diff.stdout, "changed_files": _changed(repo), "exit_code": 0, "status": 200, "latency_ms": round((time.time()-start)*1000,2), "timestamp": int(time.time()*1000)}
+        else:
+            argv = _cmd_for(req, repo)
+            argv = [x for x in argv if x != ""]
+            if req.dry_run:
+                return {"stdout": shlex.join(argv), "stderr": "", "exit_code": 0, "dry_run": True, "status": 200, "latency_ms": round((time.time()-start)*1000,2), "timestamp": int(time.time()*1000)}
+            r = _run(argv, timeout=req.timeout_seconds)
+            if "dubious ownership" in r.stderr:
+                _run(["git", "config", "--global", "--add", "safe.directory", repo], timeout=30)
+                r = _run(argv, timeout=req.timeout_seconds)
+        status = 200 if r.returncode == 0 else 400
+        resp = {"stdout": r.stdout.strip(), "stderr": r.stderr.strip(), "exit_code": r.returncode, "changed_files": _changed(repo) if os.path.isdir(os.path.join(repo,'.git')) else [], "status": status, "latency_ms": round((time.time()-start)*1000,2), "timestamp": int(time.time()*1000)}
+        if req.action == "diff":
+            resp["diff"] = r.stdout
         if req.debug:
-            debug_info.append(f"Running command: {cmd}")
-        result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-        # If dubious ownership error, add safe.directory and retry once
-        if "dubious ownership" in result.stderr:
-            safe_cmd = f"git config --global --add safe.directory '{repo_path}'"
-            if req.debug:
-                debug_info.append(f"Dubious ownership detected, running: {safe_cmd}")
-            subprocess.run(safe_cmd, shell=True)
-            # Retry the original command
-            result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-        # User-friendly error for common git errors
-        if result.returncode != 0:
-            latency = round((time.time() - start) * 1000, 2)
-            err_msg = result.stderr.strip()
-            code = "git_error"
-            if "not a git repository" in err_msg:
-                code = "not_a_git_repo"
-                msg = f"Target path '{repo_path}' is not a git repository. Please initialize with 'git init' or specify a valid repo. For help, see 'git help init'."
-            elif "fatal" in err_msg:
-                msg = err_msg.splitlines()[-1]
-            else:
-                msg = err_msg
-            err_resp = {
-                "error": {
-                    "code": code,
-                    "message": msg
-                },
-                "exit_code": result.returncode,
-                "latency_ms": latency,
-                "payload_size": payload_size,
-                "status": 400,
-                "timestamp": int(time.time() * 1000)
-            }
-            if req.debug:
-                err_resp["debug"] = debug_info
-            return err_resp
-        latency = round((time.time() - start) * 1000, 2)
-        resp = {
-            "stdout": result.stdout.strip(),
-            "stderr": result.stderr.strip(),
-            "exit_code": result.returncode,
-            "latency_ms": latency,
-            "payload_size": payload_size,
-            "status": 200,
-            "timestamp": int(time.time() * 1000)
-        }
-        if req.debug:
-            resp["debug"] = debug_info
+            resp["debug"] = debug
         return resp
     except Exception as e:
-        resp = {"error": {"code": "internal_error", "message": f"Internal error: {str(e)}"}, "status": 500, "timestamp": int(time.time() * 1000)}
-        if req.debug:
-            resp["debug"] = debug_info
-        return resp
+        return {"error": {"code": "internal_error", "message": str(e)}, "status": 500, "latency_ms": round((time.time()-start)*1000,2), "timestamp": int(time.time()*1000)}

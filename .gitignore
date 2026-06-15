@@ -70,3 +70,9 @@ out/
 
 # Local development configuration
 .local/
+
+# Route backup files
+routes/*.bak.*
+
+# Runtime PID files
+run/

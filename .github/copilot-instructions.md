@@ -20,11 +20,18 @@
 - **API docs:** Swagger at `/docs`, ReDoc at `/redoc` when server is running.
 - **Debug routes:** `GET /debug/routes` for a list of all endpoints.
 
+## Safety and current contracts
+
+- Health routes are unauthenticated: `GET /health`, `GET /healthz`, and `GET /api/health`.
+- Slashless core action endpoints must not 307 redirect; duplicate slashes are normalized.
+- Dangerous operations require explicit confirmation with `confirm: true` or a supported `confirmation` string. This includes shell background/sudo/destructive commands, file delete or restore overwrite, package install/remove/update/upgrade, git checkout/reset/rebase/push/clean, app launch/kill, and dangerous nested `/batch` rollback payloads.
+- Patch preview rejects `.env`, secret/credential, absolute, and traversal paths with `blocked_patch_path`; malformed diffs return `invalid_unified_diff`. Do not bypass patch policy with shell or broad file operations.
+
 ## Project Conventions
 - **Endpoint design:** Each operation (shell, files, code, etc.) is a POST endpoint accepting a JSON body with an `action` field and operation-specific parameters.
 - **Authentication:** Enforced via `utils/auth.py` and checked in every route.
 - **Error handling:** Standardized error responses; check for 403 (auth), 500 (internal), and validation errors.
-- **Testing:** `test_full_api.py` provides comprehensive endpoint coverage; use after any major change.
+- **Testing:** `pytest -q` provides the full maintained suite. `scripts/smoke_local.py` provides in-process and live smoke checks; use after endpoint/schema changes.
 - **Database:** Optional, only required for `/assistants` endpoints. Uses PostgreSQL via SQLAlchemy.
 - **Environment:** All config via `.env` (API key, host, port, DB params, etc.).
 

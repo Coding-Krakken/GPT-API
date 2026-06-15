@@ -1,0 +1,13 @@
+{
+  "id": "core_smoke",
+  "suite": "core_smoke",
+  "suites": ["core_smoke", "phase5_core", "phase5_full", "release_gate"],
+  "type": "smoke",
+  "title": "Core uploadable endpoint smoke test",
+  "safe_only": true,
+  "runner": "core_smoke",
+  "repo_path_default": "/home/obsidian/Elevate_test",
+  "description": "Validates all uploadable core workflow and dispatcher endpoints through /agent/coding-task/smoke-test.",
+  "expected": {"total_core_checks": 18, "failed": 0, "no_primary_checkout_modification": true, "no_commits": true, "no_pushes": true, "no_prs": true, "no_installs": true},
+  "score": {"smoke_endpoint_responded": 30, "all_core_checks_passed": 60, "safe_isolated_worktree": 10}
+}

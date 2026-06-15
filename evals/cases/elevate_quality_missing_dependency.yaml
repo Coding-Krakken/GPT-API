@@ -1,0 +1,13 @@
+{
+  "id": "elevate_quality_missing_dependency",
+  "suite": "repo_environment",
+  "suites": ["repo_environment", "phase5_full"],
+  "type": "environment",
+  "title": "Elevate quality command reports dependency environment clearly",
+  "safe_only": true,
+  "runner": "quality_missing_dependency",
+  "repo_path_default": "/home/obsidian/Elevate_test",
+  "description": "Creates an isolated worktree and runs the safe quality dispatcher. Endpoint success is separate from repository quality pass/fail; exit 127 or not-found output indicates missing dependencies.",
+  "expected": {"quality_endpoint_status": 200, "result_is_structured": true, "network_install_not_attempted": true},
+  "score": {"workspace_created": 20, "quality_endpoint_responded": 40, "quality_result_structured": 40}
+}

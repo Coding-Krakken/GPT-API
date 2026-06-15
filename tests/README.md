@@ -108,6 +108,20 @@ All tests use temporary directories and files that are automatically cleaned up 
 - **Isolated test runs**: Each test runs in its own environment
 - **Clean state**: System returns to exact pre-test state
 
+## Current hardening coverage
+
+The maintained suite also verifies:
+
+- `confirmation_required` for unconfirmed dangerous operations.
+- Successful guarded operations when `confirm: true` is present.
+- Health routes `/health`, `/healthz`, and `/api/health`.
+- No 307 redirects for slashless core action endpoints.
+- Duplicate-slash normalization.
+- Patch policy failures such as `blocked_patch_path` and `invalid_unified_diff`.
+- `/batch` rollback payloads carrying confirmation for dangerous nested operations.
+
+Use `python3 scripts/smoke_local.py` for the in-process smoke matrix and `BASE_URL=... API_KEY=... python3 scripts/smoke_local.py --live` for live secondary-instance verification.
+
 ## 🛡️ Security Testing
 
 The test suite includes comprehensive security tests:

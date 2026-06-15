@@ -1,0 +1,32 @@
+id: "phase8_custom_gpt_debug_ingestion"
+title: "Phase 8 real Custom GPT debug-log ingestion"
+source: "phase8_validation"
+failure_layer: "custom_gpt_behavior"
+runner: "phase8_debug_ingestion"
+symptom: "Real Custom GPT Actions debug transcripts must be parsed into calls, failure layers, recommendations, telemetry events, and optional regression fixtures."
+expected_behavior: "The ingester classifies authentication failures, ngrok/tunnel failures, missing dispatcher payloads, schema/instruction issues, and repo-environment failures, then creates reports and regression payloads."
+created_at: 1781018473000
+details_json: |
+  {
+    "endpoint": "/evals/ingest-debug-log",
+    "direct_regression_endpoint": "/evals/debug-log/regression",
+    "recognized_failure_codes": [
+      "missing_api_key",
+      "invalid_api_key",
+      "action_requires_approval",
+      "wrong_or_offline_domain",
+      "ngrok_offline",
+      "missing_payload_fields",
+      "unsupported_category",
+      "unsupported_action",
+      "operation_limit",
+      "instructions_too_long",
+      "schema_security_list",
+      "client_response_error",
+      "dependency_missing"
+    ],
+    "expected_reports": [
+      "/tmp/gpt-api-evals/debug_ingests/<run_id>.json",
+      "/tmp/gpt-api-evals/debug_ingests/<run_id>.md"
+    ]
+  }

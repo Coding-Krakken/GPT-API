@@ -3,11 +3,11 @@ import tempfile
 import os
 import shutil
 from fastapi.testclient import TestClient
-from main import app
 import sys
 
-# Add the project root to Python path for imports
+# Add the project root to Python path for imports before importing main.
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from main import app
 
 # Set test environment variables
 os.environ["API_KEY"] = "9e2b7c8a-4f1e-4b2a-9d3c-7f6e5a1b2c3d"
