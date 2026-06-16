@@ -1,0 +1,1 @@
+Phase 1 benchmark framework. Targets: p50,p95,p99, throughput, success rate, CPU/memory integration next phases.
