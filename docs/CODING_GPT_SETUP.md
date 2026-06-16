@@ -26,6 +26,43 @@ TASK_LEDGER_ROOT=/tmp/gpt-api-worktrees/.gpt-api-tasks
 POLICY_BLOCKED_PATH_PATTERNS=.env,*.pem,*.key,.ssh/*,.aws/*,.chatgpt_session*
 ```
 
+
+
+## Canonical environment bootstrap
+
+Use the repository-managed bootstrap path instead of relying on whatever Python happens to be active in the shell:
+
+```bash
+./scripts/bootstrap.sh
+```
+
+The bootstrap script creates `.venv` when needed, installs `requirements.txt`, and finishes by running the strict environment checker:
+
+```bash
+python scripts/check_env.py --strict --check-all-requirements
+```
+
+For diagnostics without changing the machine, run:
+
+```bash
+python3 scripts/check_env.py
+python3 scripts/check_env.py --check-all-requirements
+```
+
+The non-strict checker reports missing declared dependencies without failing the command. Strict mode is used by the release gate for core runtime readiness; bootstrap combines strict mode with `--check-all-requirements` after installing dependencies. This prevents drift where `requirements.txt` declares a package such as `requests` but the active interpreter cannot import it.
+
+The release gate now runs the environment checker before schema validation and smoke tests:
+
+```bash
+./scripts/release_gate.sh
+```
+
+Set `PYTHON_BIN` or `VENV_DIR` when a maintainer needs a non-default interpreter or virtualenv location:
+
+```bash
+PYTHON_BIN=python3.12 VENV_DIR=.venv ./scripts/bootstrap.sh
+```
+
 ## Coding GPT action configuration
 
 Use this schema URL for the Coding GPT only:

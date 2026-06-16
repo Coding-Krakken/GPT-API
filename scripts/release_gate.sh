@@ -11,6 +11,7 @@ if [ "$ALLOW_DIRTY" != "true" ]; then
   test -z "$(git ls-files --others --exclude-standard)"
 fi
 
+python3 scripts/check_env.py --strict >/tmp/gpt_api_check_env.out
 python3 scripts/ticket_index.py >/tmp/gpt_api_ticket_index.out
 python3 scripts/validate_openapi.py >/tmp/gpt_api_validate_openapi.out
 python3 scripts/smoke_local.py >/tmp/gpt_api_smoke_local.out
