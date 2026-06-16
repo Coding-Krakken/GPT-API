@@ -21,10 +21,14 @@ DEFAULT_REPO = "/home/obsidian/Elevate_test"
 def run_suite(suite: str, repo_path: str, report_id: str | None = None) -> dict[str, Any]:
     run_id = report_id or f"suite_{suite}_{time.strftime('%Y%m%d_%H%M%S')}_{int(time.time()*1000)%10000:04d}"
     start_ms = int(time.time() * 1000)
-    eval_telemetry.log_event("eval_suite_started", run_id=run_id, suite=suite, repo_path=repo_path)
-    result = case_loader.run_suite(suite, repo_path=repo_path, run_id=run_id)
-    eval_telemetry.log_event("eval_suite_completed", run_id=run_id, suite=suite, repo_path=repo_path, status=result.get("status"), passed=result.get("failed") == 0)
-    events = [e for e in eval_report.load_events() if isinstance(e.get("timestamp"), int) and e.get("timestamp") >= start_ms and e.get("run_id") in (run_id, None)]
+    with eval_telemetry.telemetry_context(run_id=run_id, suite=suite, repo_path=repo_path):
+        eval_telemetry.log_event("eval_suite_started")
+        result = case_loader.run_suite(suite, repo_path=repo_path, run_id=run_id)
+        eval_telemetry.log_event("eval_suite_completed", status=result.get("status"), passed=result.get("failed") == 0)
+    events = [
+        e for e in eval_report.load_events(run_id=run_id)
+        if isinstance(e.get("timestamp"), int) and e.get("timestamp") >= start_ms
+    ]
     report = eval_report.build_report(events, report_id=run_id, source_path=str(eval_telemetry.events_path()))
     report.setdefault("suite_result", result)
     json_path = eval_report.write_json_report(report)
@@ -32,7 +36,17 @@ def run_suite(suite: str, repo_path: str, report_id: str | None = None) -> dict[
     report["summary"]["report_json"] = str(json_path)
     report["summary"]["report_md"] = str(md_path)
     json_path.write_text(json.dumps(report, indent=2, sort_keys=True), encoding="utf-8")
-    return {"run_id": run_id, "suite": suite, "result": result, "report_json": str(json_path), "report_md": str(md_path), "agent_score": report["scores"]["agent"]["score"], "backend_score": report["scores"]["backend"]["score"]}
+    return {
+        "run_id": run_id,
+        "suite": suite,
+        "result": result,
+        "report_json": str(json_path),
+        "report_md": str(md_path),
+        "agent_score": report["scores"]["agent"]["score"],
+        "backend_score": report["scores"]["backend"]["score"],
+        "engine_score": report["scores"]["engines"]["overall"],
+        "engine_subscores": report["scores"]["engines"].get("subscores", {}),
+    }
 
 
 def main(argv: list[str] | None = None) -> int:

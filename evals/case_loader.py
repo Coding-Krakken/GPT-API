@@ -209,7 +209,10 @@ def _run_backend_engine_metrics(case: dict[str, Any], repo_path: str, run_id: st
         safe_only=True,
         task=f"Phase 7 backend engine metrics validation {run_id}",
     ))
-    events = [e for e in eval_report.load_events() if isinstance(e.get("timestamp"), int) and e.get("timestamp") >= start_ms]
+    events = [
+        e for e in eval_report.load_events(run_id=run_id)
+        if isinstance(e.get("timestamp"), int) and e.get("timestamp") >= start_ms
+    ]
     metrics = engine_metrics(events)
     scores = engine_scores(metrics)
     checks = [
@@ -228,24 +231,31 @@ def run_case(case: dict[str, Any], *, repo_path: str, run_id: str | None = None)
     runner = case.get("runner")
     eval_telemetry.log_event("eval_case_started", run_id=run_id, case_id=case.get("id"), suite=case.get("suite"), repo_path=repo_path, runner=runner)
     try:
-        if runner == "core_smoke":
-            result = _run_core_smoke(case, repo_path, run_id)
-        elif runner == "payload_recovery":
-            result = _run_payload_recovery(case, repo_path, run_id)
-        elif runner == "quality_missing_dependency":
-            result = _run_quality_missing_dependency(case, repo_path, run_id)
-        elif runner == "policy_block_secret":
-            result = _run_policy_block_secret(case, repo_path, run_id)
-        elif runner == "final_answer_contract":
-            result = _run_final_answer_contract(case, repo_path, run_id)
-        elif runner == "repo_intelligence":
-            result = _run_repo_intelligence(case, repo_path, run_id)
-        elif runner in {"simple_bugfix", "fixture_planned"}:
-            result = _run_simple_bugfix(case, repo_path, run_id)
-        elif runner == "backend_engine_metrics":
-            result = _run_backend_engine_metrics(case, repo_path, run_id)
-        else:
-            result = {"status": 400, "error": {"code": "unsupported_case_runner", "message": f"Unsupported runner: {runner}"}, "checks": []}
+        with eval_telemetry.telemetry_context(
+            run_id=run_id,
+            case_id=case.get("id"),
+            suite=case.get("suite"),
+            repo_path=repo_path,
+            runner=runner,
+        ):
+            if runner == "core_smoke":
+                result = _run_core_smoke(case, repo_path, run_id)
+            elif runner == "payload_recovery":
+                result = _run_payload_recovery(case, repo_path, run_id)
+            elif runner == "quality_missing_dependency":
+                result = _run_quality_missing_dependency(case, repo_path, run_id)
+            elif runner == "policy_block_secret":
+                result = _run_policy_block_secret(case, repo_path, run_id)
+            elif runner == "final_answer_contract":
+                result = _run_final_answer_contract(case, repo_path, run_id)
+            elif runner == "repo_intelligence":
+                result = _run_repo_intelligence(case, repo_path, run_id)
+            elif runner in {"simple_bugfix", "fixture_planned"}:
+                result = _run_simple_bugfix(case, repo_path, run_id)
+            elif runner == "backend_engine_metrics":
+                result = _run_backend_engine_metrics(case, repo_path, run_id)
+            else:
+                result = {"status": 400, "error": {"code": "unsupported_case_runner", "message": f"Unsupported runner: {runner}"}, "checks": []}
     except Exception as exc:
         result = {"status": 500, "error": {"code": "case_runner_error", "message": str(exc)}, "checks": []}
     passed = result.get("status") == 200 and all(c.get("passed") for c in result.get("checks", []))
