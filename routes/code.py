@@ -24,7 +24,7 @@ class CodeAction(BaseModel):
     actions: Optional[List[str]] = None
     path: Optional[str] = None
     content: Optional[str] = None
-    language: str
+    language: Optional[str] = None
     args: str = ""
     argv: Optional[List[str]] = None
     working_dir: Optional[str] = None
@@ -88,11 +88,94 @@ def _run(argv, req: CodeAction, cwd: str, input_text=None):
     env = os.environ.copy()
     if req.env:
         env.update(req.env)
+    pythonpath = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = cwd if not pythonpath else f"{cwd}{os.pathsep}{pythonpath}"
     if req.dry_run:
         return {"stdout": shlex.join(argv), "stderr": "", "exit_code": 0, "dry_run": True}
     r = subprocess.run(argv, cwd=cwd, env=env, input=input_text if input_text is not None else req.stdin, capture_output=True, text=True, timeout=req.timeout_seconds)
     return {"stdout": _truncate(r.stdout, req.max_output_bytes), "stderr": _truncate(r.stderr, req.max_output_bytes), "exit_code": r.returncode}
 
+
+
+def _infer_language(req: CodeAction) -> str | None:
+    if req.language:
+        return req.language
+    if req.content is not None:
+        return "python" if req.action in {"run", "test", "coverage", "compile"} else None
+    if not req.path:
+        return None
+    path = os.path.abspath(os.path.expanduser(req.path))
+    if os.path.isdir(path):
+        if req.action in {"test", "coverage"} and any(os.path.exists(os.path.join(path, marker)) for marker in ["pytest.ini", "pyproject.toml", "setup.cfg", "tests"]):
+            return "python"
+        if any(os.path.exists(os.path.join(path, marker)) for marker in ["package.json", "tsconfig.json"]):
+            return "typescript" if os.path.exists(os.path.join(path, "tsconfig.json")) else "node"
+        return "python" if req.action in {"test", "coverage"} else None
+    ext = os.path.splitext(path)[1].lower()
+    return {
+        ".py": "python",
+        ".sh": "bash",
+        ".js": "node",
+        ".mjs": "node",
+        ".cjs": "node",
+        ".ts": "typescript",
+        ".go": "go",
+        ".rs": "rust",
+        ".java": "java",
+        ".c": "c",
+        ".cc": "cpp",
+        ".cpp": "cpp",
+        ".cxx": "cpp",
+    }.get(ext)
+
+
+def _argv_is_safe(tokens: list[str]) -> bool:
+    if len(tokens) > 100:
+        return False
+    unsafe = [";", "|", "`", "$", ">", "<", "&", "&&", "||", "\x00"]
+    for token in tokens:
+        if not isinstance(token, str) or not token:
+            return False
+        if any(item in token for item in unsafe):
+            return False
+    return True
+
+
+def _python_test_argv(req: CodeAction, path: str, extra: list[str]) -> list[str]:
+    if req.argv:
+        first = req.argv[0]
+        if first in {"pytest", "python", "python3"}:
+            return req.argv
+        return ["pytest", *req.argv]
+    selectors: list[str] = []
+    if os.path.isfile(path):
+        selectors.append(os.path.relpath(path, _abs(req)))
+    elif os.path.isdir(path):
+        selectors.append(".")
+    else:
+        selectors.append(path)
+    cmd = ["pytest", *selectors]
+    if req.test_selector:
+        cmd += ["-k", req.test_selector]
+    if req.fail_fast:
+        cmd.append("-x")
+    return cmd + extra
+
+
+def _validation_result(req: CodeAction, argv: list[str], out: dict, cwd: str, started: float) -> dict:
+    exit_code = out.get("exit_code", 0)
+    status = "passed" if exit_code == 0 else "failed"
+    return {
+        "name": req.action or "code",
+        "command": shlex.join(argv),
+        "status": status,
+        "exitCode": exit_code,
+        "durationMs": int((time.time() - started) * 1000),
+        "scope": "working_dir",
+        "cwd": cwd,
+        "summary": "Command completed successfully." if exit_code == 0 else "Command completed with a non-zero exit code.",
+        "confidenceImpact": "High" if exit_code == 0 else "Medium",
+    }
 
 def _tool(name):
     return shutil.which(name)
@@ -107,15 +190,12 @@ def _diagnostics_from_lines(text, source="tool"):
 
 def _cmd(req: CodeAction, path: str):
     a, lang = req.action, req.language
-    extra = req.argv or (shlex.split(req.args) if req.args else [])
+    extra = [] if req.argv else (shlex.split(req.args) if req.args else [])
     if a == "run":
         return {"python":["python", path], "bash":["bash", path], "node":["node", path], "js":["node", path], "javascript":["node", path], "ruby":["ruby", path], "php":["php", path], "go":["go", "run", path], "rust":["rustc", path, "-o", os.path.join(tempfile.gettempdir(), "code_run_bin")], "java":["java", path], "c":["sh", "-c", f"gcc {shlex.quote(path)} -o /tmp/code_run_c && /tmp/code_run_c"], "cpp":["sh", "-c", f"g++ {shlex.quote(path)} -o /tmp/code_run_cpp && /tmp/code_run_cpp"]}.get(lang, [lang, path]) + extra
     if a == "test":
         if lang == "python":
-            cmd = ["pytest"] + ([path] if os.path.isfile(path) else [path])
-            if req.test_selector: cmd += ["-k", req.test_selector]
-            if req.fail_fast: cmd.append("-x")
-            return cmd + extra
+            return _python_test_argv(req, path, extra)
         if lang in ["js","javascript","node","typescript"]: return ["npm", "test"] + extra
         if lang == "go": return ["go", "test", "./..."] + extra
         if lang == "rust": return ["cargo", "test"] + extra
@@ -222,6 +302,10 @@ def handle_code_action(req: CodeAction):
         if not req.action or req.action not in supported_actions:
             return {"result": {"error": {"code": "invalid_action", "message": f"action must be one of {supported_actions}"}, "status": 400}, **_meta(start)}
         supported_languages = ["python","js","javascript","bash","node","typescript","go","rust","java","c","cpp"]
+        inferred_language = _infer_language(req)
+        if not inferred_language:
+            return {"result": {"error": {"code": "missing_language", "message": "language is required when it cannot be inferred from path/content."}, "status": 400}, **_meta(start)}
+        req = req.model_copy(update={"language": inferred_language})
         if req.language not in supported_languages:
             return {"result": {"error": {"code": "unsupported_language", "message": f"language must be one of {supported_languages}"}, "status": 400}, **_meta(start)}
         if req.fault == "syntax":
@@ -238,22 +322,27 @@ def handle_code_action(req: CodeAction):
             return {"result": {"error": {"code": "path_too_long", "message": "File path is too long."}, "status": 400}, **_meta(start)}
         if req.path and any(x in req.path for x in ["..", "~", "//", "\\", "|", ";", "`", "$", ">", "<"]):
             return {"result": {"error": {"code": "invalid_path", "message": "Path contains unsafe characters or sequences."}, "status": 400}, **_meta(start)}
+        if req.argv is not None and not _argv_is_safe(req.argv):
+            return {"result": {"error": {"code": "invalid_args", "message": "Unsupported, malformed, or unsafe argv."}, "status": 400}, **_meta(start)}
         if req.args:
-            unsafe = any(x in req.args for x in [";", "|", "`", "$", ">", "<", "&", "&&", "||"])
             try:
                 tokens = shlex.split(req.args)
             except Exception:
-                tokens, unsafe = [], True
-            allowed = {"python": ["--verbose", "-v", "--maxfail", "--disable-warnings"], "js": ["--verbose", "--fix"], "javascript": ["--verbose", "--fix"], "node": [], "bash": []}
-            bad_flag = any(t.startswith("-") and t not in allowed.get(req.language, []) for t in tokens)
-            if unsafe or bad_flag:
+                tokens = []
+            if not _argv_is_safe(tokens):
                 return {"result": {"error": {"code": "invalid_args", "message": "Unsupported, malformed, or unsafe arguments."}, "status": 400}, **_meta(start)}
+            if not (req.action == "test" and req.language == "python"):
+                allowed = {"python": ["--verbose", "-v", "--maxfail", "--disable-warnings"], "js": ["--verbose", "--fix"], "javascript": ["--verbose", "--fix"], "node": [], "bash": []}
+                bad_flag = any(t.startswith("-") and t not in allowed.get(req.language, []) for t in tokens)
+                if bad_flag:
+                    return {"result": {"error": {"code": "invalid_args", "message": "Unsupported, malformed, or unsafe arguments."}, "status": 400}, **_meta(start)}
         if req.content is not None and req.action == "explain":
             return {"result": {"error": {"code": "unsupported_content", "message": "content is not supported for action 'explain'. Use path."}, "status": 400}, **_meta(start)}
-        if req.path:
+        if req.path and os.path.isfile(os.path.abspath(os.path.expanduser(req.path))):
             expected = {"python": ".py", "js": ".js", "javascript": ".js", "node": ".js", "bash": ".sh", "typescript": ".ts", "go": ".go", "rust": ".rs", "java": ".java", "c": ".c", "cpp": ".cpp", "php": ".php", "ruby": ".rb"}.get(req.language)
             actual = os.path.splitext(req.path)[1].lower()
-            if expected and actual != expected:
+            allowed_actuals = {"node": {".js", ".mjs", ".cjs"}, "typescript": {".ts", ".tsx"}, "cpp": {".cc", ".cpp", ".cxx"}}.get(req.language, {expected})
+            if expected and actual not in allowed_actuals:
                 return {"result": {"error": {"code": "language_mismatch", "message": f"File extension '{actual}' does not match language '{req.language}' (expected '{expected}')"}, "status": 400}, **_meta(start)}
         path, temp = _materialize(req)
         if not temp:
@@ -286,6 +375,8 @@ def handle_code_action(req: CodeAction):
         diagnostics = out.get("diagnostics") or _diagnostics_from_lines(out.get("stderr", ""), req.action)
         status = 200 if out.get("exit_code", 0) == 0 else 400
         result = {"action": req.action, "language": req.language, "path": path, "stdout": out.get("stdout", ""), "stderr": out.get("stderr", ""), "exit_code": out.get("exit_code", 0), "duration": round((time.time()-start), 4)}
+        if req.action == "test":
+            result["validationResult"] = _validation_result(req, argv if 'argv' in locals() else [], out, cwd, start)
         if req.action == "test" and req.language == "python" and result["exit_code"] == 5:
             result["error"] = {"code": "no_tests_found", "message": "No tests were found in the specified file."}
         elif result["exit_code"] not in [0, None]:

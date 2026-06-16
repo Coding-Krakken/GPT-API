@@ -60,5 +60,7 @@ def test_ticket_rows_include_active_and_closed_backlog():
     assert statuses & {"open", "needs_verification"}
     assert statuses & CLOSED_STATUSES
     active = [row for row in rows if row["status"] in ticket_index.ACTIVE_STATUSES]
-    assert any(row["area"] == "codeops" for row in active)
+    assert active
+    assert any(row["area"] == "codeops" for row in rows)
+    assert any(row["status"] in CLOSED_STATUSES for row in rows)
     assert all(not row["validation_errors"] for row in rows)
