@@ -53,15 +53,20 @@ class MetricsRegistry:
             all_counts = Counter(self._request_count)
             all_status = Counter(self._status_count)
             all_endpoint = Counter(self._endpoint_count)
+            all_route_latencies = {route: list(values) for route, values in self._latencies.items()}
         if cutoff_ms is not None:
             samples = [s for s in samples if s.timestamp_ms >= cutoff_ms]
             request_count = Counter(f"{s.method} {s.path}" for s in samples)
             status_count = Counter(str(s.status_code) for s in samples)
             endpoint_count = Counter(s.path for s in samples)
+            route_latencies: dict[str, list[float]] = defaultdict(list)
+            for sample in samples:
+                route_latencies[f"{sample.method} {sample.path}"].append(sample.latency_ms)
         else:
             request_count = all_counts
             status_count = all_status
             endpoint_count = all_endpoint
+            route_latencies = all_route_latencies
         latencies = [s.latency_ms for s in samples]
         slowest = sorted(samples, key=lambda s: s.latency_ms, reverse=True)[:10]
         return {
@@ -74,6 +79,7 @@ class MetricsRegistry:
             "status_counts": dict(sorted(status_count.items())),
             "top_endpoints": [{"path": path, "count": count} for path, count in endpoint_count.most_common(20)],
             "top_routes": [{"route": route, "count": count} for route, count in request_count.most_common(20)],
+            "route_latency_ms": {route: _latency_summary(values) for route, values in sorted(route_latencies.items())},
             "error_count": sum(c for s, c in status_count.items() if s.startswith(("4", "5"))),
             "redirect_count": sum(c for s, c in status_count.items() if s.startswith("3")),
             "auth_failures": sum(1 for s in samples if s.status_code == 403),

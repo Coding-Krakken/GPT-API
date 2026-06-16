@@ -177,6 +177,7 @@ def run_release_gate(repo_path: str, *, run_id: str | None = None, require_clean
         checks.extend(_git_checks())
     checks.extend(_schema_checks())
     checks.extend(_instruction_checks())
+    checks.extend(_benchmark_checks())
     checks.append(_run_compile_check())
     suite_checks, suite, regressions = _run_suite_checks(repo_path, run_id)
     checks.extend(suite_checks)
@@ -213,6 +214,18 @@ def run_release_gate(repo_path: str, *, run_id: str | None = None, require_clean
     gate_json.write_text(json.dumps(result, indent=2, sort_keys=True), encoding="utf-8")
     return result
 
+
+
+def _benchmark_checks() -> list[dict[str, Any]]:
+    report = REPO_ROOT / "tests" / "reports" / "benchmark_regressions.json"
+    if not report.exists():
+        return [_ok("benchmark_regression_report_present", False, {"path": str(report)})]
+    try:
+        data = json.loads(report.read_text(encoding="utf-8"))
+        passed = all(v.get("passed", False) for v in data.values())
+        return [_ok("benchmark_regressions_passed", passed, {"targets": list(data.keys())})]
+    except Exception as exc:
+        return [_ok("benchmark_regressions_parseable", False, {"error": str(exc)})]
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run the Coding GPT Phase 9 release gate")
