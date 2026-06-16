@@ -21,8 +21,8 @@ Implemented in this branch:
 - State-machine driver `/agent/coding-task/next`.
 - State-machine executor `/agent/coding-task/submit`.
 - State-machine finalizer `/agent/coding-task/finalize`.
-- Sandbox endpoint exerciser `manual_endpoint_sandbox.py`.
-- Golden Copilot-like workflow exerciser `manual_coding_task_golden_flow.py`.
+- Sandbox endpoint exerciser `scripts/manual/manual_endpoint_sandbox.py`.
+- Golden Copilot-like workflow exerciser `scripts/manual/manual_coding_task_golden_flow.py`.
 - Safety tests for blocked paths, route boundaries, auth bypass prevention, dirty worktree removal, and schema scoping.
 
 Architecture boundary:
@@ -48,13 +48,13 @@ Completion checklist:
 Manual validation completed:
 
 ```text
-manual_endpoint_sandbox.py
+scripts/manual/manual_endpoint_sandbox.py
   report: /tmp/gpt-api-coding-endpoint-manual-report.json
   total: 50
   passed: 50
   failed: 0
 
-manual_coding_task_golden_flow.py
+scripts/manual/manual_coding_task_golden_flow.py
   report: /tmp/gpt-api-coding-golden-report.json
   total: 13
   passed: 13
@@ -117,7 +117,7 @@ Implemented after the guided Copilot-like workflow:
   - `/github/checks/logs`
   - `/github/branch/push`
 - Additional depth validation:
-  - `manual_depth_endpoint_sandbox.py`
+  - `scripts/manual/manual_depth_endpoint_sandbox.py`
 
 Final validation after depth layer:
 
@@ -125,17 +125,17 @@ Final validation after depth layer:
 python -m py_compile main.py utils/*.py routes/*.py
   passed
 
-manual_endpoint_sandbox.py
+scripts/manual/manual_endpoint_sandbox.py
   total: 50
   passed: 50
   failed: 0
 
-manual_coding_task_golden_flow.py
+scripts/manual/manual_coding_task_golden_flow.py
   total: 13
   passed: 13
   failed: 0
 
-manual_depth_endpoint_sandbox.py
+scripts/manual/manual_depth_endpoint_sandbox.py
   total: 22
   passed: 22
   failed: 0
@@ -188,7 +188,7 @@ Updated Coding GPT instructions:
 Additional validation:
 
 ```text
-manual_option_a_protocol_sandbox.py
+scripts/manual/manual_option_a_protocol_sandbox.py
   report: /tmp/gpt-api-option-a-protocol-report.json
   total: 16
   passed: 16
@@ -198,22 +198,22 @@ manual_option_a_protocol_sandbox.py
 Final manual validation set after Option A layer:
 
 ```text
-manual_endpoint_sandbox.py
+scripts/manual/manual_endpoint_sandbox.py
   total: 50
   passed: 50
   failed: 0
 
-manual_coding_task_golden_flow.py
+scripts/manual/manual_coding_task_golden_flow.py
   total: 13
   passed: 13
   failed: 0
 
-manual_depth_endpoint_sandbox.py
+scripts/manual/manual_depth_endpoint_sandbox.py
   total: 22
   passed: 22
   failed: 0
 
-manual_option_a_protocol_sandbox.py
+scripts/manual/manual_option_a_protocol_sandbox.py
   total: 16
   passed: 16
   failed: 0
@@ -251,7 +251,7 @@ Dispatcher endpoints:
 Validation:
 
 ```text
-manual_core_dispatch_sandbox.py
+scripts/manual/manual_core_dispatch_sandbox.py
   report: /tmp/gpt-api-core-dispatch-report.json
   total: 19
   passed: 19

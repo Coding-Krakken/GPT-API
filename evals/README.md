@@ -179,7 +179,7 @@ Phase 2 is complete when these files exist and pass validation:
 ```text
 evals/scoring.py
 evals/report.py
-manual_phase2_report_test.py
+scripts/manual/manual_phase2_report_test.py
 ```
 
 Phase 2 converts Phase 1 JSONL telemetry into deterministic scorecards and human-readable reports.
@@ -208,7 +208,7 @@ JSON and Markdown report generation
 Manual validation:
 
 ```text
-python manual_phase2_report_test.py
+python scripts/manual/manual_phase2_report_test.py
 ```
 
 Expected result: a JSON summary showing nonzero event count, agent/backend scores, and report paths.
@@ -228,7 +228,7 @@ evals/cases/policy_block_secret.yaml
 evals/cases/final_answer_contract.yaml
 evals/cases/simple_bugfix.yaml
 docs/CODING_GPT_PHASE4_BENCHMARK_CASES.md
-manual_phase4_case_test.py
+scripts/manual/manual_phase4_case_test.py
 ```
 
 Implemented behavior:
@@ -244,7 +244,7 @@ simple_bugfix is a planned fixture-format case for later coding-quality suites
 Manual validation:
 
 ```text
-python manual_phase4_case_test.py
+python scripts/manual/manual_phase4_case_test.py
 ```
 
 Expected result:
@@ -310,7 +310,7 @@ Use `/evals/debug-log/regression` when you only want to turn a pasted debug tran
 Primary validation script:
 
 ```bash
-python manual_phase8_debug_ingest_test.py
+python scripts/manual/manual_phase8_debug_ingest_test.py
 ```
 
 Reports are written to:

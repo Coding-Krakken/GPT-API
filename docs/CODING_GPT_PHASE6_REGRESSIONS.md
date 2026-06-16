@@ -13,7 +13,7 @@ Every real failure must become an executable regression case. The regression sui
 - `evals/regressions/*.yaml` stores permanent incident records.
 - `/evals/run` supports `regressions` and `phase6_regressions` suites.
 - `/evals/regressions` lists regression metadata including runner and failure layer.
-- `manual_phase6_regression_test.py` validates the API-facing regression suite.
+- `scripts/manual/manual_phase6_regression_test.py` validates the API-facing regression suite.
 
 ## Regression files
 
@@ -118,7 +118,7 @@ Phase 6 was validated with:
 
 ```bash
 python evals/run_regressions.py --repo-path /home/obsidian/Elevate_test --run-id phase6_manual_regressions
-python manual_phase6_regression_test.py
+python scripts/manual/manual_phase6_regression_test.py
 python -m py_compile main.py utils/*.py routes/*.py evals/*.py
 ```
 

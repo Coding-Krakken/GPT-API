@@ -1,5 +1,12 @@
 from __future__ import annotations
 
+import sys
+from pathlib import Path as _ManualPath
+
+REPO_ROOT = _ManualPath(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
 import json
 import os
 import shutil
@@ -7,7 +14,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent
+ROOT = REPO_ROOT
 TELEMETRY_ROOT = Path('/tmp/gpt-api-phase2-report-test')
 EVENTS = TELEMETRY_ROOT / 'events.jsonl'
 
@@ -28,7 +35,7 @@ def main() -> int:
         shutil.rmtree(TELEMETRY_ROOT)
     TELEMETRY_ROOT.mkdir(parents=True, exist_ok=True)
 
-    run([sys.executable, 'manual_elevate_smoke_endpoint_test.py'])
+    run([sys.executable, 'scripts/manual/manual_elevate_smoke_endpoint_test.py'])
     assert EVENTS.exists(), f'missing telemetry: {EVENTS}'
 
     proc = run([sys.executable, '-m', 'evals.report', '--events', str(EVENTS), '--report-id', 'phase2_manual_report'])

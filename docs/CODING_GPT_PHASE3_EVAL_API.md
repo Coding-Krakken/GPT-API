@@ -78,7 +78,7 @@ Creates a regression record safely under `evals/regressions/`.
 Phase 3 was validated with:
 
 ```bash
-python manual_phase3_evals_test.py
+python scripts/manual/manual_phase3_evals_test.py
 ```
 
 Expected result:
