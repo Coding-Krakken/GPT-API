@@ -117,14 +117,11 @@ def _load_report_by_id(report_id: str) -> dict[str, Any]:
 
 
 def _events_since(start_ms: int, *, run_id: str | None = None) -> list[dict[str, Any]]:
-    events = eval_report.load_events()
-    out = []
-    for event in events:
-        ts = event.get("timestamp")
-        if isinstance(ts, int) and ts >= start_ms:
-            if run_id is None or event.get("run_id") in (None, run_id):
-                out.append(event)
-    return out
+    source = eval_report.load_events(run_id=run_id) if run_id else eval_report.load_events()
+    return [
+        event for event in source
+        if isinstance(event.get("timestamp"), int) and event["timestamp"] >= start_ms
+    ]
 
 
 def _write_report_for_events(events: list[dict[str, Any]], report_id: str) -> dict[str, Any]:
@@ -270,10 +267,11 @@ def list_eval_cases():
 def run_eval(req: EvalRunRequest):
     run_id = req.report_id or _now_id(f"eval_{_safe_slug(req.suite)}")
     start_ms = int(time.time() * 1000)
-    eval_telemetry.log_event("eval_run_started", run_id=run_id, suite=req.suite, repo_path=req.repo_path, safe_only=req.safe_only)
-    result = _run_suite(req.suite, req.repo_path, run_id=run_id)
-    eval_telemetry.log_event("eval_run_completed", run_id=run_id, suite=req.suite, repo_path=req.repo_path, status=result.get("status"), passed=result.get("passed"))
-    events = _events_since(start_ms)
+    with eval_telemetry.telemetry_context(run_id=run_id, suite=req.suite, repo_path=req.repo_path):
+        eval_telemetry.log_event("eval_run_started", safe_only=req.safe_only)
+        result = _run_suite(req.suite, req.repo_path, run_id=run_id)
+        eval_telemetry.log_event("eval_run_completed", status=result.get("status"), passed=result.get("passed"))
+    events = _events_since(start_ms, run_id=run_id)
     report = _write_report_for_events(events, run_id)
     summary = _summarize_report(report)
     return {"status": result.get("status", 200), "run_id": run_id, "suite": req.suite, "result": result, "report": summary}

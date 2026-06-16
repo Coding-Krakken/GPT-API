@@ -24,12 +24,14 @@ def patch_diagnostics(patch: str) -> dict:
     has_hunk = any(line.startswith("@@ ") for line in lines)
     looks_like_fenced = "```" in text
     looks_like_summary = bool(re.search(r"(?im)^\s*(file|path)\s*:", text))
-    valid_shape = (has_diff or has_headers) and has_hunk
+    valid_shape = has_headers and has_hunk
     guidance = []
     if looks_like_fenced:
         guidance.append("Remove Markdown code fences from the patch payload.")
     if not has_headers:
         guidance.append("Include --- a/path and +++ b/path headers.")
+    if has_diff and not has_headers:
+        guidance.append("A diff --git line alone is not enough; include file headers before hunks.")
     if not has_hunk:
         guidance.append("Include at least one @@ unified-diff hunk.")
     if looks_like_summary:
@@ -71,6 +73,10 @@ def touched_files(patch: str) -> list[str]:
                     raise PolicyError("blocked_patch_path", f"Patch touches blocked path: {rel.as_posix()}")
                 if rel.as_posix() not in files:
                     files.append(rel.as_posix())
+    if not files:
+        exc = PolicyError("invalid_unified_diff", "Patch payload does not identify any writable repository-relative files.")
+        exc.details = patch_diagnostics(patch)
+        raise exc
     return files
 
 

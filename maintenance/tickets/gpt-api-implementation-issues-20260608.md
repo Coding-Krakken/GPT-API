@@ -1,10 +1,14 @@
 ---
-id: gpt-api-implementation-issues-20260608
-status: open
-severity: low
-area: schema
-created: 2026-06-15
-resolved:
+id: "gpt-api-implementation-issues-20260608"
+status: "open"
+severity: "high"
+area: "environment"
+created: "2026-06-15"
+resolved_at: ""
+resolved_by_commit: ""
+verification_command: "Run canonical bootstrap and dependency import verification."
+verification_result: "not_run"
+resolution_summary: "Environment/bootstrap consistency remains actionable; dependency files and active interpreter can diverge."
 ---
 
 # GPT-API implementation issue log

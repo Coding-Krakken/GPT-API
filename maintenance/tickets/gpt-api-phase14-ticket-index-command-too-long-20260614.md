@@ -1,10 +1,14 @@
 ---
-id: gpt-api-phase14-ticket-index-command-too-long-20260614
-status: open
-severity: high
-area: runtime
-created: 2026-06-15
-resolved:
+id: "gpt-api-phase14-ticket-index-command-too-long-20260614"
+status: "obsolete"
+severity: "low"
+area: "tooling"
+created: "2026-06-15"
+resolved_at: "2026-06-16"
+resolved_by_commit: "ebc87f8957faef1e780d3275404ef298bf7c6c05"
+verification_command: "Current workflow favors file/script endpoints, bounded outputs, and release gate checks."
+verification_result: "not_applicable"
+resolution_summary: "One-off implementation/tooling incident; mitigated by current workflow and no longer tracked as an active product defect."
 ---
 
 # GPT-API Phase 14 ticket index command too long

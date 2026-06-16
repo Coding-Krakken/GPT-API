@@ -19,6 +19,8 @@ def test_phase21_phase22_runbook_documents_required_contracts():
         "maintainer ticket workflow",
         "release_gate.sh",
         "smoke_local.py",
+        "verify_deployment.py",
+        "deployment verification report",
     ]:
         assert phrase in lower_text
 
@@ -51,3 +53,13 @@ def test_readme_links_phase21_phase22_runbook():
     text = (ROOT / "README.md").read_text(encoding="utf-8")
     assert "PHASE21_22_DOCUMENTATION_AND_VERIFICATION.md" in text
     assert "python3 scripts/smoke_local.py" in text
+
+
+def test_phase22_deployment_verifier_is_release_gate_covered():
+    release_gate = (ROOT / "scripts" / "release_gate.sh").read_text(encoding="utf-8")
+    verifier = (ROOT / "scripts" / "verify_deployment.py").read_text(encoding="utf-8")
+    assert "scripts/verify_deployment.py" in release_gate
+    assert "--allow-dirty" in release_gate
+    assert "--live" in verifier
+    assert "--public" in verifier
+    assert "--expect-commit" in verifier

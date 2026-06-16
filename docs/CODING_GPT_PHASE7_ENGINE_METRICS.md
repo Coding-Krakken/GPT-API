@@ -115,6 +115,21 @@ policy_path_checked
 policy_evaluated
 ```
 
+
+## Run-scoped telemetry
+
+Phase 7 telemetry is run-scoped. Eval suites and cases stamp nested route/helper events with:
+
+```text
+run_id
+suite
+case_id
+repo_path
+runner
+```
+
+Reports load events by `run_id`, so unrelated telemetry in the same `events.jsonl` file does not contaminate backend engine metrics. Explicit `log_event(..., run_id=...)` fields override context deliberately.
+
 ## Validation result
 
 Validated against `/home/obsidian/Elevate_test` with:

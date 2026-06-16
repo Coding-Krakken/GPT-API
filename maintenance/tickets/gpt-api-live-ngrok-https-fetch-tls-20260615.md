@@ -1,3 +1,16 @@
+---
+id: "gpt-api-live-ngrok-https-fetch-tls-20260615"
+status: "needs_verification"
+severity: "high"
+area: "deployment"
+created: "2026-06-16"
+resolved_at: ""
+resolved_by_commit: ""
+verification_command: "Run deployment verification against localhost and ngrok after service restart."
+verification_result: "not_run"
+resolution_summary: "Requires live deployment/tunnel verification against the currently running service and Custom GPT Action schema."
+---
+
 # Maintainer Ticket: HTTPS fetch of ngrok schema failed during schema error triage
 
 ## Issue

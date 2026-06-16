@@ -118,3 +118,76 @@ def test_documented_coding_schema_paths_exist_in_app():
                 if method.upper() not in live_methods:
                     missing.append(f"{method.upper()} {path}")
         assert missing == [], f"{schema_file}: {missing[:20]}"
+
+
+
+def test_phase7_telemetry_context_stamps_nested_events(tmp_path, monkeypatch):
+    from utils import eval_telemetry
+    from evals import report as eval_report
+
+    events = tmp_path / "events.jsonl"
+    monkeypatch.setenv("EVAL_TELEMETRY_EVENTS", str(events))
+    monkeypatch.setenv("EVAL_TELEMETRY_ROOT", str(tmp_path))
+
+    eval_telemetry.log_event("outside_event", repo_path="/tmp/outside")
+    with eval_telemetry.telemetry_context(run_id="phase7_run", suite="phase7_backend_engines", case_id="backend_engine_metrics", repo_path="/tmp/repo"):
+        eval_telemetry.log_event("repo_overview_completed", languages=["python"])
+        with eval_telemetry.telemetry_context(runner="backend_engine_metrics"):
+            eval_telemetry.log_event("workspace_created", workspace_path="/tmp/workspace")
+        eval_telemetry.log_event("explicit_override", run_id="override_run")
+
+    scoped = eval_report.load_events(run_id="phase7_run")
+    assert {e["event_type"] for e in scoped} == {"repo_overview_completed", "workspace_created"}
+    assert all(e["suite"] == "phase7_backend_engines" for e in scoped)
+    assert all(e["case_id"] == "backend_engine_metrics" for e in scoped)
+    assert any(e.get("runner") == "backend_engine_metrics" for e in scoped)
+    assert eval_report.load_events(run_id="override_run")[0]["event_type"] == "explicit_override"
+
+
+def test_phase7_report_engine_metrics_are_run_scoped(tmp_path, monkeypatch):
+    from utils import eval_telemetry
+    from evals import report as eval_report
+
+    events = tmp_path / "events.jsonl"
+    monkeypatch.setenv("EVAL_TELEMETRY_EVENTS", str(events))
+    monkeypatch.setenv("EVAL_TELEMETRY_ROOT", str(tmp_path))
+
+    eval_telemetry.log_event("repo_overview_completed", run_id="other_run", languages=["go"])
+    with eval_telemetry.telemetry_context(run_id="phase7_run", suite="phase7_backend_engines", repo_path="/tmp/repo"):
+        eval_telemetry.log_event("repo_overview_completed", languages=["python"], frameworks=["pytest"])
+        eval_telemetry.log_event("workspace_created", workspace_path="/tmp/ws")
+        eval_telemetry.log_event("tests_discovered", command_count=1, focused_count=1)
+        eval_telemetry.log_event("quality_run", passed=True)
+        eval_telemetry.log_event("policy_evaluated", action="commit", allowed=True, risk="low")
+
+    report = eval_report.build_report(eval_report.load_events(run_id="phase7_run"), report_id="phase7_unit")
+    assert report["summary"]["event_count"] == 5
+    assert report["scores"]["engines"]["overall"] >= 80
+    assert report["engine_metrics"]["repo_intelligence"]["languages_detected"] == ["python"]
+    assert report["engine_metrics"]["workspace"]["created_count"] == 1
+    assert report["engine_metrics"]["test_quality_engine"]["quality_run_count"] == 1
+    assert report["engine_metrics"]["policy_engine"]["policy_event_count"] == 1
+
+
+def test_phase7_eval_suite_result_exposes_engine_scores(tmp_path, monkeypatch):
+    from utils import eval_telemetry
+    from evals import run_eval_suite
+
+    events = tmp_path / "events.jsonl"
+    monkeypatch.setenv("EVAL_TELEMETRY_EVENTS", str(events))
+    monkeypatch.setenv("EVAL_TELEMETRY_ROOT", str(tmp_path))
+
+    def fake_run_suite(suite, repo_path, run_id=None):
+        with eval_telemetry.telemetry_context(run_id=run_id, suite=suite, repo_path=repo_path, case_id="fake_phase7"):
+            eval_telemetry.log_event("repo_overview_completed", languages=["python"])
+            eval_telemetry.log_event("workspace_created", workspace_path="/tmp/ws")
+            eval_telemetry.log_event("tests_discovered", command_count=1)
+            eval_telemetry.log_event("quality_run", passed=True)
+            eval_telemetry.log_event("policy_evaluated", action="commit", allowed=True, risk="low")
+        return {"status": 200, "suite": suite, "total": 1, "passed": 1, "failed": 0, "cases": []}
+
+    monkeypatch.setattr(run_eval_suite.case_loader, "run_suite", fake_run_suite)
+    result = run_eval_suite.run_suite("phase7_backend_engines", "/tmp/repo", report_id="phase7_cli_unit")
+    assert result["engine_score"] >= 80
+    assert set(result["engine_subscores"]) == {"repo_intelligence", "workspace", "patch_engine", "test_quality_engine", "policy_engine"}
+    assert result["result"]["status"] == 200

@@ -1,10 +1,14 @@
 ---
-id: gpt-api-phase21-22-git-helper-kwargs-20260615
-status: open
-severity: high
-area: runtime
-created: 2026-06-15
-resolved:
+id: "gpt-api-phase21-22-git-helper-kwargs-20260615"
+status: "open"
+severity: "medium"
+area: "tooling"
+created: "2026-06-15"
+resolved_at: ""
+resolved_by_commit: ""
+verification_command: "Add tool contract tests or documentation for supported fields/branch creation."
+verification_result: "not_run"
+resolution_summary: "Structured tool contract mismatch remains actionable for operator tooling."
 ---
 
 # Maintainer Ticket: gitControl commit rejected unsupported max_output_bytes parameter

@@ -203,3 +203,29 @@ Expected:
 - OpenAPI validation passes.
 - Full suite passes or reaches only newly discovered blockers with new tickets filed.
 - Plain `pytest` imports `main` successfully.
+
+## Phase 2 completion: codeOps test-mode robustness
+
+Implemented after the initial ticket lifecycle triage. The `/code` endpoint now resolves the active codeOps tickets by supporting:
+
+- language inference for Python test files and pytest repository roots;
+- repo-root pytest execution without extension mismatch errors;
+- `PYTHONPATH` injection from `working_dir` so project imports and `conftest.py` imports work;
+- safe multi-file pytest selectors through `argv` and safe legacy `args`;
+- structured `validationResult` metadata for `/code` test runs.
+
+Resolved ticket IDs:
+
+- `gpt-api-codeops-pytest-import-path-20260614`
+- `gpt-api-codeops-test-language-required-20260614`
+- `gpt-api-phase14-17-codeops-language-required-20260614`
+- `gpt-api-phase18-20-codeops-multipath-test-20260615`
+- `gpt-api-phase21-22-codeops-pytest-args-rejected-20260615`
+
+Verification:
+
+```bash
+pytest -q tests/test_code_phase2.py tests/test_code.py tests/test_code_api_hardening.py tests/test_code_content_edge_cases.py tests/test_expanded_endpoint_contract.py tests/test_phase15_release_gate.py
+```
+
+Result: `50 passed, 1 warning`.

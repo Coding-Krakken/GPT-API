@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import contextlib
+import contextvars
 import hashlib
 import json
 import os
@@ -22,6 +24,9 @@ _MAX_STRING = 2000
 _MAX_LIST = 100
 _MAX_DICT = 200
 _COMMIT_CACHE: str | None = None
+_TELEMETRY_CONTEXT: contextvars.ContextVar[dict[str, Any]] = contextvars.ContextVar(
+    "gpt_api_eval_telemetry_context", default={}
+)
 
 
 def eval_root() -> Path:
@@ -98,6 +103,30 @@ def payload_keys(payload: Any) -> list[str]:
     return []
 
 
+def current_context() -> dict[str, Any]:
+    """Return sanitized telemetry context fields for the active execution."""
+    return dict(_TELEMETRY_CONTEXT.get() or {})
+
+
+@contextlib.contextmanager
+def telemetry_context(**fields: Any):
+    """Temporarily stamp every emitted telemetry event with shared fields.
+
+    Eval suites call application routes directly, and lower-level route/helper
+    functions do not know the active eval run id. A context variable lets the
+    suite stamp run_id/case_id/suite/repo_path onto nested events without
+    threading those arguments through every endpoint. Explicit log_event fields
+    still win so callers can override deliberately.
+    """
+    parent = dict(_TELEMETRY_CONTEXT.get() or {})
+    clean = {k: v for k, v in fields.items() if v not in (None, "")}
+    token = _TELEMETRY_CONTEXT.set({**parent, **sanitize(clean)})
+    try:
+        yield
+    finally:
+        _TELEMETRY_CONTEXT.reset(token)
+
+
 def log_event(event_type: str, **fields: Any) -> dict[str, Any]:
     event = {
         "event_id": f"evt_{uuid.uuid4().hex[:12]}",
@@ -106,6 +135,8 @@ def log_event(event_type: str, **fields: Any) -> dict[str, Any]:
         "backend_commit": _backend_commit(),
         "schema_version": os.getenv("CODING_GPT_SCHEMA_VERSION", "coding-gpt-core-openapi.yaml"),
     }
+    context_fields = current_context()
+    event.update(context_fields)
     event.update(sanitize(fields))
     path = events_path()
     path.parent.mkdir(parents=True, exist_ok=True)

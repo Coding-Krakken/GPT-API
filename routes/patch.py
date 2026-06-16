@@ -77,7 +77,11 @@ def _wrap(fn, *args, workspace_path: str | None = None, patch: str | None = None
         out.update({"status": 200, "latency_ms": round((time.time() - start) * 1000, 2), "timestamp": int(time.time() * 1000)})
         return out
     except PolicyError as exc:
-        return {"error": {"code": exc.code, "message": exc.message}, "status": 400}
+        error = {"code": exc.code, "message": exc.message}
+        details = getattr(exc, "details", None)
+        if details is not None:
+            error["details"] = details
+        return {"error": error, "status": 400}
     except Exception as exc:
         return {"error": {"code": "internal_error", "message": str(exc)}, "status": 500}
 

@@ -1,10 +1,14 @@
 ---
-id: gpt-api-main-patch-literal-corruption-20260614
-status: open
-severity: low
-area: endpoint
-created: 2026-06-15
-resolved:
+id: "gpt-api-main-patch-literal-corruption-20260614"
+status: "resolved"
+severity: "high"
+area: "patch-safety"
+created: "2026-06-15"
+resolved_at: "2026-06-16"
+resolved_by_commit: "this-commit"
+verification_command: "pytest -q tests/test_patch_safety_phase5.py tests/test_coding_safety_boundaries.py tests/test_coding_workflow_guards.py"
+verification_result: "passed"
+resolution_summary: "Phase 5 added adversarial patch safety coverage for malformed patch blocks, secret paths, preview/apply parity, and no-mutation guarantees."
 ---
 
 # Maintainer Ticket: manageFiles patch wrote literal patch text into main.py
