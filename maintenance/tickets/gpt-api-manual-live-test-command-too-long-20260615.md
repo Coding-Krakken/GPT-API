@@ -1,3 +1,16 @@
+---
+id: "gpt-api-manual-live-test-command-too-long-20260615"
+status: "obsolete"
+severity: "low"
+area: "deployment"
+created: "2026-06-16"
+resolved_at: "2026-06-16"
+resolved_by_commit: "ebc87f8957faef1e780d3275404ef298bf7c6c05"
+verification_command: "Current workflow favors file/script endpoints, bounded outputs, and release gate checks."
+verification_result: "not_applicable"
+resolution_summary: "One-off implementation/tooling incident; mitigated by current workflow and no longer tracked as an active product defect."
+---
+
 # Maintainer Ticket: Manual live endpoint test command exceeded shell length
 
 ## Issue

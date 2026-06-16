@@ -1,10 +1,14 @@
 ---
-id: gpt-api-pytest-conftest-import-order-20260614
-status: open
-severity: low
-area: maintenance
-created: 2026-06-15
-resolved:
+id: "gpt-api-pytest-conftest-import-order-20260614"
+status: "resolved"
+severity: "medium"
+area: "environment"
+created: "2026-06-15"
+resolved_at: "2026-06-16"
+resolved_by_commit: "ebc87f8957faef1e780d3275404ef298bf7c6c05"
+verification_command: "python3 scripts/validate_openapi.py && ./scripts/release_gate.sh && python3 scripts/smoke_local.py && pytest -q"
+verification_result: "passed"
+resolution_summary: "Verified full pytest passes from repository root."
 ---
 
 # GPT-API pytest conftest import order blocks tests

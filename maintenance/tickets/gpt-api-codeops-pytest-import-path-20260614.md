@@ -1,10 +1,14 @@
 ---
-id: gpt-api-codeops-pytest-import-path-20260614
-status: open
-severity: high
-area: endpoint
-created: 2026-06-15
-resolved:
+id: "gpt-api-codeops-pytest-import-path-20260614"
+status: "open"
+severity: "high"
+area: "codeops"
+created: "2026-06-15"
+resolved_at: ""
+resolved_by_commit: ""
+verification_command: "Add /code regression tests for inferred language, repo-root pytest, PYTHONPATH, and argv selectors."
+verification_result: "not_run"
+resolution_summary: "codeOps test-mode robustness remains actionable and should be fixed in Phase 2."
 ---
 
 # Maintainer Ticket: codeOps test runner failed to import repo main module

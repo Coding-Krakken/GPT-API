@@ -1,10 +1,14 @@
 ---
-id: gpt-api-main-patch-literal-corruption-20260614
-status: open
-severity: low
-area: endpoint
-created: 2026-06-15
-resolved:
+id: "gpt-api-main-patch-literal-corruption-20260614"
+status: "open"
+severity: "high"
+area: "patch-safety"
+created: "2026-06-15"
+resolved_at: ""
+resolved_by_commit: ""
+verification_command: "Run malformed patch, secret-path, preview/apply parity, and literal-corruption regression tests."
+verification_result: "not_run"
+resolution_summary: "Patch engine historical corruption requires stronger adversarial regression coverage."
 ---
 
 # Maintainer Ticket: manageFiles patch wrote literal patch text into main.py

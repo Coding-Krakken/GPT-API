@@ -1,3 +1,16 @@
+---
+id: "gpt-api-full-pytest-manual-script-collected-20260615"
+status: "resolved"
+severity: "medium"
+area: "environment"
+created: "2026-06-16"
+resolved_at: "2026-06-16"
+resolved_by_commit: "ebc87f8957faef1e780d3275404ef298bf7c6c05"
+verification_command: "python3 scripts/validate_openapi.py && ./scripts/release_gate.sh && python3 scripts/smoke_local.py && pytest -q"
+verification_result: "passed"
+resolution_summary: "Verified pytest is constrained to tests/ and full suite passes."
+---
+
 # Maintainer Ticket: Full pytest collected manual smoke script and exited
 
 ## Issue

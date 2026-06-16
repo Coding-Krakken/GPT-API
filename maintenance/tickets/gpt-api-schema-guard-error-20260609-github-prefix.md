@@ -1,10 +1,14 @@
 ---
-id: gpt-api-schema-guard-error-20260609-github-prefix
-status: open
-severity: medium
-area: schema
-created: 2026-06-15
-resolved:
+id: "gpt-api-schema-guard-error-20260609-github-prefix"
+status: "resolved"
+severity: "medium"
+area: "schema"
+created: "2026-06-15"
+resolved_at: "2026-06-16"
+resolved_by_commit: "ebc87f8957faef1e780d3275404ef298bf7c6c05"
+verification_command: "python3 scripts/validate_openapi.py && ./scripts/release_gate.sh && python3 scripts/smoke_local.py && pytest -q"
+verification_result: "passed"
+resolution_summary: "Verified schema validation passes after route-prefix guard fixes."
 ---
 
 # Schema guard error: `/github` incorrectly matched as `/git`

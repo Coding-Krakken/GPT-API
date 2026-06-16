@@ -1,3 +1,16 @@
+---
+id: "gpt-api-requirements-decode-during-broad-fix-20260615"
+status: "open"
+severity: "high"
+area: "tool-output"
+created: "2026-06-16"
+resolved_at: ""
+resolved_by_commit: ""
+verification_command: "Run bounded log/read tests against binary/non-UTF8 and large outputs."
+verification_result: "not_run"
+resolution_summary: "Encoding/output-size robustness remains actionable for logs and file inspection."
+---
+
 # Maintainer Ticket: requirements inspection hit UTF-8 decode error during broad hardening
 
 ## Issue

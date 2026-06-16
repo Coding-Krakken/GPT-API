@@ -1,10 +1,14 @@
 ---
-id: gpt-api-phase21-22-codeops-pytest-args-rejected-20260615
-status: open
-severity: high
-area: endpoint
-created: 2026-06-15
-resolved:
+id: "gpt-api-phase21-22-codeops-pytest-args-rejected-20260615"
+status: "open"
+severity: "high"
+area: "codeops"
+created: "2026-06-15"
+resolved_at: ""
+resolved_by_commit: ""
+verification_command: "Add /code regression tests for inferred language, repo-root pytest, PYTHONPATH, and argv selectors."
+verification_result: "not_run"
+resolution_summary: "codeOps test-mode robustness remains actionable and should be fixed in Phase 2."
 ---
 
 # Maintainer Ticket: codeOps rejected targeted pytest arguments during Phase 21/22 validation

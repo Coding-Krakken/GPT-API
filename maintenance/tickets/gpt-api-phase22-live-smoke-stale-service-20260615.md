@@ -1,10 +1,14 @@
 ---
-id: gpt-api-phase22-live-smoke-stale-service-20260615
-status: open
-severity: high
-area: endpoint
-created: 2026-06-15
-resolved:
+id: "gpt-api-phase22-live-smoke-stale-service-20260615"
+status: "needs_verification"
+severity: "high"
+area: "deployment"
+created: "2026-06-15"
+resolved_at: ""
+resolved_by_commit: ""
+verification_command: "Run deployment verification against localhost and ngrok after service restart."
+verification_result: "not_run"
+resolution_summary: "Requires live deployment/tunnel verification against the currently running service and Custom GPT Action schema."
 ---
 
 # Maintainer Ticket: Phase 22 live smoke failed because running service appears stale

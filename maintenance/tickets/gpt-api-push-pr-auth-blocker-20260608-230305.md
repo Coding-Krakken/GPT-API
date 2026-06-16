@@ -1,10 +1,14 @@
 ---
-id: gpt-api-push-pr-auth-blocker-20260608-230305
-status: open
-severity: high
-area: endpoint
-created: 2026-06-15
-resolved:
+id: "gpt-api-push-pr-auth-blocker-20260608-230305"
+status: "resolved"
+severity: "medium"
+area: "patch-safety"
+created: "2026-06-15"
+resolved_at: "2026-06-16"
+resolved_by_commit: "ebc87f8957faef1e780d3275404ef298bf7c6c05"
+verification_command: "python3 scripts/validate_openapi.py && ./scripts/release_gate.sh && python3 scripts/smoke_local.py && pytest -q"
+verification_result: "passed"
+resolution_summary: "Verified PR #13 was created and merged successfully."
 ---
 
 # Maintainer Ticket: Unable to push branch or create PR due to missing GitHub credentials

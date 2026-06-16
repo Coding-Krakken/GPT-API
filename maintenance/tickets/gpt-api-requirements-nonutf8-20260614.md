@@ -1,10 +1,14 @@
 ---
-id: gpt-api-requirements-nonutf8-20260614
-status: open
-severity: low
-area: schema
-created: 2026-06-15
-resolved:
+id: "gpt-api-requirements-nonutf8-20260614"
+status: "open"
+severity: "high"
+area: "tool-output"
+created: "2026-06-15"
+resolved_at: ""
+resolved_by_commit: ""
+verification_command: "Run bounded log/read tests against binary/non-UTF8 and large outputs."
+verification_result: "not_run"
+resolution_summary: "Encoding/output-size robustness remains actionable for logs and file inspection."
 ---
 
 # GPT-API requirements.txt non-UTF/binary read failure

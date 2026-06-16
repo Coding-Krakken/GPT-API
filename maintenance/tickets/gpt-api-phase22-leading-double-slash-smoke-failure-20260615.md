@@ -1,10 +1,14 @@
 ---
-id: gpt-api-phase22-leading-double-slash-smoke-failure-20260615
-status: open
-severity: high
-area: endpoint
-created: 2026-06-15
-resolved:
+id: "gpt-api-phase22-leading-double-slash-smoke-failure-20260615"
+status: "resolved"
+severity: "medium"
+area: "maintenance"
+created: "2026-06-15"
+resolved_at: "2026-06-16"
+resolved_by_commit: "ebc87f8957faef1e780d3275404ef298bf7c6c05"
+verification_command: "python3 scripts/validate_openapi.py && ./scripts/release_gate.sh && python3 scripts/smoke_local.py && pytest -q"
+verification_result: "passed"
+resolution_summary: "Verified scripts/smoke_local.py covers duplicate-slash normalization."
 ---
 
 # Maintainer Ticket: Phase 22 smoke matrix exposed leading double-slash 404

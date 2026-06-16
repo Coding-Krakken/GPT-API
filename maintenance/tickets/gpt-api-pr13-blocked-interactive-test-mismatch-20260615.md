@@ -1,3 +1,16 @@
+---
+id: "gpt-api-pr13-blocked-interactive-test-mismatch-20260615"
+status: "resolved"
+severity: "medium"
+area: "patch-safety"
+created: "2026-06-16"
+resolved_at: "2026-06-16"
+resolved_by_commit: "ebc87f8957faef1e780d3275404ef298bf7c6c05"
+verification_command: "python3 scripts/validate_openapi.py && ./scripts/release_gate.sh && python3 scripts/smoke_local.py && pytest -q"
+verification_result: "passed"
+resolution_summary: "Verified tests expect blocked_interactive and validation workflow tests pass."
+---
+
 # Maintainer Ticket: PR13 blocked_interactive test mismatch
 
 ## Issue

@@ -1,10 +1,14 @@
 ---
-id: gpt-api-phase11-13-patch-endpoint-corruption-20260614
-status: open
-severity: medium
-area: schema
-created: 2026-06-15
-resolved:
+id: "gpt-api-phase11-13-patch-endpoint-corruption-20260614"
+status: "open"
+severity: "high"
+area: "patch-safety"
+created: "2026-06-15"
+resolved_at: ""
+resolved_by_commit: ""
+verification_command: "Run malformed patch, secret-path, preview/apply parity, and literal-corruption regression tests."
+verification_result: "not_run"
+resolution_summary: "Patch engine historical corruption requires stronger adversarial regression coverage."
 ---
 
 # GPT-API Phase 11-13 patch endpoint corrupted target files

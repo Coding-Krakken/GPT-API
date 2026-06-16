@@ -1,3 +1,16 @@
+---
+id: "gpt-api-broad-tests-missing-requests-20260615"
+status: "open"
+severity: "high"
+area: "environment"
+created: "2026-06-16"
+resolved_at: ""
+resolved_by_commit: ""
+verification_command: "Run canonical bootstrap and dependency import verification."
+verification_result: "not_run"
+resolution_summary: "Environment/bootstrap consistency remains actionable; dependency files and active interpreter can diverge."
+---
+
 # Maintainer Ticket: Broad endpoint test collection blocked by missing requests
 
 ## Issue

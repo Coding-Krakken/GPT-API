@@ -1,10 +1,14 @@
 ---
-id: gpt-api-dirty-working-tree-20260608-225713
-status: open
-severity: high
-area: schema
-created: 2026-06-15
-resolved:
+id: "gpt-api-dirty-working-tree-20260608-225713"
+status: "resolved"
+severity: "medium"
+area: "patch-safety"
+created: "2026-06-15"
+resolved_at: "2026-06-16"
+resolved_by_commit: "ebc87f8957faef1e780d3275404ef298bf7c6c05"
+verification_command: "python3 scripts/validate_openapi.py && ./scripts/release_gate.sh && python3 scripts/smoke_local.py && pytest -q"
+verification_result: "passed"
+resolution_summary: "Verified main worktree is clean and synced with origin/main."
 ---
 
 # Maintainer Ticket: GPT-API working tree is not clean

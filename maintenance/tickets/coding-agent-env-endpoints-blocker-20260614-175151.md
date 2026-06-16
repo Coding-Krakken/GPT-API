@@ -1,10 +1,14 @@
 ---
-id: coding-agent-env-endpoints-blocker-20260614-175151
-status: open
-severity: high
-area: endpoint
-created: 2026-06-15
-resolved:
+id: "coding-agent-env-endpoints-blocker-20260614-175151"
+status: "resolved"
+severity: "medium"
+area: "maintenance"
+created: "2026-06-15"
+resolved_at: "2026-06-16"
+resolved_by_commit: "ebc87f8957faef1e780d3275404ef298bf7c6c05"
+verification_command: "python3 scripts/validate_openapi.py && ./scripts/release_gate.sh && python3 scripts/smoke_local.py && pytest -q"
+verification_result: "passed"
+resolution_summary: "Verified /env/discover, /env/doctor, and /env/prepare-dry-run return status 200 locally."
 ---
 
 # Maintainer Ticket: Coding Agent environment endpoints unavailable

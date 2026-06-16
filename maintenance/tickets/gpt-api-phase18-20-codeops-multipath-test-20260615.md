@@ -1,3 +1,16 @@
+---
+id: "gpt-api-phase18-20-codeops-multipath-test-20260615"
+status: "open"
+severity: "high"
+area: "codeops"
+created: "2026-06-16"
+resolved_at: ""
+resolved_by_commit: ""
+verification_command: "Add /code regression tests for inferred language, repo-root pytest, PYTHONPATH, and argv selectors."
+verification_result: "not_run"
+resolution_summary: "codeOps test-mode robustness remains actionable and should be fixed in Phase 2."
+---
+
 # Maintainer Ticket: codeOps test endpoint treats multi-file pytest selector as one path
 
 ## Issue

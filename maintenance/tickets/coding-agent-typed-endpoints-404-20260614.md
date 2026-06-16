@@ -1,10 +1,14 @@
 ---
-id: coding-agent-typed-endpoints-404-20260614
-status: open
-severity: high
-area: schema
-created: 2026-06-15
-resolved:
+id: "coding-agent-typed-endpoints-404-20260614"
+status: "resolved"
+severity: "medium"
+area: "schema"
+created: "2026-06-15"
+resolved_at: "2026-06-16"
+resolved_by_commit: "ebc87f8957faef1e780d3275404ef298bf7c6c05"
+verification_command: "python3 scripts/validate_openapi.py && ./scripts/release_gate.sh && python3 scripts/smoke_local.py && pytest -q"
+verification_result: "passed"
+resolution_summary: "Verified coding schemas include /agent/coding-task and /repo/instructions; local routes are mounted."
 ---
 
 # Maintainer Ticket: Coding Agent typed endpoints returning Not Found
