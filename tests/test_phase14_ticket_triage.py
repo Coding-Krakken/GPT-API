@@ -64,3 +64,8 @@ def test_ticket_rows_include_active_and_closed_backlog():
     assert any(row["area"] == "codeops" for row in rows)
     assert any(row["status"] in CLOSED_STATUSES for row in rows)
     assert all(not row["validation_errors"] for row in rows)
+
+
+def test_ticket_index_does_not_auto_import_tmp_tickets(monkeypatch, tmp_path):
+    monkeypatch.delenv("IMPORT_TMP_TICKETS", raising=False)
+    assert ticket_index.import_tmp_tickets() == []

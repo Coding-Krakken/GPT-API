@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import os
 import re
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
@@ -90,6 +91,8 @@ def infer_status(name: str, text: str) -> str:
 
 
 def import_tmp_tickets() -> list[Path]:
+    if os.environ.get("IMPORT_TMP_TICKETS", "").lower() not in {"1", "true", "yes"}:
+        return []
     TICKET_DIR.mkdir(parents=True, exist_ok=True)
     imported: list[Path] = []
     for pattern in TMP_PATTERNS:
@@ -248,7 +251,7 @@ def main() -> int:
     INDEX.write_text(build_index(), encoding="utf-8")
     rows = ticket_rows()
     invalid = [row for row in rows if row["validation_errors"]]
-    print(f"tickets_imported_or_present={len(imported)}")
+    print(f"tickets_imported={len(imported)}")
     print(f"ticket_count={len(rows)}")
     print(f"invalid_metadata={len(invalid)}")
     print(f"index={INDEX}")
