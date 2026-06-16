@@ -144,6 +144,37 @@ Use this when the service is already running on port 8000:
 BASE_URL=http://127.0.0.1:8000 API_KEY=[REDACTED] python3 scripts/smoke_local.py --live
 ```
 
+
+### Deployment verification matrix
+
+Phase 3 deployment verification is handled by:
+
+```bash
+python3 scripts/verify_deployment.py
+```
+
+The default mode runs in-process checks plus static schema checks and writes a JSON and Markdown deployment verification report under `/tmp/gpt-api-deployment-reports`. Use it before live rollout to confirm local route, schema, and ticket-era regression expectations.
+
+For a running local service, use:
+
+```bash
+BASE_URL=http://127.0.0.1:8000 API_KEY=<redacted> python3 scripts/verify_deployment.py --live
+```
+
+For the public ngrok-backed Action endpoint, use:
+
+```bash
+PUBLIC_BASE_URL=https://unscrutinized-immotile-jermaine.ngrok-free.dev API_KEY=<redacted> python3 scripts/verify_deployment.py --public
+```
+
+For release/deploy sign-off, combine live and public checks and pin the expected commit:
+
+```bash
+EXPECT_COMMIT=$(git rev-parse --short HEAD) API_KEY=<redacted> python3 scripts/verify_deployment.py --live --public --expect-commit "$EXPECT_COMMIT"
+```
+
+The verifier checks health endpoints, metrics, served OpenAPI files, required Coding GPT Action paths, route presence for typed agent/env endpoints, local Git state, and schema import guard constraints.
+
 ### Full release gate
 
 Run:
@@ -158,6 +189,7 @@ The release gate checks:
 clean git worktree unless ALLOW_DIRTY=true
 ticket index generation
 OpenAPI validation
+deployment verification report generation
 Phase 14-17 focused contract tests
 Phase 21-22 smoke verification
 ```
