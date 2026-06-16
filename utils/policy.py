@@ -9,9 +9,10 @@ from utils import eval_telemetry
 
 
 DEFAULT_BLOCKED_PATTERNS = [
-    ".env", "*.pem", "*.key", "id_rsa", "id_ed25519", ".ssh/*", ".aws/*",
-    ".gcp/*", ".azure/*", ".config/openai/*", ".chatgpt_session*",
-    "*session-token*", "*credentials*", "*.sqlite", "*.db",
+    ".env", ".env.*", "*.env", "*.pem", "*.key", "*.cert", "*.crt", "*.p12", "*.pfx",
+    "id_rsa", "id_ed25519", ".ssh/*", ".aws/*", ".gcp/*", ".azure/*",
+    ".config/openai/*", ".chatgpt_session*", "*session-token*", "*credentials*",
+    "*credential*", "*secret*", "*token*", "*.sqlite", "*.db",
 ]
 
 EXCLUDED_DIRS = {
